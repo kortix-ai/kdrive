@@ -1,0 +1,23 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  repo-hygiene:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # The tree check alone misses a file that was added and then deleted
+      # inside the same PR — it would still be in history. Scan the range too.
+      - name: Repo hygiene
+        run: |
+          bash scripts/check-repo-hygiene.sh --tracked
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            bash scripts/check-repo-hygiene.sh --range "${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
+          fi
