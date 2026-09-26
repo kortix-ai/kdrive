@@ -1,0 +1,20 @@
+# OS
+.DS_Store
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Dependencies / builds
+node_modules/
+dist/
+build/
+.next/
+.vercel/
+
+# Logs
+*.log
+
+# Claude Code local settings
+.claude/settings.local.json
