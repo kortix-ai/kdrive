@@ -1,20 +1,92 @@
-# OS
-.DS_Store
-
-# Env
+# ── Secrets: deny by default ────────────────────────────────────────────────
+# Every env variant is ignored. The only committable env file is the
+# placeholder-only .env.example, re-included deliberately below.
 .env
 .env.*
+*.env
+.envrc
 !.env.example
 
-# Dependencies / builds
+*.pem
+*.key
+*.p12
+*.pfx
+*_rsa
+*_ed25519
+*_ecdsa
+secrets/
+**/credentials.json
+**/service-account*.json
+
+# ── Dependencies ────────────────────────────────────────────────────────────
+# Both forms: `node_modules/` only matches a directory, so a node_modules
+# symlink would otherwise slip through.
 node_modules/
+node_modules
+.bun/
+.pnpm-store/
+.yarn/
+.npm/
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+target/
+
+# ── Build output ────────────────────────────────────────────────────────────
 dist/
 build/
+out/
 .next/
+.turbo/
 .vercel/
+coverage/
+*.tsbuildinfo
 
-# Logs
+# ── Local runtime data ──────────────────────────────────────────────────────
+.data/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# ── AI assistant / agent files ──────────────────────────────────────────────
+# Per-developer instructions and local agent state. Never committed.
+CLAUDE.md
+CLAUDE.local.md
+AGENTS.md
+AGENT.md
+GEMINI.md
+.claude/
+.cursor/
+.cursorrules
+.windsurf/
+.windsurfrules
+.clinerules
+.cline/
+.roo/
+.aider*
+.continue/
+.codex/
+.opencode/
+.kortix/
+.github/copilot-instructions.md
+.github/instructions/
+
+# ── Editor / OS ─────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ── Logs / temp ─────────────────────────────────────────────────────────────
 *.log
-
-# Claude Code local settings
-.claude/settings.local.json
+logs/
+tmp/
+.tmp/
+.cache/

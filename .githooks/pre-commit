@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Local gate that runs before every commit. Enable once per clone with:
+#
+#   bash scripts/install-git-hooks.sh
+#
+# CI runs the same check, but by then the file is already pushed — secrets
+# would have to be rotated. This stops it while it is still local.
+set -euo pipefail
+root="$(git rev-parse --show-toplevel)"
+exec bash "$root/scripts/check-repo-hygiene.sh" --staged
