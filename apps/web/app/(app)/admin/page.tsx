@@ -69,7 +69,7 @@ function UsersTab({ query }: { query: string }) {
       ) : (
         <UsersTable users={data.users} capBytes={data.workspaceCapBytes} onUpdated={onUpdated} />
       )}
-      <p className="vx-meta mt-4 text-vx-text-3">Quotas go up to 50 GiB. Usage is each workspace&apos;s current size; history is not counted.</p>
+      <p className="vx-meta mt-4 text-vx-text-3">Quotas go up to 50 GB. Usage is each workspace&apos;s current size; history is not counted.</p>
     </div>
   );
 }

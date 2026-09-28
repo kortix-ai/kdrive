@@ -1,4 +1,4 @@
-import { format, formatDistanceToNowStrict, isSameYear } from 'date-fns';
+import { format, formatDistanceToNowStrict, isSameDay, isSameYear, subDays } from 'date-fns';
 
 export { formatBytes, meterLevel, shortId } from '@volumes/shared';
 
@@ -10,15 +10,23 @@ export function formatDate(d: string | number | Date): string {
   return isSameYear(date, new Date()) ? format(date, 'd MMM HH:mm') : format(date, 'd MMM yyyy HH:mm');
 }
 
-/** Relative under 7 days ("now", "4m", "2h", "Tue 16:40"), else formatDate. */
+/**
+ * Friendly relative time for rows and search (DESIGN-v2 §3): "Just now", "4 min ago", "2 hours ago",
+ * "Today 09:12", "Yesterday, 18:02", "Tue 16:40", then "14 Sep" ("14 Sep 2025" in another year).
+ */
 export function formatRelative(d: string | number | Date, now: Date = new Date()): string {
   const date = toDate(d);
   const diff = now.getTime() - date.getTime();
-  if (diff < 45_000 && diff > -60_000) return 'now';
-  if (diff < 60 * 60_000 && diff > 0) return `${Math.round(diff / 60_000)}m`;
-  if (diff < 24 * 60 * 60_000 && diff > 0) return `${Math.round(diff / 3_600_000)}h`;
-  if (diff < 7 * 24 * 60 * 60_000 && diff > 0) return format(date, 'EEE HH:mm');
-  return formatDate(date);
+  if (diff < 45_000 && diff > -60_000) return 'Just now';
+  if (diff > 0 && diff < 60 * 60_000) return `${Math.max(1, Math.round(diff / 60_000))} min ago`;
+  if (diff > 0 && diff < 6 * 3_600_000) {
+    const h = Math.round(diff / 3_600_000);
+    return `${h} ${h === 1 ? 'hour' : 'hours'} ago`;
+  }
+  if (isSameDay(date, now)) return `Today ${format(date, 'HH:mm')}`;
+  if (isSameDay(date, subDays(now, 1))) return `Yesterday, ${format(date, 'HH:mm')}`;
+  if (diff > 0 && diff < 7 * 24 * 3_600_000) return format(date, 'EEE HH:mm');
+  return isSameYear(date, now) ? format(date, 'd MMM') : format(date, 'd MMM yyyy');
 }
 
 /** "14 Sep, 16:40" (the time-travel banner). */

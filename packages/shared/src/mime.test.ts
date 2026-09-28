@@ -44,10 +44,10 @@ describe('format', () => {
   test('formatBytes', () => {
     expect(formatBytes(0)).toBe('0 B');
     expect(formatBytes(1023)).toBe('1023 B');
-    expect(formatBytes(1024)).toBe('1 KiB');
-    expect(formatBytes(4.2 * 1024 * 1024)).toBe('4.2 MiB');
-    expect(formatBytes(10 * 1024 ** 3)).toBe('10 GiB');
-    expect(formatBytes(-1536)).toBe('−1.5 KiB');
+    expect(formatBytes(1024)).toBe('1 KB');
+    expect(formatBytes(4.2 * 1024 * 1024)).toBe('4.2 MB');
+    expect(formatBytes(10 * 1024 ** 3)).toBe('10 GB');
+    expect(formatBytes(-1536)).toBe('−1.5 KB');
   });
   test('meterLevel', () => {
     expect(meterLevel(0, 100)).toBe('ok');

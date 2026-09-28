@@ -17,7 +17,7 @@ describe('settings helpers', () => {
     expect(auditLabel('something.new')).toBe('something.new');
     expect(auditTone('account.delete')).toBe('danger');
     expect(auditTone('checkpoint.create')).toBe('accent');
-    expect(auditDetail({ from: 10 * GiB, to: 20 * GiB })).toBe('10 GiB → 20 GiB');
+    expect(auditDetail({ from: 10 * GiB, to: 20 * GiB })).toBe('10 GB → 20 GB');
     expect(auditDetail({ name: 'v1.0', at: 'vc_01J8ZQ3ABCDEF' })).toBe('v1.0 · @3abcdef');
     expect(auditDetail({ ip: '1.2.3.4' })).toBe('');
   });

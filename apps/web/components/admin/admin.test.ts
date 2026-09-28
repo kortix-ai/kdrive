@@ -9,7 +9,7 @@ describe('quota editor', () => {
     expect(parseGiB('10')).toEqual({ bytes: 10 * GiB, error: null });
     expect(parseGiB(' 12.5 ')).toEqual({ bytes: Math.round(12.5 * GiB), error: null });
     expect(parseGiB('50').bytes).toBe(50 * GiB);
-    expect(parseGiB('50.01').error).toBe('Max 50 GiB');
+    expect(parseGiB('50.01').error).toBe('Max 50 GB');
     expect(parseGiB('0').error).toBeTruthy();
     expect(parseGiB('-3').error).toBeTruthy();
     expect(parseGiB('abc').error).toBeTruthy();

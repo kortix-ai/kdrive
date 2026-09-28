@@ -13,11 +13,11 @@ const PRESETS = ['10', '20', '50'] as const;
 /** Parses a GiB amount ("12.5") into bytes; error text when empty, not a number, ≤ 0 or over the 50 GiB cap. */
 export function parseGiB(input: string): { bytes: number | null; error: string | null } {
   const s = input.trim();
-  if (!s) return { bytes: null, error: 'Enter a size in GiB.' };
+  if (!s) return { bytes: null, error: 'Enter a size in GB.' };
   const n = Number(s);
   if (!Number.isFinite(n)) return { bytes: null, error: 'Enter a number.' };
-  if (n <= 0) return { bytes: null, error: 'Must be more than 0 GiB.' };
-  if (n > MAX_QUOTA_GIB) return { bytes: null, error: `Max ${MAX_QUOTA_GIB} GiB` };
+  if (n <= 0) return { bytes: null, error: 'Must be more than 0 GB.' };
+  if (n > MAX_QUOTA_GIB) return { bytes: null, error: `Max ${MAX_QUOTA_GIB} GB` };
   return { bytes: Math.round(n * GiB), error: null };
 }
 
@@ -64,9 +64,9 @@ export function QuotaEditor({ user, capBytes, onDone }: { user: AdminUser; capBy
           min={0}
           max={MAX_QUOTA_GIB}
           step="any"
-          aria-label={`Quota for ${user.email} in GiB`}
+          aria-label={`Quota for ${user.email} in GB`}
           value={value}
-          suffix="GiB"
+          suffix="GB"
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
@@ -85,7 +85,7 @@ export function QuotaEditor({ user, capBytes, onDone }: { user: AdminUser; capBy
       <div className="flex items-center gap-1.5" role="group" aria-label="Quota presets">
         {PRESETS.map((p) => (
           <Chip key={p} size="sm" on={preset === p} onClick={() => setValue(p)}>
-            {p} GiB
+            {p} GB
           </Chip>
         ))}
       </div>

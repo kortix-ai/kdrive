@@ -129,9 +129,9 @@ describe('timeline helpers', () => {
 
   test('delta and unit formatting', () => {
     expect(formatDelta(0)).toBe('±0 B');
-    expect(formatDelta(1536)).toBe('+1.5 KiB');
-    expect(formatDelta(-1536)).toBe('−1.5 KiB');
-    expect(splitUnit('4.2 MiB')).toEqual({ value: '4.2', unit: 'MiB' });
+    expect(formatDelta(1536)).toBe('+1.5 KB');
+    expect(formatDelta(-1536)).toBe('−1.5 KB');
+    expect(splitUnit('4.2 MB')).toEqual({ value: '4.2', unit: 'MB' });
     expect(splitUnit('—')).toEqual({ value: '—', unit: '' });
   });
 });

@@ -1,8 +1,9 @@
 import { METER_AMBER, METER_RED } from './constants';
 
-const UNITS = ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB'];
+/** Plain unit labels on 1024-based maths (the UI shows "3.2 GB of 10 GB used"). */
+const UNITS = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
 
-/** Binary units: 0 → "0 B", 4404019 → "4.2 MiB". Negative numbers keep their sign. */
+/** 1024-based sizes with plain labels: 0 → "0 B", 4404019 → "4.2 MB". Negative numbers keep their sign. */
 export function formatBytes(n: number, opts: { digits?: number } = {}): string {
   if (!Number.isFinite(n)) return '—';
   const sign = n < 0 ? '−' : '';
