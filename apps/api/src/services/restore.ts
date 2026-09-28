@@ -43,6 +43,8 @@ const VERSION_CHECK_MAX = 2000;
 
 interface PlannedFile {
   path: string;
+  /** Where the bytes live at `at` when that differs from `path` (a file renamed since). */
+  sourcePath?: string;
   size: number;
   mtime: number;
   mode?: number;
@@ -269,7 +271,7 @@ async function uploadRestored(ws: WorkspaceCtx, files: PlannedFile[], dirs: stri
     f.blocks.forEach((sha, i) => {
       if (source.has(sha)) return;
       const start = i * BLOCK_SIZE;
-      source.set(sha, { path: f.path, start, end: Math.min(start + BLOCK_SIZE, f.size) - 1 });
+      source.set(sha, { path: f.sourcePath ?? f.path, start, end: Math.min(start + BLOCK_SIZE, f.size) - 1 });
     });
   }
   const send = async (uploadId: string, shas: string[]) => {
@@ -335,6 +337,39 @@ export async function restorePaths(
         await rec.commit(await store.remove(ctx.ws.volumeId, r.path, { recursive: true }));
       }
       if (work.files.length || work.dirs.length) await uploadRestored(ctx.ws, work.files, work.dirs, target.id, rec);
+    },
+  );
+  return action;
+}
+
+/**
+ * Restores the file now at `to` to the version it had at `at` under an earlier
+ * name `from` (it was renamed since). One action; the bytes are re-planned
+ * from the old version's block list like any file restore.
+ */
+export async function restoreFileFrom(
+  ctx: ActionCtx,
+  opts: { from: string; to: string; at: Ref; summary: string },
+): Promise<ActionSummary> {
+  const store = getStore();
+  const from = normalizePath(opts.from);
+  const to = normalizePath(opts.to);
+  const target = await store.getCommit(ctx.ws.volumeId, opts.at);
+  const src = await store.stat(ctx.ws.volumeId, from, { at: target.id });
+  if (src.type === 'dir') throw new ApiError(409, 'not_a_file', 'That version is a folder.', { path: from });
+  const { action } = await withAction(
+    ctx,
+    { kind: 'restore.file', summary: opts.summary, paths: [], meta: { at: target.id, atCreatedAt: target.createdAt, roots: [to], from } },
+    async (rec) => {
+      const now = await statOrNull(ctx.ws, to, rec.baseCommitId);
+      if (now && now.type === 'dir') throw new ApiError(409, 'not_a_file', 'A folder has that name now.', { path: to });
+      const [planned] = await resolveBlocks(ctx.ws, [src], target);
+      const file: PlannedFile = { ...planned, path: to, sourcePath: from };
+      await assertQuota(ctx.userId, file.size - (now?.size ?? 0));
+      await rec.addPaths([
+        { op: 'restored', path: to, entryType: 'file', size: file.size, prevSize: now?.size, blockHashes: file.blocks, mtime: file.mtime },
+      ]);
+      await uploadRestored(ctx.ws, [file], [], target.id, rec);
     },
   );
   return action;

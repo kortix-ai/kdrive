@@ -86,6 +86,29 @@ async function collectEvents(wsId: string, path: string): Promise<VersionEvent[]
   return events;
 }
 
+/**
+ * The name the file now at `path` had at `commitId` (it may have been renamed
+ * since), from the ledger's rename lineage. `path` itself when the ledger
+ * knows nothing older, null when the file did not exist yet.
+ */
+export async function pathAtCommit(ws: WorkspaceCtx, path: string, commitId: string): Promise<string | null> {
+  return (await nameResolver(ws, path))(commitId);
+}
+
+/** pathAtCommit for many commits: loads the lineage once. */
+export async function nameResolver(ws: WorkspaceCtx, path: string): Promise<(commitId: string) => string | null> {
+  const events = await collectEvents(ws.id, path);
+  return (commitId) => {
+    if (!events.length) return path;
+    // Events are newest first; the first one at or before the commit names the file then.
+    for (const e of events) {
+      const head = e.action.headCommitId;
+      if (head && cmpCommitId(head, commitId) <= 0) return e.name;
+    }
+    return null;
+  };
+}
+
 /** Every version of `path` still in history (ledger first, commit-chain fallback). */
 export async function fileVersions(ws: WorkspaceCtx, path: string): Promise<VersionsResponse> {
   const store = getStore();
@@ -142,6 +165,7 @@ export async function fileVersions(ws: WorkspaceCtx, path: string): Promise<Vers
     summary: e.action.summary,
     isCurrent: !!headStat && !!stat.version && headStat.version === stat.version && e.name === path,
     checkpointNames: [],
+    path: e.name,
   }));
 
   // The current content came from outside the ledger (or its commit was thinned): show it anyway.
@@ -156,6 +180,7 @@ export async function fileVersions(ws: WorkspaceCtx, path: string): Promise<Vers
       summary: null,
       isCurrent: true,
       checkpointNames: [],
+      path,
     });
   }
 
@@ -235,7 +260,7 @@ async function attachCheckpointNames(ws: WorkspaceCtx, path: string, versions: F
   // version id → FileVersion (via a stat at each version's commit)
   const versionIds = await mapLimit(versions, 8, async (v) => {
     try {
-      return (await store.stat(ws.volumeId, path, { at: v.commitId })).version;
+      return (await store.stat(ws.volumeId, v.path ?? path, { at: v.commitId })).version;
     } catch {
       return null;
     }
@@ -245,9 +270,11 @@ async function attachCheckpointNames(ws: WorkspaceCtx, path: string, versions: F
     const id = versionIds[i];
     if (id && !byVersion.has(id)) byVersion.set(id, v);
   });
+  const nameAt = await nameResolver(ws, path);
   const atCp = await mapLimit(cps, 8, async (cp) => {
     try {
-      return (await store.stat(ws.volumeId, path, { at: cp.commitId })).version;
+      const name = nameAt(cp.commitId) ?? path;
+      return (await store.stat(ws.volumeId, name, { at: cp.commitId })).version;
     } catch {
       return null;
     }
@@ -273,14 +300,24 @@ function compareKind(path: string): CompareKind {
 export async function compareFile(ws: WorkspaceCtx, path: string, a: string, b: string): Promise<CompareFileResponse> {
   const store = getStore();
   const [ca, cb] = await Promise.all([store.getCommit(ws.volumeId, a), store.getCommit(ws.volumeId, b)]);
-  const [sa, sb] = await Promise.all([statOrNull(ws, path, ca.id), statOrNull(ws, path, cb.id)]);
+  // A side where the file had another name (renamed since) reads that name.
+  const sideAt = async (c: Commit): Promise<{ stat: FileStat | null; name: string }> => {
+    const direct = await statOrNull(ws, path, c.id);
+    if (direct) return { stat: direct, name: path };
+    const earlier = await pathAtCommit(ws, path, c.id);
+    if (!earlier || earlier === path) return { stat: null, name: path };
+    return { stat: await statOrNull(ws, earlier, c.id), name: earlier };
+  };
+  const [ra, rb] = await Promise.all([sideAt(ca), sideAt(cb)]);
+  const sa = ra.stat;
+  const sb = rb.stat;
   if (!sa && !sb) throw new ApiError(404, 'path_not_found', 'This file does not exist at either version.', { path });
   if ((sa && sa.type === 'dir') || (sb && sb.type === 'dir')) {
     throw new ApiError(409, 'not_a_file', 'Folders are compared with the drive compare.', { path });
   }
   const kind = compareKind(path);
   const mime = mimeFor(basename(path));
-  const side = (s: FileStat | null, c: Commit): FileSide | null =>
+  const side = (s: FileStat | null, c: Commit, name: string): FileSide | null =>
     s
       ? {
           commitId: c.id,
@@ -289,11 +326,11 @@ export async function compareFile(ws: WorkspaceCtx, path: string, a: string, b: 
           mtime: s.mtime,
           mime,
           version: s.version,
-          contentUrl: contentUrlFor(ws.id, path, c.id),
-          downloadUrl: contentUrlFor(ws.id, path, c.id, true),
+          contentUrl: contentUrlFor(ws.id, name, c.id),
+          downloadUrl: contentUrlFor(ws.id, name, c.id, true),
         }
       : null;
   // Only line/cell diffs are bounded; images and binaries always compare.
   const tooLargeForDiff = (kind === 'text' || kind === 'csv') && [sa, sb].some((s) => !!s && s.size > TEXT_DIFF_MAX_BYTES);
-  return { path, kind, a: side(sa, ca), b: side(sb, cb), tooLargeForDiff };
+  return { path, kind, a: side(sa, ca, ra.name), b: side(sb, cb, rb.name), tooLargeForDiff };
 }

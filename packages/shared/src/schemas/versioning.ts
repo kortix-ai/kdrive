@@ -59,6 +59,8 @@ export const FileVersionSchema = z.object({
   summary: z.string().nullable(),
   isCurrent: z.boolean(),
   checkpointNames: z.array(z.string()),
+  /** The file's path at this version (an earlier name when it was renamed since). */
+  path: z.string().optional(),
 });
 export type FileVersion = z.infer<typeof FileVersionSchema>;
 

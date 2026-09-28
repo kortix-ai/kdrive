@@ -8,7 +8,8 @@ import { actionPaths } from '../db/schema';
 import { audit } from '../lib/audit';
 import { ApiError, ok, parseJson } from '../lib/http';
 import { getAction } from '../services/ledger';
-import { restoreDrive, restorePaths, restoreSummary } from '../services/restore';
+import { restoreDrive, restoreFileFrom, restorePaths, restoreSummary } from '../services/restore';
+import { pathAtCommit } from '../services/versions';
 import { statOrNull } from '../services/tree';
 import { getStore } from '../storage';
 import type { AppEnv } from '../types';
@@ -46,7 +47,15 @@ restoreRoutes.post('/restore', async (c) => {
   const path = req.path!;
   const commit = await getStore().getCommit(ws.volumeId, req.at);
   const then = await statOrNull(ws, path, commit.id);
-  if (!then) throw new ApiError(404, 'path_not_found', 'That item does not exist at this version.', { path });
+  if (!then) {
+    // A file renamed since: restore the version it had under its earlier name.
+    const earlier = req.scope === 'file' ? await pathAtCommit(ws, path, commit.id) : null;
+    const old = earlier && earlier !== path ? await statOrNull(ws, earlier, commit.id) : null;
+    if (!old || old.type === 'dir') throw new ApiError(404, 'path_not_found', 'That item does not exist at this version.', { path });
+    const action = await restoreFileFrom(ctx, { from: earlier!, to: path, at: commit.id, summary: restoreSummary(path, 'file', commit.createdAt) });
+    await audit(c, { kind: 'restore.file', userId: user.id, workspaceId: ws.id, target: path, meta: { at: commit.id, actionId: action.id, scope: req.scope, from: earlier } });
+    return ok(c, RestoreResponse, { action } satisfies RestoreResponseT);
+  }
   const type = then.type === 'dir' ? 'dir' : 'file';
   const kind = type === 'dir' ? 'restore.folder' : 'restore.file';
   const action = await restorePaths(ctx, { paths: [path], at: commit.id, kind, summary: restoreSummary(path, type, commit.createdAt) });

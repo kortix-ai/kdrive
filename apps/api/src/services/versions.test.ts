@@ -40,7 +40,10 @@ describe('file versions', () => {
     expect(v.map((x: any) => x.op)).toEqual(['changed', 'moved', 'added']);
     expect(v[1].summary).toBe('Renamed hero.png to cover.png');
     expect(v[0].isCurrent).toBe(true);
-    expect(v[2].checkpointNames).toEqual([]); // the checkpoint holds /hero.png, not /cover.png
+    // The checkpoint was taken while the file was still /hero.png: that version carries it, under its old path.
+    expect(v[2].checkpointNames).toEqual(['v1.0']);
+    expect(v[2].path).toBe('/hero.png');
+    expect(v[0].path).toBe('/cover.png');
     const hero = await k.client.get(`/api/w/${k.ws}/versions?path=/hero.png`);
     expect(hero.body.versions).toHaveLength(1);
     expect(hero.body.versions[0].checkpointNames).toEqual(['v1.0']);

@@ -169,12 +169,12 @@ function Versions({ path }: { path: string }) {
                     </span>
                     {/* hover actions */}
                     <div className="absolute inset-y-0 right-2 hidden items-center gap-0.5 bg-vx-surface-2 pl-2 group-focus-within:flex group-hover:flex">
-                      <RowAction label="Open this version" onClick={() => openPreview(path, { at: v.commitId })}>
+                      <RowAction label="Open this version" onClick={() => openPreview(v.path ?? path, { at: v.commitId })}>
                         <Eye size={14} strokeWidth={1.5} />
                       </RowAction>
                       {ws ? (
                         <a
-                          href={contentUrl(ws, path, { at: v.commitId, download: true })}
+                          href={contentUrl(ws, v.path ?? path, { at: v.commitId, download: true })}
                           download
                           aria-label="Download this version"
                           title="Download this version"
