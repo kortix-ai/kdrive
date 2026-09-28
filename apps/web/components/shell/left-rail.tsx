@@ -1,124 +1,88 @@
 'use client';
 
+// Sidebar (DESIGN-v2 §6.0): on the page colour, no border. Top to bottom:
+// + New, the workspace switcher, nav pills (chord hints on hover), a flexible gap,
+// then storage and the emulated-storage badge. 72 px icon column at 720–1023 px;
+// a drawer on phones (AppShell opens it from the top bar).
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { Bookmark, HardDrive, LogOut, Settings, Shield, Trash } from 'lucide-react';
+import { usePathname } from 'next/navigation';
+import { Bookmark, HardDrive, Settings, Shield, Trash } from 'lucide-react';
 import StorageMeter from '@/components/drive/storage-meter';
 import WorkspaceSwitcher from '@/components/workspaces/workspace-switcher';
-import { Menu } from '@/components/ui/menu';
 import { cx } from '@/components/ui/cx';
-import { signOut } from '@/lib/auth-client';
 import { useVx } from '@/lib/store';
+import { useCheckpoints } from '@/lib/versioning/hooks';
 import { EmulatedBadge } from './emulated-badge';
-import { ThemeToggle } from './theme-toggle';
+import { NewButton } from './new-button';
 
-const NAV = [
-  { href: '/drive', label: 'My Drive', icon: HardDrive, chord: 'g d' },
-  { href: '/checkpoints', label: 'Checkpoints', icon: Bookmark, chord: 'g c' },
-  { href: '/recently-deleted', label: 'Recently deleted', icon: Trash, chord: 'g x' },
-  { href: '/settings', label: 'Settings', icon: Settings, chord: 'g ,' },
+type NavItem = { href: string; label: string; short: string; icon: typeof HardDrive; chord: string };
+
+const NAV_MAIN: NavItem[] = [
+  { href: '/drive', label: 'My Drive', short: 'Drive', icon: HardDrive, chord: 'g d' },
+  { href: '/checkpoints', label: 'Checkpoints', short: 'Saved', icon: Bookmark, chord: 'g c' },
+  { href: '/recently-deleted', label: 'Recently deleted', short: 'Deleted', icon: Trash, chord: 'g x' },
 ];
+const NAV_SETTINGS: NavItem = { href: '/settings', label: 'Settings', short: 'Settings', icon: Settings, chord: 'g ,' };
+const NAV_ADMIN: NavItem = { href: '/admin', label: 'Admin', short: 'Admin', icon: Shield, chord: '' };
 
-/** Platinum square mark in currentColor. */
-function Mark() {
+function NavLink({ n, active, count, onNavigate }: { n: NavItem; active: boolean; count?: number; onNavigate?: () => void }) {
+  const Icon = n.icon;
   return (
-    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden>
-      <rect x="0.5" y="0.5" width="15" height="15" fill="none" stroke="currentColor" />
-      <rect x="4" y="4" width="8" height="8" fill="currentColor" />
-    </svg>
+    <Link href={n.href} onClick={onNavigate} aria-current={active ? 'page' : undefined} title={n.label} className="vx-nav">
+      <span className="vx-nav-icon">
+        <Icon size={18} strokeWidth={1.75} aria-hidden />
+      </span>
+      <span className="vx-side-full min-w-0 flex-1 truncate">{n.label}</span>
+      {n.chord ? (
+        <span className="vx-nav-chord vx-side-full vx-micro shrink-0 text-vx-text-4" aria-hidden>
+          {n.chord}
+        </span>
+      ) : null}
+      {count ? <span className="vx-nav-count vx-side-full vx-meta shrink-0 tabular-nums">{count}</span> : null}
+      <span className="vx-side-compact text-[12px] font-medium leading-4">{n.short}</span>
+    </Link>
   );
-}
-
-function Avatar({ name, image }: { name: string; image: string | null }) {
-  const initials = name
-    .split(/[\s@.]+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((s) => s[0]?.toUpperCase())
-    .join('');
-  if (image) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={image} alt="" width={24} height={24} className="h-6 w-6 border border-vx-hair object-cover" referrerPolicy="no-referrer" />;
-  }
-  return <span className="inline-flex h-6 w-6 items-center justify-center border border-vx-hair font-mono text-[10px] text-vx-text-2">{initials || '·'}</span>;
 }
 
 export function LeftRail({ open, onNavigate }: { open?: boolean; onNavigate?: () => void }) {
   const pathname = usePathname() ?? '/';
-  const router = useRouter();
   const me = useVx((s) => s.me);
-  const setMe = useVx((s) => s.setMe);
-  const nav = me?.isAdmin ? [...NAV, { href: '/admin', label: 'Admin', icon: Shield, chord: '' }] : NAV;
-  const displayName = me?.user.name || me?.user.email || '';
+  const { data: cps } = useCheckpoints();
+  const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/');
+  const cpCount = cps?.checkpoints.length ?? 0;
 
   return (
-    <nav data-open={open ? 'true' : 'false'} className="vx-rail flex min-h-0 flex-col border-r border-vx-hair bg-vx-surface" aria-label="Main">
-      <div className="flex h-12 shrink-0 items-center gap-2.5 px-4 text-vx-text-1">
-        <Mark />
-        <span className="vx-label vx-rail-label text-vx-text-1">Volumes</span>
+    <nav data-open={open ? 'true' : 'false'} className="vx-side" aria-label="Main">
+      <div className="pb-3">
+        <NewButton />
       </div>
-      <div className="vx-rail-extra">
+      <div className="pb-2">
         <WorkspaceSwitcher />
       </div>
-      <ul className="mt-1 flex flex-col">
-        {nav.map((n) => {
-          const active = pathname === n.href || pathname.startsWith(n.href + '/');
-          const Icon = n.icon;
-          return (
-            <li key={n.href}>
-              <Link
-                href={n.href}
-                onClick={onNavigate}
-                aria-current={active ? 'page' : undefined}
-                title={n.label}
-                className={cx(
-                  'flex h-8 items-center gap-2.5 px-4 font-mono text-[12px] transition-colors duration-[120ms]',
-                  active ? 'text-vx-text-1 shadow-[inset_2px_0_0_var(--pt-300)]' : 'text-vx-text-3 hover:bg-vx-surface-2 hover:text-vx-text-1',
-                )}
-              >
-                <Icon size={16} strokeWidth={1.5} aria-hidden />
-                <span className="vx-rail-label flex-1 truncate">{n.label}</span>
-                {n.chord ? <span className="vx-rail-label vx-micro text-vx-text-4">{n.chord}</span> : null}
-              </Link>
-            </li>
-          );
-        })}
+      <ul className="flex flex-col gap-0.5">
+        {NAV_MAIN.map((n) => (
+          <li key={n.href}>
+            <NavLink n={n} active={isActive(n.href)} count={n.href === '/checkpoints' ? cpCount : undefined} onNavigate={onNavigate} />
+          </li>
+        ))}
+        <li role="separator" aria-hidden className="mx-4 my-2 h-px bg-vx-hair max-[1023px]:mx-2" />
+        <li>
+          <NavLink n={NAV_SETTINGS} active={isActive(NAV_SETTINGS.href)} onNavigate={onNavigate} />
+        </li>
+        {me?.isAdmin ? (
+          <li>
+            <NavLink n={NAV_ADMIN} active={isActive(NAV_ADMIN.href)} onNavigate={onNavigate} />
+          </li>
+        ) : null}
       </ul>
-      <div className="min-h-0 flex-1" />
-      <div className="vx-rail-extra border-t border-vx-hair">
+      <div className="min-h-6 flex-1" />
+      <div className={cx('vx-side-full border-t border-vx-hair-soft px-1 pt-4')}>
         <StorageMeter />
-      </div>
-      <div className="flex h-10 shrink-0 items-center gap-2 border-t border-vx-hair px-3">
-        <ThemeToggle />
-        <span className="vx-rail-extra flex-1">
-          <EmulatedBadge />
-        </span>
-        <Menu
-          align="end"
-          items={[
-            { id: 'who', type: 'label', label: me?.user.email ?? '' },
-            { id: 'settings', label: 'Settings', icon: <Settings size={14} />, onSelect: () => router.push('/settings') },
-            { id: 'sep', type: 'separator' },
-            {
-              id: 'signout',
-              label: 'Sign out',
-              icon: <LogOut size={14} />,
-              onSelect: async () => {
-                await signOut().catch(() => {});
-                setMe(null);
-                router.replace('/signin');
-              },
-            },
-          ]}
-          trigger={(p) => (
-            <button type="button" {...p} aria-label="Account menu" title={displayName} className="inline-flex items-center hover:opacity-80">
-              <Avatar name={displayName} image={me?.user.image ?? null} />
-            </button>
-          )}
-        />
+        <EmulatedBadge className="mt-3" />
       </div>
     </nav>
   );
 }
 
+export const Sidebar = LeftRail;
 export default LeftRail;

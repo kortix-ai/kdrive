@@ -2,7 +2,6 @@
 
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { Menu as MenuIcon } from 'lucide-react';
 import CheckpointDialog from '@/components/versioning/checkpoint-dialog';
 import DuplicateDialog from '@/components/workspaces/duplicate-dialog';
 import GlobalDropZone from '@/components/drive/global-drop-zone';
@@ -13,18 +12,28 @@ import TimeTravelBanner from '@/components/versioning/time-travel-banner';
 import TimelineRail from '@/components/versioning/timeline-rail';
 import UploadTray from '@/components/drive/upload-tray';
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
 import { cx } from '@/components/ui/cx';
 import { isApiError } from '@/lib/api/client';
 import { useMe } from '@/lib/api/hooks';
 import { useHotkeys } from '@/lib/keys';
 import { useVx } from '@/lib/store';
 import { LeftRail } from './left-rail';
+import { NewFab } from './new-button';
 import { PanelHost } from './panel-host';
 import { ShortcutSheet } from './shortcut-sheet';
+import { TopBar } from './top-bar';
+
+/** Routes whose content sits straight on the page instead of in a sheet (DESIGN-v2 §6.17). */
+export function isSheetless(pathname: string): boolean {
+  return pathname === '/settings' || pathname.startsWith('/settings/');
+}
 
 /**
- * The signed-in frame: auth guard (401 → /signin?next=…), grid
- * [LeftRail][main][TimelineRail][PanelHost] + Time Strip on /drive, global keys.
+ * The signed-in frame (DESIGN-v2 §6.0): auth guard (401 → /signin?next=…), the grid
+ * [sidebar][top bar / content], the work sheet with the past banner, the timeline rail
+ * and details panel as sheets beside it, the history strip under them on /drive, and
+ * the global keys.
  */
 export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -40,6 +49,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (me) setMe(me);
   }, [me, setMe]);
+
+  // The drawer closes on navigation and on Esc.
+  useEffect(() => setDrawer(false), [pathname]);
+  useEffect(() => {
+    if (!drawer) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        setDrawer(false);
+      }
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [drawer]);
 
   const unauthorized = isApiError(error) && error.status === 401;
   useEffect(() => {
@@ -63,61 +86,81 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   if (error && !unauthorized) {
     return (
-      <div className="flex h-dvh flex-col items-center justify-center gap-4">
-        <div className="vx-title">Could not load your drive</div>
-        <p className="vx-body text-vx-text-3">{error instanceof Error ? error.message : 'Unknown error'}</p>
-        <Button onClick={() => void mutate()}>Retry</Button>
+      <div className="flex h-dvh items-center justify-center bg-vx-bg p-4">
+        <div className="vx-sheet w-full max-w-[480px]">
+          <EmptyState
+            title="Could not load your drive"
+            body={error instanceof Error ? error.message : 'Unknown error'}
+            actions={
+              <Button variant="primary" onClick={() => void mutate()}>
+                Retry
+              </Button>
+            }
+          />
+        </div>
       </div>
     );
   }
 
   if (!me) {
     return (
-      <div className="vx-shell" aria-busy>
-        <div className="vx-rail border-r border-vx-hair bg-vx-surface p-4">
-          <span className="skeleton skel-line w-24" />
+      <div className="vx-app" aria-busy>
+        <header className="vx-topbar">
+          <div className="flex items-center gap-2.5 pl-4">
+            <span className="skeleton h-8 w-8 !rounded-vx-sm" />
+            <span className="skeleton skel-line w-24" />
+          </div>
+          <div className="flex justify-center px-2">
+            <span className="skeleton h-12 w-full max-w-[720px] !rounded-full" />
+          </div>
+          <span className="skeleton mx-2 h-8 w-8 !rounded-full" />
+        </header>
+        <div className="vx-side">
+          <span className="skeleton h-14 w-32 !rounded-full" />
           <span className="skeleton skel-line mt-6 w-40" />
           <span className="skeleton skel-line w-32" />
           <span className="skeleton skel-line w-36" />
         </div>
-        <main className="vx-main p-6">
-          <span className="skeleton skel-line w-64" />
-        </main>
+        <div className="vx-content">
+          <main className="vx-main vx-sheet p-6">
+            <span className="skeleton skel-line w-64" />
+          </main>
+        </div>
       </div>
     );
   }
 
   const onDrive = pathname === '/drive' || pathname.startsWith('/drive/');
+  const sheetless = isSheetless(pathname);
   return (
-    <div className="vx-shell">
+    <div className="vx-app">
+      <TopBar onMenu={() => setDrawer((d) => !d)} onHelp={() => setSheet(true)} />
       <LeftRail open={drawer} onNavigate={() => setDrawer(false)} />
-      <main className={cx('vx-main relative flex min-h-0 min-w-0 flex-col', past && 'is-past')}>
-        <button
-          type="button"
-          aria-label="Open navigation"
-          onClick={() => setDrawer((d) => !d)}
-          className="absolute left-2 top-2 z-20 hidden h-8 w-8 items-center justify-center text-vx-text-3 max-[720px]:inline-flex"
-        >
-          <MenuIcon size={16} />
-        </button>
-        <TimeTravelBanner />
-        <div className="min-h-0 flex-1 overflow-auto">{children}</div>
-      </main>
-      {timelineOpen ? (
-        <aside className="vx-timeline min-h-0 overflow-auto border-l border-vx-hair bg-vx-surface" aria-label="Timeline">
-          <TimelineRail />
-        </aside>
-      ) : null}
-      {panel ? (
-        <div className="vx-panel min-h-0">
-          <PanelHost />
-        </div>
-      ) : null}
-      {onDrive ? (
-        <div className="vx-strip border-t border-vx-hair bg-vx-surface">
-          <TimeStrip />
-        </div>
-      ) : null}
+      {drawer ? <div className="dlg-fade fixed inset-0 z-[55] hidden bg-vx-scrim max-[720px]:block" onClick={() => setDrawer(false)} aria-hidden /> : null}
+      <div className="vx-content" data-strip={onDrive ? 'true' : 'false'}>
+        <main className={cx('vx-main', sheetless ? 'vx-sheetless' : 'vx-sheet', past && !sheetless && 'is-past')} data-past={past ? 'true' : undefined}>
+          <TimeTravelBanner />
+          <div className="min-h-0 flex-1 overflow-auto">{children}</div>
+        </main>
+        {timelineOpen ? (
+          <aside className="vx-timeline vx-sheet" aria-label="Timeline">
+            <div className="min-h-0 flex-1 overflow-auto">
+              <TimelineRail />
+            </div>
+          </aside>
+        ) : null}
+        {panel ? (
+          <div className="vx-panel vx-sheet">
+            <PanelHost />
+          </div>
+        ) : null}
+        {onDrive ? (
+          <div className={cx('vx-strip vx-sheet', past && 'is-past')}>
+            <TimeStrip />
+          </div>
+        ) : null}
+      </div>
+      {onDrive ? <NewFab /> : null}
       <GlobalDropZone />
       <UploadTray />
       <ShareDialog />

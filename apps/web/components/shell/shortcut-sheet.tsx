@@ -1,6 +1,7 @@
 'use client';
 
 import { Dialog } from '@/components/ui/dialog';
+import { cx } from '@/components/ui/cx';
 import { Kbd } from '@/components/ui/kbd';
 
 const GROUPS: { label: string; keys: [string, string][] }[] = [
@@ -11,28 +12,63 @@ const GROUPS: { label: string; keys: [string, string][] }[] = [
   { label: 'Compare', keys: [[']  [', 'Next / previous change'], ['x', 'Swap A and B'], ['←  →', 'Move the swipe (⇧ ×10)'], ['Esc', 'Back']] },
 ];
 
+/** A chord like "g d" shows as `g` then `d`; alternatives are separated by two spaces. */
+function Keys({ k }: { k: string }) {
+  return (
+    <span className="flex shrink-0 items-center gap-1">
+      {k.split('  ').map((alt, i) => (
+        <span key={alt} className="flex items-center gap-1">
+          {i > 0 ? <span className="vx-micro text-vx-text-4">or</span> : null}
+          {alt.includes(' ') && alt.length <= 4 ? (
+            alt.split(' ').map((part, j) => (
+              <span key={part + j} className="flex items-center gap-1">
+                {j > 0 ? <span className="vx-micro text-vx-text-4">then</span> : null}
+                <Kbd>{part}</Kbd>
+              </span>
+            ))
+          ) : (
+            <Kbd>{alt}</Kbd>
+          )}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+const LEFT = new Set(['Global', 'Time', 'Compare']);
+const COLUMNS = [GROUPS.filter((g) => LEFT.has(g.label)), GROUPS.filter((g) => !LEFT.has(g.label))];
+
+/** The shortcut groups in two balanced stacks (Global · Time · Compare | Drive · Preview), so short groups leave no
+ *  holes; one column on phones. Used by the sheet and inline in Settings. */
+export function ShortcutList({ className }: { className?: string }) {
+  return (
+    <div className={cx('grid grid-cols-2 items-start gap-x-8 gap-y-5 max-[720px]:grid-cols-1', className)}>
+      {COLUMNS.map((col, i) => (
+        <div key={i} className="flex flex-col gap-5">
+          {col.map((g) => (
+            <section key={g.label}>
+              <h3 className="mb-1 text-[13px] font-semibold leading-5 text-vx-text-2">{g.label}</h3>
+              <ul>
+                {g.keys.map(([k, label]) => (
+                  <li key={k + label} className="flex min-h-8 items-center justify-between gap-3">
+                    <span className="text-[14px] leading-5 text-vx-text-1">{label}</span>
+                    <Keys k={k} />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Keyboard shortcuts (DESIGN-v2 §6.21): a 560 dialog holding the list. */
 export function ShortcutSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   return (
-    <Dialog open={open} onClose={onClose} title="Keyboard" width={560}>
-      <div className="grid grid-cols-2 gap-x-8 gap-y-5">
-        {GROUPS.map((g) => (
-          <section key={g.label}>
-            <div className="vx-label mb-2">{g.label}</div>
-            <ul className="space-y-1.5">
-              {g.keys.map(([k, label]) => (
-                <li key={k + label} className="flex items-center justify-between gap-3">
-                  <span className="vx-ui text-vx-text-2">{label}</span>
-                  <span className="flex gap-1">
-                    {k.split('  ').map((part) => (
-                      <Kbd key={part}>{part}</Kbd>
-                    ))}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ))}
-      </div>
+    <Dialog open={open} onClose={onClose} title="Keyboard shortcuts" width={560}>
+      <ShortcutList className="pb-4" />
     </Dialog>
   );
 }

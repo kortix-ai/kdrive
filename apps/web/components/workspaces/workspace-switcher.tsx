@@ -2,9 +2,10 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, Copy, Plus } from 'lucide-react';
+import { ChevronDown, Copy, Layers, Plus } from 'lucide-react';
 import { formatBytes, shortId, type WorkspaceSummary } from '@volumes/shared';
 import { Menu, type MenuItem } from '@/components/ui/menu';
+import { cx } from '@/components/ui/cx';
 import { useVx } from '@/lib/store';
 import { NewWorkspaceDialog } from './new-workspace-dialog';
 
@@ -15,7 +16,11 @@ export function provenance(ws: Pick<WorkspaceSummary, 'forkedFrom'>): string | n
   return `Duplicated from ${f.workspaceName ?? 'a deleted workspace'} ${shortId(f.commitId)}`;
 }
 
-/** Left-rail workspace switcher: list (✓ current, usage), provenance, New workspace, Duplicate current… */
+/**
+ * Sidebar workspace switcher (DESIGN-v2 §5): a 36 px pill (Layers · name · ChevronDown);
+ * an icon button in the 72 px sidebar. Menu: workspaces (✓ current, usage), provenance,
+ * New workspace, Duplicate current…
+ */
 export default function WorkspaceSwitcher() {
   const router = useRouter();
   const me = useVx((s) => s.me);
@@ -33,38 +38,40 @@ export default function WorkspaceSwitcher() {
     ...workspaces.map<MenuItem>((w) => ({
       id: `ws-${w.id}`,
       checked: w.id === wsId,
-      icon: <span className="inline-block w-3" />,
-      label: (
-        <span className="flex items-center justify-between gap-3">
-          <span className="truncate">{w.name}</span>
-          <span className="vx-meta shrink-0 text-vx-text-4">{formatBytes(w.usageBytes)}</span>
-        </span>
-      ),
+      icon: <Layers size={18} strokeWidth={1.75} />,
+      label: w.name,
+      hint: formatBytes(w.usageBytes),
       onSelect: () => {
         if (w.id !== wsId) setWorkspace(w.id);
         router.push('/drive');
       },
     })),
-    ...(origin ? [{ id: 'origin', type: 'label' as const, label: <span className="normal-case tracking-normal text-vx-text-4">{origin}</span> }] : []),
+    ...(origin ? [{ id: 'origin', type: 'label' as const, label: <span className="vx-micro text-vx-text-3">{origin}</span> }] : []),
     { id: 'sep', type: 'separator' },
-    { id: 'new', label: 'New workspace', icon: <Plus size={14} />, onSelect: () => setCreating(true) },
-    { id: 'dup', label: 'Duplicate current…', icon: <Copy size={14} />, onSelect: () => openDuplicate() },
+    { id: 'new', label: 'New workspace', icon: <Plus size={18} strokeWidth={1.75} />, onSelect: () => setCreating(true) },
+    { id: 'dup', label: 'Duplicate current…', icon: <Copy size={18} strokeWidth={1.75} />, onSelect: () => openDuplicate() },
   ];
 
   return (
-    <div className="px-3 pb-2">
+    <div className="w-full">
       <Menu
         items={items}
+        minWidth={240}
         trigger={(p) => (
           <button
             type="button"
             {...p}
             title={origin ?? current?.name}
-            className="flex h-8 w-full items-center gap-2 border border-vx-hair px-2.5 text-left font-mono text-[12px] text-vx-text-2 transition-colors duration-[120ms] hover:border-vx-hair-strong hover:text-vx-text-1 aria-expanded:border-vx-hair-strong"
+            aria-label={`Workspace: ${current?.name ?? '…'}`}
+            className={cx(
+              'flex h-9 w-full items-center gap-3 rounded-full px-3 text-left text-vx-text-2 transition-colors duration-[120ms] ease-vx hover:bg-vx-hover hover:text-vx-text-1 aria-expanded:bg-vx-hover',
+              'max-[1023px]:mx-auto max-[1023px]:h-10 max-[1023px]:w-10 max-[1023px]:justify-center max-[1023px]:px-0',
+              'max-[720px]:mx-0 max-[720px]:h-9 max-[720px]:w-full max-[720px]:justify-start max-[720px]:px-3',
+            )}
           >
-            <ChevronDown size={14} className="text-vx-text-4" aria-hidden />
-            <span className="flex-1 truncate">{current?.name ?? '…'}</span>
-            {workspaces.length > 1 ? <span className="vx-meta text-vx-text-4">{workspaces.length}</span> : null}
+            <Layers size={18} strokeWidth={1.75} aria-hidden className="shrink-0" />
+            <span className="vx-side-full min-w-0 flex-1 truncate text-[14px] font-medium text-vx-text-1">{current?.name ?? '…'}</span>
+            <ChevronDown size={16} strokeWidth={1.75} aria-hidden className="vx-side-full shrink-0 text-vx-text-3" />
           </button>
         )}
       />

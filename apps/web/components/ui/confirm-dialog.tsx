@@ -47,10 +47,10 @@ export function ConfirmDialog({ open, title, body, confirmLabel, onConfirm, onCl
       onSubmit={run}
       footer={
         <>
-          <Button variant="ghost" onClick={onClose} disabled={busy}>
+          <Button variant="text" onClick={onClose} disabled={busy}>
             Cancel
           </Button>
-          <Button variant={danger ? (typeToConfirm ? 'danger-solid' : 'danger') : 'primary'} onClick={run} loading={busy} disabled={gated}>
+          <Button variant={danger ? 'danger' : 'primary'} onClick={run} loading={busy} disabled={gated}>
             {confirmLabel}
           </Button>
         </>
@@ -59,8 +59,19 @@ export function ConfirmDialog({ open, title, body, confirmLabel, onConfirm, onCl
       <div className="vx-body text-vx-text-2">{body}</div>
       {typeToConfirm ? (
         <div className="mt-4">
-          <div className="vx-label mb-2">Type {typeToConfirm} to confirm</div>
-          <Input autoFocus value={typed} onChange={(e) => setTyped(e.target.value)} mono />
+          <Input
+            label={
+              <>
+                Type <span className="font-semibold text-vx-text-1">{typeToConfirm}</span> to confirm
+              </>
+            }
+            autoFocus
+            value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+            size="sm"
+            autoComplete="off"
+            spellCheck={false}
+          />
         </div>
       ) : null}
     </Dialog>

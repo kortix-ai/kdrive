@@ -1,28 +1,50 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { getTheme, setTheme, type Theme } from '@/lib/theme';
+import { Monitor, Moon, Sun } from 'lucide-react';
+import { IconButton } from '@/components/ui/icon-button';
+import { Segmented } from '@/components/ui/segmented';
+import { THEME_LABEL, nextThemePref, type ThemePref } from '@/lib/theme';
+import { useThemePref } from '@/lib/use-theme';
 
-/** ◐ — toggles dark (default) / light; persisted in localStorage['vx-theme']. */
-export function ThemeToggle({ className }: { className?: string }) {
-  const [theme, set] = useState<Theme>('dark');
-  useEffect(() => {
-    set(getTheme());
-    const on = (e: Event) => set((e as CustomEvent<Theme>).detail);
-    window.addEventListener('vx-theme', on);
-    return () => window.removeEventListener('vx-theme', on);
-  }, []);
-  const next: Theme = theme === 'dark' ? 'light' : 'dark';
+const ICON = { light: Sun, dark: Moon, system: Monitor } as const;
+
+/** Top-bar theme cycle: Light → Dark → System. The tooltip names the current mode. */
+export function ThemeToggle({ size = 'md', className }: { size?: 'xs' | 'sm' | 'md'; className?: string }) {
+  const [pref, setPref] = useThemePref();
+  const Icon = ICON[pref];
+  const next = nextThemePref(pref);
   return (
-    <button
-      type="button"
-      onClick={() => setTheme(next)}
-      aria-label={`Switch to ${next} theme`}
-      title={`Switch to ${next} theme`}
-      className={className ?? 'inline-flex h-7 w-7 items-center justify-center font-mono text-[14px] text-vx-text-3 hover:bg-vx-surface-2 hover:text-vx-text-1'}
+    <IconButton
+      size={size}
+      className={className}
+      label={`Theme: ${THEME_LABEL[pref]}. Switch to ${THEME_LABEL[next]}`}
+      onClick={() => setPref(next)}
     >
-      ◐
-    </button>
+      <Icon size={size === 'md' ? 20 : 18} strokeWidth={1.75} aria-hidden />
+    </IconButton>
+  );
+}
+
+/** Light / Dark / System as a segmented control; `iconsOnly` for tight footers (28 px). */
+export function ThemeSegmented({ iconsOnly, className }: { iconsOnly?: boolean; className?: string }) {
+  const [pref, setPref] = useThemePref();
+  return (
+    <Segmented<ThemePref>
+      label="Theme"
+      value={pref}
+      onChange={setPref}
+      size={iconsOnly ? 'sm' : 'md'}
+      check={!iconsOnly}
+      className={className}
+      options={(['light', 'dark', 'system'] as const).map((p) => {
+        const Icon = ICON[p];
+        return {
+          value: p,
+          ariaLabel: iconsOnly ? THEME_LABEL[p] : undefined,
+          label: iconsOnly ? <Icon size={16} strokeWidth={1.75} aria-hidden /> : THEME_LABEL[p],
+        };
+      })}
+    />
   );
 }
 
