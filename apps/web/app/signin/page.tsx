@@ -1,6 +1,7 @@
 'use client';
 
-// Sign-in (FOUNDATION wired it to better-auth; WEB-preview-share-settings owns the file and may restyle it).
+// Sign-in (DESIGN.md 6.1): an always-dark art pane + a 360 px column with the enabled providers,
+// the dev-only email block, inline errors (no toasts) and `?next=` honoured.
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { mutate } from 'swr';
@@ -9,9 +10,10 @@ import { ThemeToggle } from '@/components/shell/theme-toggle';
 import { Button } from '@/components/ui/button';
 import { VoxelArt } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
+import { isApiError } from '@/lib/api/client';
 import { api } from '@/lib/api/endpoints';
 import { useConfig, useMe } from '@/lib/api/hooks';
-import { signInSocial } from '@/lib/auth-client';
+import { authClient } from '@/lib/auth-client';
 
 /** Only same-origin relative paths are honoured as `?next=`. */
 function safeNext(raw: string | null): string {
@@ -35,6 +37,32 @@ function GitHubGlyph() {
   );
 }
 
+/**
+ * The art pane stays dark in both themes (DESIGN.md 6.1: "always-dark pane, --pt-950 pinned"),
+ * so it re-declares the dark values of the tokens it uses instead of inheriting the light theme.
+ */
+const DARK_PANE = {
+  '--pt-600': '#6e6e76',
+  '--ea-top': '#2c2c2c',
+  '--ea-mid': '#242424',
+  '--ea-left': '#1c1c1c',
+  '--ea-line': '#454545',
+  '--ea-line-dim': '#303030',
+  '--ea-accent': '#a78bfa',
+  '--ea-p-face': '#3a3a3a',
+  '--ea-p-line': '#585858',
+  '--ea-shadow': '#000',
+  background: '#0a0a0c',
+  borderColor: '#1e1e22',
+} as React.CSSProperties;
+
+/** Inline error copy for a failed sign-in call. */
+function signInError(e: unknown, fallback: string): string {
+  if (isApiError(e) && (e.status === 429 || e.code === 'rate_limited')) return 'Too many sign-in attempts. Try again in a minute.';
+  if (isApiError(e) && e.status === 0) return "Can't reach the server. Check your connection and try again.";
+  return e instanceof Error && e.message ? e.message : fallback;
+}
+
 function SignIn() {
   const router = useRouter();
   const params = useSearchParams();
@@ -53,10 +81,15 @@ function SignIn() {
     setBusy(provider);
     setError(null);
     try {
-      const callback = `${window.location.origin}${next}`;
-      await signInSocial(provider, callback);
+      const origin = window.location.origin;
+      const res = await authClient().signIn.social({
+        provider,
+        callbackURL: `${origin}${next}`,
+        errorCallbackURL: `${origin}/signin?error=oauth&next=${encodeURIComponent(next)}`,
+      });
+      if (res?.error) throw new Error(res.error.message || 'Could not start sign-in.');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not start sign-in.');
+      setError(signInError(e, 'Could not start sign-in.'));
       setBusy(null);
     }
   };
@@ -70,7 +103,7 @@ function SignIn() {
       await mutate('me', undefined, { revalidate: true });
       router.replace(next);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Dev sign-in failed.');
+      setError(signInError(err, 'Dev sign-in failed.'));
       setBusy(null);
     }
   };
@@ -81,14 +114,14 @@ function SignIn() {
   return (
     <div className="grid h-dvh grid-cols-1 overflow-auto min-[720px]:grid-cols-2">
       <aside
-        className="relative flex h-[120px] items-center justify-center overflow-hidden border-b border-[#1e1e22] min-[720px]:h-auto min-[720px]:border-b-0 min-[720px]:border-r"
-        style={{ background: '#0a0a0c' }}
+        className="relative flex h-[120px] items-center justify-center overflow-hidden border-b min-[720px]:h-auto min-[720px]:border-b-0 min-[720px]:border-r"
+        style={DARK_PANE}
         aria-hidden
       >
         <div className="scale-[0.55] min-[720px]:scale-150">
           <VoxelArt float={false} />
         </div>
-        <div className="absolute bottom-6 left-6 hidden font-mono text-[10px] uppercase tracking-[0.18em] text-[#6e6e76] min-[720px]:block">
+        <div className="vx-label absolute bottom-6 left-6 hidden min-[720px]:block" style={{ color: 'var(--pt-600)' }}>
           The dashed slab is the version you can go back to.
         </div>
       </aside>
@@ -99,6 +132,12 @@ function SignIn() {
           <p className="vx-body mt-3 text-vx-text-3">A personal drive you can scrub back through time, compare, restore and share.</p>
 
           <div className="mt-8 flex flex-col gap-2">
+            {!config && !configError ? (
+              <>
+                <span className="skeleton block h-10 w-full" />
+                <span className="skeleton block h-10 w-full" />
+              </>
+            ) : null}
             {providers.includes('google') ? (
               <Button size="lg" icon={<GoogleGlyph />} onClick={() => social('google')} loading={busy === 'google'} disabled={!!busy}>
                 Continue with Google
@@ -132,7 +171,9 @@ function SignIn() {
             </p>
           ) : null}
           {configError ? (
-            <p className="mt-6 border-l-2 border-vx-danger pl-2 text-[12px] text-vx-danger">Cannot reach the API. Is it running on port 4101?</p>
+            <p role="alert" className="mt-6 border-l-2 border-vx-danger pl-2 text-[12px] text-vx-danger">
+              Can&apos;t reach the server right now. Reload the page in a moment.
+            </p>
           ) : null}
           {error ? (
             <p role="alert" className="mt-4 border-l-2 border-vx-danger pl-2 text-[12px] text-vx-danger">
