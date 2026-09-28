@@ -1,0 +1,41 @@
+import { METER_AMBER, METER_RED } from './constants';
+
+/** Plain unit labels on 1024-based maths (the UI shows "3.2 GB of 10 GB used"). */
+const UNITS = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+
+/** 1024-based sizes with plain labels: 0 → "0 B", 4404019 → "4.2 MB". Negative numbers keep their sign. */
+export function formatBytes(n: number, opts: { digits?: number } = {}): string {
+  if (!Number.isFinite(n)) return '—';
+  const sign = n < 0 ? '−' : '';
+  let v = Math.abs(n);
+  let u = 0;
+  while (v >= 1024 && u < UNITS.length - 1) {
+    v /= 1024;
+    u++;
+  }
+  if (u === 0) return `${sign}${Math.round(v)} B`;
+  const digits = opts.digits ?? (v >= 100 ? 0 : 1);
+  return `${sign}${v.toFixed(digits).replace(/\.0+$/, '')} ${UNITS[u]}`;
+}
+
+export type MeterLevel = 'ok' | 'amber' | 'red';
+
+/** Quota meter level: amber at ≥80 %, red at ≥95 %. */
+export function meterLevel(used: number, quota: number): MeterLevel {
+  if (quota <= 0) return used > 0 ? 'red' : 'ok';
+  const r = used / quota;
+  if (r >= METER_RED) return 'red';
+  if (r >= METER_AMBER) return 'amber';
+  return 'ok';
+}
+
+/**
+ * `vc_01J8ZQ3…QRSTVW` → `@qrstvw…` style short id: the LAST 7 characters.
+ * A ULID starts with its millisecond timestamp, so leading characters are
+ * shared by every commit made within ~30 s; the random tail tells them apart.
+ */
+export function shortId(id: string | null | undefined): string {
+  if (!id) return '';
+  const bare = id.replace(/^[a-z]{2,4}_/i, '');
+  return '@' + bare.slice(-7).toLowerCase();
+}

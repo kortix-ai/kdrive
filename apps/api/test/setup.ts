@@ -1,0 +1,29 @@
+// Preloaded by bunfig.toml before any test file. Forces the test environment
+// (overriding anything Bun auto-loaded from .env), migrates volumes_test once,
+// and gives every test run a fresh emulator data dir.
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+
+const dataDir = mkdtempSync(path.join(tmpdir(), 'volumes-test-'));
+
+Object.assign(process.env, {
+  NODE_ENV: 'test',
+  DATABASE_URL: process.env.VOLUMES_TEST_DATABASE_URL ?? 'postgresql://localhost:5432/volumes_test',
+  VOLUMES_STORAGE: 'emulated',
+  VOLUMES_DATA_DIR: dataDir,
+  VOLUMES_DEV_LOGIN: '1',
+  BETTER_AUTH_URL: 'http://localhost:4100',
+  BETTER_AUTH_SECRET: 'volumes-test-secret-0000000000000000000000000000',
+  VOLUMES_ADMIN_EMAILS: 'admin@test.local',
+  VOLUMES_DEFAULT_QUOTA_BYTES: String(10 * 1024 ** 3),
+  GOOGLE_CLIENT_ID: '',
+  GOOGLE_CLIENT_SECRET: '',
+  GITHUB_CLIENT_ID: '',
+  GITHUB_CLIENT_SECRET: '',
+});
+
+const { runMigrations } = await import('../src/db/migrate');
+await runMigrations(process.env.DATABASE_URL!);
+
+export const TEST_DATA_DIR = dataDir;

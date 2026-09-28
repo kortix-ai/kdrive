@@ -1,0 +1,31 @@
+{
+  "name": "@volumes/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --env-file=../../.env --env-file=.env --watch src/server.ts",
+    "start": "NODE_ENV=production bun --env-file=../../.env --env-file=.env src/server.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "bun --env-file=../../.env --env-file=.env x drizzle-kit generate",
+    "db:migrate": "bun --env-file=../../.env --env-file=.env src/db/migrate.ts",
+    "seed": "bun --env-file=../../.env --env-file=.env scripts/seed-demo.ts"
+  },
+  "dependencies": {
+    "@platinum-dev/sdk": "0.7.0",
+    "@volumes/shared": "workspace:*",
+    "better-auth": "1.6.24",
+    "client-zip": "^2.5",
+    "drizzle-orm": "^0.45.2",
+    "hono": "^4.12",
+    "postgres": "^3.4.5",
+    "ulid": "^2.3",
+    "zod": "^4"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.2",
+    "drizzle-kit": "^0.31.4",
+    "typescript": "^5.7"
+  }
+}

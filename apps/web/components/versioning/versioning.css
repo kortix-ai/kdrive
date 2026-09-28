@@ -1,0 +1,90 @@
+/* Versioning surfaces and motion (DESIGN-v2 §6.3, §6.4, §6.7, §8).
+ * Tokens only (--vx-*); the global reduced-motion guard in globals.css shortens every animation. */
+
+/* After a mutation the new @commit sits on an accent-wash pill that fades out over 600 ms. */
+@keyframes vxvStamp {
+  0%, 30% { background-color: var(--vx-accent-wash); color: var(--vx-on-accent-wash); }
+  100% { background-color: transparent; }
+}
+.vxv-stamp { animation: vxvStamp 600ms var(--vx-ease); }
+
+/* A new dot grows 0 → size (160 ms) with one accent-wash halo pulse (400 ms). */
+@keyframes vxvGrow { from { transform: translate(-50%, -50%) scale(0); } to { transform: translate(-50%, -50%) scale(1); } }
+.vxv-grow { animation: vxvGrow var(--vx-dur-2) var(--vx-ease); }
+@keyframes vxvPulse {
+  from { box-shadow: 0 0 0 4px var(--vx-accent-wash); }
+  50% { box-shadow: 0 0 0 10px var(--vx-accent-wash); }
+  to { box-shadow: 0 0 0 4px var(--vx-accent-wash); }
+}
+.vxv-pulse { animation: vxvGrow var(--vx-dur-2) var(--vx-ease), vxvPulse 400ms var(--vx-ease) 1; }
+
+/* Entering the past: the banner slides down 8 px and fades (160 ms). */
+@keyframes vxvBannerIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+.vxv-banner { animation: vxvBannerIn var(--vx-dur-2) var(--vx-ease); }
+
+/* 2 px amber indeterminate bar along the sheet's top edge while the next frame loads. */
+@keyframes vxvIndeterminate { 0% { transform: translateX(-100%); } 100% { transform: translateX(250%); } }
+.vxv-progress { position: absolute; left: 0; right: 0; top: 0; height: 2px; overflow: hidden; pointer-events: none; z-index: 2; }
+.vxv-progress::after {
+  content: ''; position: absolute; inset: 0; width: 40%; border-radius: 2px; background: var(--vx-past-dot);
+  animation: vxvIndeterminate 900ms linear infinite;
+}
+
+/* The strip's grip on the viewed dot: surface centre, 4 px past-dot ring, 3 px halo, shadow-2. */
+.vxv-grip {
+  background: var(--vx-surface);
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 4px var(--vx-past-dot), 0 0 0 3px var(--vx-past-halo), var(--vx-shadow-2);
+  cursor: grab;
+}
+.vxv-grip:active { cursor: grabbing; }
+.vxv-grip:focus-visible { outline: 2px solid var(--vx-accent-edge); outline-offset: 4px; }
+
+/* Image swipe handle: a 32 px white disc on the divider, labelled A | B. */
+.vxv-handle {
+  background: var(--vx-surface);
+  color: var(--vx-text-2);
+  border-radius: 999px;
+  box-shadow: 0 0 0 1px var(--vx-hair), var(--vx-shadow-2);
+}
+.vxv-handle:focus-visible { outline: 2px solid var(--vx-accent-edge); outline-offset: 2px; }
+
+/* Checkerboard wells behind images (8 px squares of surface-2 / surface-3). */
+.vxv-checker {
+  background-color: var(--vx-surface-2);
+  background-image: conic-gradient(var(--vx-surface-3) 25%, transparent 0 50%, var(--vx-surface-3) 0 75%, transparent 0);
+  background-size: 16px 16px;
+}
+
+/* Unmatched filler lines in a split diff: hatched surface-2. */
+.vxv-filler { background-image: repeating-linear-gradient(135deg, var(--vx-surface-2) 0 4px, transparent 4px 8px); }
+
+/* Rows that collapse after a restore (160 ms). */
+.vxv-collapse { overflow: hidden; transition: height var(--vx-dur-2) var(--vx-ease), opacity var(--vx-dur-1) ease-out, background-color var(--vx-dur-1) var(--vx-ease); }
+.vxv-collapse[data-collapsing='true'] { height: 0 !important; min-height: 0 !important; opacity: 0; }
+
+/* Hidden scrollbar for the horizontally scrolling strip track. */
+.vxv-noscroll { scrollbar-width: none; }
+.vxv-noscroll::-webkit-scrollbar { display: none; }
+
+/* Diff words: a 3 px rounded wash; removed words are also struck through. */
+.vxv-w-add { background: var(--vx-add-word); color: var(--vx-add-word-fg); border-radius: 3px; }
+.vxv-w-del { background: var(--vx-del-word); color: var(--vx-del-word-fg); border-radius: 3px; text-decoration: line-through; text-decoration-thickness: 1px; }
+
+/* The grip glides to the head when leaving the past (its only animated move). */
+.vxv-glide { transition: left var(--vx-dur-3) var(--vx-ease); }
+
+/* Fade-in for tooltip cards and inline confirms (120 ms). */
+@keyframes vxvFade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.vxv-fade { animation: vxvFade var(--vx-dur-1) var(--vx-ease); }
+
+/* Hover-revealed actions (rows): shown on hover or keyboard focus; always shown on touch. */
+.vxv-reveal { opacity: 0; transition: opacity var(--vx-dur-1) var(--vx-ease); }
+.group:hover .vxv-reveal, .group:focus-within .vxv-reveal { opacity: 1; }
+@media (hover: none) { .vxv-reveal { opacity: 1; } }
+
+/* Phones: the strip container becomes a floating 56 px pill (DESIGN-v2 §7). */
+@media (max-width: 720px) {
+  .vx-content > .vx-strip { border-radius: 999px; background: var(--vx-float); box-shadow: var(--vx-shadow-2); }
+  .vx-content > .vx-strip.is-past { background: var(--vx-past-wash); box-shadow: var(--vx-shadow-2); }
+}

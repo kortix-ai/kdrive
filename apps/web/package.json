@@ -1,0 +1,40 @@
+{
+  "name": "@volumes/web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -H 127.0.0.1 -p 4100",
+    "build": "next build",
+    "start": "next start -p 4100",
+    "typecheck": "next typegen && tsc --noEmit",
+    "test": "bun test lib components"
+  },
+  "dependencies": {
+    "@tanstack/react-virtual": "^3",
+    "@volumes/shared": "workspace:*",
+    "better-auth": "1.6.24",
+    "date-fns": "^4",
+    "diff": "^8",
+    "lucide-react": "^1",
+    "next": "16.2.6",
+    "papaparse": "^5.5",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "react-markdown": "^10",
+    "remark-gfm": "^4",
+    "shiki": "^4",
+    "swr": "^2",
+    "zod": "^4",
+    "zustand": "^5"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/bun": "^1.4.2",
+    "@types/node": "^20",
+    "@types/papaparse": "^5.5.2",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "tailwindcss": "^4",
+    "typescript": "^5.7"
+  }
+}

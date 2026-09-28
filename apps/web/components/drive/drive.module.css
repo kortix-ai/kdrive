@@ -1,0 +1,137 @@
+/* WEB-drive shapes and motion Tailwind can't express (DESIGN-v2 §5, §6.2, §6.13, §8).
+   Durations stay ≤ 240 ms; the global reduced-motion rule turns them off (progress keeps moving). */
+
+/* delete: the row collapses (160 ms) before it leaves the list; Undo re-expands it */
+@keyframes vxCollapse {
+  from { opacity: 1; transform: scaleY(1); }
+  to { opacity: 0; transform: scaleY(0.15); }
+}
+.removing { animation: vxCollapse 160ms var(--vx-ease-exit) forwards; transform-origin: top; pointer-events: none; }
+
+/* pending rename / move / create: a 2 px accent bar sweeping along the bottom of the row */
+@keyframes vxSweep {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(340%); }
+}
+.pendingLine {
+  position: absolute; left: 8px; right: 8px; bottom: 0; height: 2px; overflow: hidden; pointer-events: none;
+  border-radius: 2px; background: var(--vx-accent-wash);
+}
+.pendingLine::after {
+  content: ''; position: absolute; top: 0; left: 0; width: 30%; height: 2px; border-radius: 2px; background: var(--vx-accent);
+  animation: vxSweep 1.1s linear infinite;
+}
+
+/* a frame is loading: a 2 px indeterminate bar along the top of the sheet
+   (amber while scrubbing the past, accent at now) */
+.loadLine { position: absolute; left: 12px; right: 12px; top: 0; height: 2px; overflow: hidden; pointer-events: none; z-index: 5; border-radius: 2px; }
+.loadLine::after {
+  content: ''; position: absolute; top: 0; left: 0; width: 30%; height: 2px; border-radius: 2px; background: var(--vx-accent);
+  animation: vxSweep 0.9s linear infinite;
+}
+.loadLine.past::after { background: var(--vx-past-dot); }
+
+/* column header ⇄ selection bar: a 120 ms cross-fade */
+@keyframes vxFade { from { opacity: 0; } to { opacity: 1; } }
+.selIn { animation: vxFade 120ms var(--vx-ease); }
+/* drift chips and the search chip fade in (no stagger) */
+.fadeIn { animation: vxFade 120ms var(--vx-ease); }
+
+/* Hover-revealed bits (checkbox, row actions, gone-now restore). Also shown on keyboard focus,
+   while anything is selected, and always on touch screens. */
+.reveal { opacity: 0; transition: opacity 120ms var(--vx-ease); }
+.item:hover .reveal,
+.item:focus-within .reveal,
+.item[data-focused='true'] .reveal,
+.item[aria-selected='true'] .reveal,
+.anySelected .revealCheck { opacity: 1; }
+/* Touch screens have no hover: actions stay visible; checkboxes appear once something is selected. */
+@media (hover: none) { .reveal:not(.revealCheck) { opacity: 1; } }
+
+/* Grid cards: the type icon swaps to the checkbox on hover, focus or selection. */
+.item:hover .swapIcon,
+.item:focus-within .swapIcon,
+.item[data-focused='true'] .swapIcon,
+.item[aria-selected='true'] .swapIcon,
+.anySelected .swapIcon { visibility: hidden; }
+@media (hover: none) {
+  .item:hover .swapIcon { visibility: visible; }
+  .item[aria-selected='true'] .swapIcon, .anySelected .swapIcon { visibility: hidden; }
+}
+
+/* Row actions over compact columns (panel or rail open): they cover Modified and Size entirely
+   on a backing in the row's own colour, fading 24 px to the left. Never clip a date mid-string. */
+.actsOverlay {
+  /* inset 2 px so the row's inset focus ring stays whole under the backing */
+  position: absolute; top: 2px; bottom: 2px; right: 2px;
+  display: flex; align-items: center; justify-content: flex-end; gap: 0;
+  padding: 0 6px 0 32px;
+  width: calc(200px + 32px + 8px);
+  border-radius: 0 var(--vx-r-xs) var(--vx-r-xs) 0;
+  background: linear-gradient(90deg, transparent 0, var(--acts-bg, var(--vx-hover)) 24px);
+  pointer-events: none;
+}
+.item:hover .actsOverlay,
+.item:focus-within .actsOverlay,
+.item[data-focused='true'] .actsOverlay { pointer-events: auto; }
+.item[aria-selected='true'] .actsOverlay { --acts-bg: var(--vx-selection); }
+.item[aria-selected='true']:not(:hover):not(:focus-within):not([data-focused='true']) .actsOverlay { opacity: 0; pointer-events: none; }
+
+/* grid: the file card's thumbnail mat (r8) */
+.mat { position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden; border-radius: var(--vx-r-sm); background: var(--vx-mat); }
+.matInner { position: absolute; inset: 0; }
+.pastFilter { filter: var(--vx-past-filter); }
+
+/* video: a dark mat with a 40 px white play disc */
+.videoMat { background: var(--vx-ft-video); }
+.playDisc {
+  display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 999px;
+  background: var(--vx-surface); color: var(--vx-ft-video); box-shadow: var(--vx-shadow-2);
+}
+:global(:root[data-vx-theme='dark']) .videoMat { background: var(--vx-mat); }
+:global(:root[data-vx-theme='dark']) .playDisc { background: var(--vx-text-1); color: var(--vx-mat); }
+
+/* OS drop target: a 2 px dashed accent ring with a 30 % accent-wash tint that moves to the
+   folder row / card / crumb under the pointer. Danger over quota, amber in the past. */
+.dropFrame {
+  position: fixed; pointer-events: none;
+  --drop-edge: var(--vx-accent-edge);
+  --drop-tint: color-mix(in srgb, var(--vx-accent-wash) 30%, transparent);
+  transition: left 120ms var(--vx-ease), top 120ms var(--vx-ease), width 120ms var(--vx-ease), height 120ms var(--vx-ease), border-radius 120ms var(--vx-ease);
+  animation: vxFade 120ms var(--vx-ease);
+}
+.dropFrame::before {
+  content: ''; position: absolute; inset: 0; border-radius: inherit;
+  background: var(--drop-tint);
+  outline: 2px dashed var(--drop-edge); outline-offset: -2px;
+}
+.dropFrame.folder { --drop-tint: color-mix(in srgb, var(--vx-accent-wash) 60%, transparent); }
+.dropFrame.danger { --drop-edge: var(--vx-danger); --drop-tint: color-mix(in srgb, var(--vx-danger-wash) 45%, transparent); }
+.dropFrame.past { --drop-edge: var(--vx-past-dot); --drop-tint: color-mix(in srgb, var(--vx-past-wash) 50%, transparent); }
+
+/* tray rows enter */
+@keyframes vxRowIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+.rowIn { animation: vxRowIn 160ms var(--vx-ease); }
+
+/* Upload tray: bottom-right of main, 16 px above the strip (phones: above the + New FAB too). */
+.tray { right: 32px; bottom: 32px; }
+.tray.onDrive { bottom: calc(var(--vx-strip-h) + 32px); }
+@media (max-width: 720px) {
+  .tray { right: 16px; left: 16px; bottom: 16px; }
+  .tray.onDrive { bottom: calc(var(--vx-strip-h) + 16px + 16px + 56px + 12px); }
+}
+
+/* Search palette: expands in place from the search pill. */
+.palette { position: fixed; }
+
+/* hide scrollbars on horizontally scrolling bits (crumbs on narrow sheets) */
+.noScrollbar { scrollbar-width: none; }
+.noScrollbar::-webkit-scrollbar { display: none; }
+
+/* Phones: the list drops its Modified column (rows carry a meta line instead). */
+@media (max-width: 720px) {
+  :global(.vx-col-mtime) { display: none; }
+}
