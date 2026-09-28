@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start -p 4100",
     "typecheck": "next typegen && tsc --noEmit",
-    "test": "bun test lib"
+    "test": "bun test lib components"
   },
   "dependencies": {
     "@tanstack/react-virtual": "^3",
