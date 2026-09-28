@@ -67,7 +67,8 @@ export async function uploadSummary(ws: WorkspaceCtx, r: Pick<ResolvedUploadPlan
     return `Created ${plural(dirs.length, 'folder')}`;
   }
   if (files.length === 1 && r.replaced.length === 1) return `Replaced ${basename(files[0])}`;
-  const base = commonDir([...files.map((p) => dirname(p)), ...dirs.map((p) => dirname(p))]);
+  // An uploaded dir is itself part of the upload, so it counts as a folder path, not its parent.
+  const base = commonDir([...files.map((p) => dirname(p)), ...dirs]);
   // Climb to the topmost folder that does not exist yet: that is the uploaded folder.
   let top: string | null = null;
   for (let cur = base; cur !== '/'; cur = dirname(cur)) {
