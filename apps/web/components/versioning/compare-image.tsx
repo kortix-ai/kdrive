@@ -1,0 +1,212 @@
+'use client';
+
+import { useCallback, useRef, useState } from 'react';
+import { formatBytes, type FileSide } from '@volumes/shared';
+import { cx } from '@/components/ui/cx';
+import { useHotkeys } from '@/lib/keys';
+import { MissingSide, SummaryBar, type ImageMode } from './compare-header';
+import './versioning.css';
+
+type Dims = { w: number; h: number } | null;
+type View = { zoom: number; x: number; y: number };
+const FIT: View = { zoom: 1, x: 0, y: 0 };
+
+const dimText = (d: Dims) => (d ? `${d.w}×${d.h}` : '…');
+
+/** Images: side-by-side (shared zoom/pan) or swipe with the brushed-platinum grip. */
+export function CompareImage({ a, b, mode }: { a: FileSide | null; b: FileSide | null; mode: ImageMode }) {
+  const [da, setDa] = useState<Dims>(null);
+  const [db, setDb] = useState<Dims>(null);
+  const [failed, setFailed] = useState<{ a?: boolean; b?: boolean }>({});
+  const swipe = mode === 'swipe' && !!a && !!b;
+
+  const sizes = a && b ? `${formatBytes(a.size)} → ${formatBytes(b.size)}` : a ? formatBytes(a.size) : b ? formatBytes(b.size) : '';
+  const dims = a && b ? (da && db && (da.w !== db.w || da.h !== db.h) ? `${dimText(da)} → ${dimText(db)}` : dimText(db ?? da)) : dimText(da ?? db);
+  const same = !!a && !!b && !!a.version && a.version === b.version;
+
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <SummaryBar right={swipe ? <span className="vx-micro text-vx-text-4">drag or ← → · ⇧ ×10 · double-click centres</span> : <span className="vx-micro text-vx-text-4">scroll or + − to zoom · drag to pan · 0 fits</span>}>
+        {sizes}
+        {dims ? ` · ${dims}` : ''}
+        {same ? ' · identical content' : ''}
+      </SummaryBar>
+      {swipe ? (
+        <Swipe a={a!} b={b!} onDims={(k, d) => (k === 'a' ? setDa(d) : setDb(d))} />
+      ) : (
+        <SideBySide a={a} b={b} da={da} db={db} failed={failed} onDims={(k, d) => (k === 'a' ? setDa(d) : setDb(d))} onFail={(k) => setFailed((f) => ({ ...f, [k]: true }))} />
+      )}
+    </div>
+  );
+}
+
+function SideBySide({
+  a,
+  b,
+  da,
+  db,
+  failed,
+  onDims,
+  onFail,
+}: {
+  a: FileSide | null;
+  b: FileSide | null;
+  da: Dims;
+  db: Dims;
+  failed: { a?: boolean; b?: boolean };
+  onDims: (k: 'a' | 'b', d: Dims) => void;
+  onFail: (k: 'a' | 'b') => void;
+}) {
+  const [view, setView] = useState<View>(FIT);
+  const drag = useRef<{ x: number; y: number; vx: number; vy: number } | null>(null);
+  const zoomBy = useCallback((f: number) => setView((v) => ({ ...v, zoom: Math.max(0.25, Math.min(8, v.zoom * f)) })), []);
+  useHotkeys({ plus: () => zoomBy(1.25), '=': () => zoomBy(1.25), '-': () => zoomBy(0.8), '0': () => setView(FIT) });
+
+  const frame = (k: 'a' | 'b', side: FileSide | null, d: Dims) => (
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <div className="vx-label flex h-7 shrink-0 items-center border-b border-vx-hair px-3">{k.toUpperCase()}</div>
+      {side ? (
+        <div
+          className="vxv-checker relative min-h-0 flex-1 cursor-grab overflow-hidden active:cursor-grabbing"
+          onWheel={(e) => zoomBy(e.deltaY < 0 ? 1.1 : 1 / 1.1)}
+          onPointerDown={(e) => {
+            (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+            drag.current = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y };
+          }}
+          onPointerMove={(e) => {
+            const s = drag.current;
+            if (s) setView((v) => ({ ...v, x: s.vx + (e.clientX - s.x), y: s.vy + (e.clientY - s.y) }));
+          }}
+          onPointerUp={() => (drag.current = null)}
+          onDoubleClick={() => setView(FIT)}
+        >
+          {failed[k] ? (
+            <div className="absolute inset-0 flex items-center justify-center vx-meta text-vx-text-3">Couldn&apos;t load this image</div>
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={side.contentUrl}
+              alt={`Version ${k.toUpperCase()}`}
+              draggable={false}
+              onLoad={(e) => onDims(k, { w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
+              onError={() => onFail(k)}
+              className="absolute inset-0 m-auto max-h-full max-w-full select-none object-contain"
+              style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})` }}
+            />
+          )}
+        </div>
+      ) : (
+        <MissingSide which={k === 'a' ? 'A' : 'B'} className="m-6 flex-1" />
+      )}
+      <div className="vx-meta flex h-7 shrink-0 items-center gap-2 border-t border-vx-hair px-3 text-vx-text-3">
+        {side ? (
+          <>
+            <span className="tabular-nums">{dimText(d)}</span>
+            <span className="text-vx-text-4">·</span>
+            <span>{formatBytes(side.size)}</span>
+          </>
+        ) : (
+          '—'
+        )}
+      </div>
+    </div>
+  );
+  return (
+    <div className="flex min-h-0 flex-1">
+      {frame('a', a, da)}
+      <div className="w-px shrink-0 bg-vx-hair" />
+      {frame('b', b, db)}
+    </div>
+  );
+}
+
+function Swipe({ a, b, onDims }: { a: FileSide; b: FileSide; onDims: (k: 'a' | 'b', d: Dims) => void }) {
+  const [pos, setPos] = useState(50);
+  const box = useRef<HTMLDivElement>(null);
+  const dragging = useRef(false);
+  const [active, setActive] = useState(false);
+  const setFromX = (clientX: number) => {
+    const r = box.current?.getBoundingClientRect();
+    if (!r || !r.width) return;
+    setPos(Math.max(0, Math.min(100, ((clientX - r.left) / r.width) * 100)));
+  };
+  const nudge = (d: number) => setPos((p) => Math.max(0, Math.min(100, p + d)));
+  // shift variants first: a plain 'arrowleft' spec also matches with Shift held
+  useHotkeys({
+    'shift+arrowleft': () => nudge(-10),
+    'shift+arrowright': () => nudge(10),
+    arrowleft: () => nudge(-1),
+    arrowright: () => nudge(1),
+  });
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="vx-label flex h-7 shrink-0 items-center justify-between border-b border-vx-hair px-3">
+        <span>A</span>
+        <span className="tabular-nums text-vx-text-4">{Math.round(pos)} %</span>
+        <span>B</span>
+      </div>
+      <div
+        ref={box}
+        className="vxv-checker relative min-h-0 flex-1 cursor-ew-resize select-none overflow-hidden"
+        onPointerDown={(e) => {
+          (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+          dragging.current = true;
+          setActive(true);
+          setFromX(e.clientX);
+        }}
+        onPointerMove={(e) => dragging.current && setFromX(e.clientX)}
+        onPointerUp={() => {
+          dragging.current = false;
+          setActive(false);
+        }}
+        onDoubleClick={() => setPos(50)}
+      >
+        {/* B underneath, A on top clipped to the left of the divider */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={b.contentUrl}
+          alt="Version B"
+          draggable={false}
+          onLoad={(e) => onDims('b', { w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
+          className="absolute inset-0 h-full w-full object-contain"
+        />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={a.contentUrl}
+          alt="Version A"
+          draggable={false}
+          onLoad={(e) => onDims('a', { w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
+          className="absolute inset-0 h-full w-full object-contain"
+          style={{ clipPath: `inset(0 ${100 - pos}% 0 0)` }}
+        />
+        <div className="pointer-events-none absolute inset-y-0 w-px bg-vx-text-1" style={{ left: `${pos}%` }} />
+        <div
+          role="slider"
+          tabIndex={0}
+          aria-label="Swipe between A and B"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.round(pos)}
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+              e.preventDefault();
+              e.stopPropagation();
+              nudge((e.key === 'ArrowLeft' ? -1 : 1) * (e.shiftKey ? 10 : 1));
+            }
+          }}
+          className={cx('vxv-grip vx-inset-focus absolute top-1/2 flex -translate-y-1/2 items-center justify-center', active ? 'h-8 w-[14px]' : 'h-7 w-3')}
+          style={{ left: `calc(${pos}% - ${active ? 7 : 6}px)` }}
+        >
+          <span className="flex flex-col items-center font-mono text-[7px] leading-[8px] text-pt-950" aria-hidden>
+            <span>A</span>
+            <span>│</span>
+            <span>B</span>
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default CompareImage;

@@ -1,0 +1,63 @@
+/* Versioning UI motion + surfaces (DESIGN.md §6.3, §6.4, §6.7, §8, §9).
+ * Tokens only (--vx-*, --pt-*); the global reduced-motion guard in globals.css turns every animation off. */
+
+/* Every change stamps a serial: a 1-frame inverted flash fading back over 200 ms. */
+@keyframes vxvStamp {
+  0% { background-color: var(--vx-text-1); color: var(--vx-text-inv); }
+  100% { background-color: transparent; }
+}
+.vxv-stamp { animation: vxvStamp var(--vx-dur-3) ease-out; }
+
+/* A new tick grows from the baseline (160 ms) with one pulse ring. */
+@keyframes vxvGrow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+.vxv-grow { animation: vxvGrow var(--vx-dur-2) var(--vx-ease); }
+@keyframes vxvPulse {
+  from { box-shadow: 0 0 0 0 var(--vx-text-2); }
+  to { box-shadow: 0 0 0 7px transparent; }
+}
+.vxv-pulse { animation: vxvPulse 400ms ease-out 1; }
+
+/* Entering the past: banner slides down 8 px + fades (160 ms). */
+@keyframes vxvBannerIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+.vxv-banner { animation: vxvBannerIn var(--vx-dur-2) var(--vx-ease); }
+
+/* 1 px amber progress line while the next frame of the drive loads. */
+@keyframes vxvIndeterminate { 0% { transform: translateX(-100%); } 100% { transform: translateX(250%); } }
+.vxv-progress { position: absolute; left: 0; right: 0; bottom: -1px; height: 1px; overflow: hidden; pointer-events: none; }
+.vxv-progress::after {
+  content: ''; position: absolute; inset: 0; width: 40%; background: var(--vx-past);
+  animation: vxvIndeterminate 900ms linear infinite;
+}
+
+/* Brushed-platinum grip: the playhead and the image swipe handle are the same object. */
+.vxv-grip {
+  background: linear-gradient(180deg, var(--pt-50) 0%, var(--pt-200) 28%, var(--pt-500) 58%, var(--pt-300) 78%, var(--pt-100) 100%);
+  box-shadow: inset 0 0 0 1px var(--vx-hair-strong);
+}
+.vxv-grip.is-past { box-shadow: inset 0 0 0 1px var(--vx-past); }
+
+/* Checkerboard behind images (8 px squares). */
+.vxv-checker {
+  background-color: var(--vx-bg);
+  background-image: conic-gradient(var(--vx-surface-2) 25%, transparent 0 50%, var(--vx-surface-2) 0 75%, transparent 0);
+  background-size: 16px 16px;
+}
+
+/* Rows that collapse after a restore / remove (160 ms). */
+.vxv-collapse { overflow: hidden; transition: height var(--vx-dur-2) var(--vx-ease), opacity var(--vx-dur-1) ease-out; }
+.vxv-collapse[data-collapsing='true'] { height: 0 !important; opacity: 0; }
+
+/* Hidden scrollbar for the horizontally scrolling strip track. */
+.vxv-noscroll { scrollbar-width: none; }
+.vxv-noscroll::-webkit-scrollbar { display: none; }
+
+/* Diff words: solid fills, no underline. */
+.vxv-w-add { background: var(--vx-add-word); }
+.vxv-w-del { background: var(--vx-del-word); }
+
+/* Playhead glides to the right edge when leaving the past (its only animated move). */
+.vxv-glide { transition: left var(--vx-dur-3) var(--vx-ease); }
+
+/* Drift/fade-in for entries appearing (120 ms). */
+@keyframes vxvFade { from { opacity: 0; } to { opacity: 1; } }
+.vxv-fade { animation: vxvFade var(--vx-dur-1) ease-out; }
