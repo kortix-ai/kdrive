@@ -95,7 +95,9 @@ function getHighlighter() {
     const h = (await shiki.createHighlighter({
       themes: [CODE_THEME],
       langs: [],
-      engine: shiki.createJavaScriptRegexEngine({ forgiving: true }),
+      // The WASM Oniguruma engine: the JavaScript regex engine tokenises inconsistently under
+      // JavaScriptCore (Safari, Bun), colouring the same line differently from call to call.
+      engine: shiki.createOnigurumaEngine(import('shiki/wasm')),
     })) as unknown as Highlighter;
     const bundled = new Set<string>([...Object.keys(shiki.bundledLanguages), ...Object.keys(shiki.bundledLanguagesAlias ?? {})]);
     return { h, bundled };
