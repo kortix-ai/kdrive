@@ -7,6 +7,9 @@ import { ensureUserBootstrap, touchLastSignIn } from '../services/workspaces';
 import { devLogin } from './dev-login';
 import { bauthAccount, bauthSession, bauthUser, bauthVerification } from './schema';
 
+/** Set by app.ts on every request it hands to better-auth (see clientIp in middleware/rate-limit.ts). */
+export const CLIENT_IP_HEADER = 'x-vx-client-ip';
+
 const logWarn = (what: string) => (e: unknown) => console.warn(`[auth] ${what} failed:`, e instanceof Error ? e.message : e);
 
 /**
@@ -40,9 +43,10 @@ export const auth = betterAuth({
   rateLimit: { enabled: !env.isTest, window: 60, max: 30 },
   advanced: {
     cookiePrefix: 'vx',
-    defaultCookieAttributes: { sameSite: 'lax', httpOnly: true, secure: env.isProd },
-    // The Next rewrite forwards the browser's address in x-forwarded-for.
-    ipAddress: { ipAddressHeaders: ['x-forwarded-for', 'x-real-ip'] },
+    // Secure whenever the public origin is https, whatever NODE_ENV says.
+    useSecureCookies: env.secureCookies,
+    defaultCookieAttributes: { sameSite: 'lax', httpOnly: true, secure: env.secureCookies },
+    ipAddress: { ipAddressHeaders: [CLIENT_IP_HEADER] },
   },
   databaseHooks: {
     user: {

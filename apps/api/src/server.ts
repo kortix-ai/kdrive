@@ -1,5 +1,6 @@
 import { env } from './env';
 import { createApp } from './app';
+import { serveNode } from './lib/node-serve';
 import { getStore, StorageConfigError } from './storage';
 
 function main() {
@@ -14,12 +15,15 @@ function main() {
     throw e;
   }
   const app = createApp();
-  const server = Bun.serve({ port: env.API_PORT, fetch: app.fetch, idleTimeout: 120, maxRequestBodySize: 64 * 1024 * 1024 });
-  const providers = env.providers.length ? env.providers.join(', ') : 'none';
-  console.log(
-    `[volumes-api] listening on http://localhost:${server.port} · storage=${driver} · auth providers=${providers}` +
-      (env.devLoginEnabled ? ' · dev login ON' : ''),
-  );
+  // node:http (not Bun.serve): Bun.serve drops an explicit Content-Length on
+  // streamed bodies, so downloads would lose their size and progress.
+  serveNode(app.fetch, { port: env.API_PORT, hostname: env.API_HOST, maxBodyBytes: 64 * 1024 * 1024 }, (addr) => {
+    const providers = env.providers.length ? env.providers.join(', ') : 'none';
+    console.log(
+      `[volumes-api] listening on http://${addr} · storage=${driver} · auth providers=${providers}` +
+        (env.devLoginEnabled ? ' · dev login ON' : ''),
+    );
+  });
 }
 
 main();

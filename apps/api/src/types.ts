@@ -22,6 +22,8 @@ export interface WorkspaceCtx {
 }
 
 export type AppEnv = {
+  /** Set by the server (lib/node-serve.ts); absent when the app is called in-process (tests, seed). */
+  Bindings: { ip?: string | null };
   Variables: {
     user: SessionUser;
     session: SessionInfo;

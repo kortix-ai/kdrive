@@ -171,3 +171,51 @@ describe('CSRF', () => {
     }
   });
 });
+
+describe('client address and dev sign-in', () => {
+  const signInFrom = (ip: string | null, headers: Record<string, string> = {}) =>
+    makeApp().fetch(
+      new Request('http://localhost:4101/api/auth/dev/sign-in', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', origin: 'http://localhost:4100', ...headers },
+        body: JSON.stringify({ email: 'lan-probe@test.local' }),
+      }),
+      { ip },
+    );
+
+  test('dev sign-in answers only this machine', async () => {
+    expect((await signInFrom('192.168.29.100')).status).toBe(404);
+    // A forged forwarding header through the local rewrite names a non-local client.
+    expect((await signInFrom('127.0.0.1', { 'x-forwarded-for': '10.0.0.7' })).status).toBe(404);
+    // A foreign Origin is refused even from loopback.
+    expect((await signInFrom('127.0.0.1', { origin: 'https://evil.example' })).status).toBe(404);
+    expect((await signInFrom('::ffff:127.0.0.1', { 'x-forwarded-for': '::1' })).status).toBe(200);
+  });
+
+  test('a non-loopback peer cannot pick its rate-limit bucket with x-forwarded-for', async () => {
+    const statuses: number[] = [];
+    for (let i = 0; i < 13; i++) {
+      const r = await makeApp().fetch(
+        new Request('http://localhost:4101/api/public/s/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', { headers: { 'x-forwarded-for': `10.9.9.${i}` } }),
+        { ip: '203.0.113.50' },
+      );
+      statuses.push(r.status);
+    }
+    // All 13 share the peer's bucket (61 would be needed to hit the open limit), and the
+    // unknown token is refused without revealing anything.
+    expect(new Set(statuses)).toEqual(new Set([404]));
+  });
+
+  test('behind the local rewrite only the right-most forwarded hop counts', async () => {
+    const { clientIp } = await import('../../src/middleware/rate-limit');
+    const { Hono } = await import('hono');
+    const app = new Hono<{ Bindings: { ip?: string | null } }>();
+    app.get('/ip', (c) => c.text(clientIp(c)));
+    const ip = async (peer: string | null, xff?: string) =>
+      (await app.fetch(new Request('http://x/ip', { headers: xff ? { 'x-forwarded-for': xff } : {} }), { ip: peer })).text();
+    expect(await ip('127.0.0.1', '1.2.3.4, 198.51.100.7')).toBe('198.51.100.7');
+    expect(await ip('198.51.100.9', '1.2.3.4')).toBe('198.51.100.9');
+    expect(await ip('::1')).toBe('::1');
+    expect(await ip(null)).toBe('local');
+  });
+});

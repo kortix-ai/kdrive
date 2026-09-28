@@ -1,11 +1,12 @@
 import { randomBytes } from 'node:crypto';
 import { Hono } from 'hono';
-import { auth } from './auth';
+import { auth, CLIENT_IP_HEADER } from './auth';
 import { ApiError } from './lib/http';
 import { audit } from './lib/audit';
 import { csrfGuard } from './middleware/csrf';
 import { errorResponse, onError } from './middleware/errors';
-import { checkRateLimit, clientIp, limits } from './middleware/rate-limit';
+import { env } from './env';
+import { checkRateLimit, clientIp, isLoopback, limits, socketIp } from './middleware/rate-limit';
 import { requireAdmin, requireUser, sessionMiddleware } from './middleware/session';
 import { requireWorkspace } from './middleware/workspace';
 import { accountRoutes } from './routes/account';
@@ -25,6 +26,18 @@ import { workspacesRoutes } from './routes/workspaces';
 import type { AppEnv } from './types';
 
 const PUBLIC_PATHS = new Set(['/api/health', '/api/config']);
+/** Block PUTs are bounded by their plan (a hash in `missing`, at most 1 MiB), so they get their own budget. */
+const BLOCK_PUT = /^\/api\/w\/[^/]+\/uploads\/([^/]+)\/blocks\/[^/]+$/;
+
+/** Dev sign-in answers only this machine: a loopback socket, a loopback client and (when sent) a trusted Origin. */
+function devSignInAllowed(c: Parameters<typeof clientIp>[0]): boolean {
+  const peer = socketIp(c);
+  if (peer !== null && !isLoopback(peer)) return false;
+  const ip = clientIp(c);
+  if (ip !== 'local' && !isLoopback(ip)) return false;
+  const origin = c.req.header('origin');
+  return !origin || env.trustedOrigins.includes(origin.replace(/\/$/, ''));
+}
 
 /**
  * Builds the Hono app. Mounts middleware and EVERY route module, so builders
@@ -52,7 +65,9 @@ export function createApp(): Hono<AppEnv> {
 
   // better-auth owns /api/auth/* (its own CSRF / origin checks).
   app.use('/api/auth/dev/sign-in', async (c, next) => {
+    if (!devSignInAllowed(c)) throw new ApiError(404, 'not_found', 'No such route.');
     checkRateLimit({ ...limits.devSignIn, key: (cc) => clientIp(cc) }, c);
+    checkRateLimit({ ...limits.devSignInAll, key: () => 'all' }, c);
     await next();
   });
   app.use('/api/auth/sign-out', async (c, next) => {
@@ -66,7 +81,15 @@ export function createApp(): Hono<AppEnv> {
   });
   app.on(['GET', 'POST'], '/api/auth/*', async (c) => {
     try {
-      return await auth.handler(c.req.raw);
+      // better-auth reads the client address from one header we always set
+      // ourselves (a client-sent value is overwritten), using the same rule as
+      // our own limiters.
+      const raw = c.req.raw;
+      const headers = new Headers(raw.headers);
+      headers.set(CLIENT_IP_HEADER, clientIp(c));
+      // Auth bodies are small JSON: buffer them (re-wrapping a streamed body can stall).
+      const body = raw.method === 'GET' || raw.method === 'HEAD' ? undefined : await raw.arrayBuffer();
+      return await auth.handler(new Request(raw.url, { method: raw.method, headers, body, signal: raw.signal }));
     } catch (e) {
       return errorResponse(c, e);
     }
@@ -80,7 +103,9 @@ export function createApp(): Hono<AppEnv> {
     if (PUBLIC_PATHS.has(p) || p.startsWith('/api/public/') || p === '/api/public') return next();
     return requireUser(c, async () => {
       const u = c.get('user');
-      checkRateLimit({ ...limits.user, key: () => u.id }, c);
+      const block = c.req.method === 'PUT' ? BLOCK_PUT.exec(p) : null;
+      if (block) checkRateLimit({ ...limits.blockPut, key: () => `${u.id}|${block[1]}` }, c);
+      else checkRateLimit({ ...limits.user, key: () => u.id }, c);
       await next();
     });
   });

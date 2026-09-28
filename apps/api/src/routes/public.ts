@@ -18,6 +18,7 @@ import { streamFile, streamZip } from '../services/content';
 import { linkDisplayName, recordLinkOpen, resolvePublicLinkFull, type PublicLink } from '../services/links';
 import { listDir, statOrNull } from '../services/tree';
 import { getStore } from '../storage';
+import type { FileStat } from '../storage/types';
 import type { AppEnv } from '../types';
 
 /**
@@ -35,6 +36,21 @@ publicRoutes.use('*', async (c, next) => {
 });
 
 const notFound = () => new ApiError(404, 'not_found', 'Nothing is shared at this address.');
+
+/**
+ * Unknown tokens, counted across every client: forwarding headers can be
+ * forged in front of the web app's rewrite, so guessing is also bounded globally.
+ */
+const TOKEN_MISS_ALL = { name: 'link-miss-all', capacity: 600, refillPerSec: 5 } as const;
+
+async function resolveLink(c: Context, token: string): Promise<PublicLink> {
+  try {
+    return await resolvePublicLinkFull(token);
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 404) checkRateLimit({ ...TOKEN_MISS_ALL, key: () => 'all' }, c);
+    throw e;
+  }
+}
 
 /** Link opens: 60/min per IP+token and 600/min per token (architecture §6.1). */
 function limitOpen(c: Context, token: string): void {
@@ -73,6 +89,17 @@ function resolveInside(pl: PublicLink, rawRel: string | undefined): string {
   return abs;
 }
 
+/**
+ * The link root at the link's version. It must still be the kind of item that
+ * was shared: a file link whose path now holds a folder (or the reverse) is
+ * gone, on every route, so nothing that happens to sit there is ever served.
+ */
+async function linkRoot(pl: PublicLink): Promise<FileStat> {
+  const st = await statOrNull(pl.ws, pl.link.path, pl.at);
+  if (!st || st.type !== pl.link.targetType) throw notFound();
+  return st;
+}
+
 function flag(c: Context, name: string): boolean {
   const v = FlagSchema.safeParse(c.req.query(name));
   return v.success && (v.data === '1' || v.data === 'true');
@@ -81,10 +108,8 @@ function flag(c: Context, name: string): boolean {
 publicRoutes.get('/s/:token', async (c) => {
   const token = c.req.param('token');
   limitOpen(c, token);
-  const pl = await resolvePublicLinkFull(token);
-  const st = await statOrNull(pl.ws, pl.link.path, pl.at);
-  // A live link whose item was deleted, moved or replaced by another type is gone.
-  if (!st || st.type !== pl.link.targetType) throw notFound();
+  const pl = await resolveLink(c, token);
+  const st = await linkRoot(pl);
   let pinnedAt: string | null = null;
   if (pl.at) pinnedAt = (await getStore().getCommit(pl.ws.volumeId, pl.at)).createdAt;
   await recordLinkOpen(pl.link.id);
@@ -104,8 +129,9 @@ publicRoutes.get('/s/:token', async (c) => {
 publicRoutes.get('/s/:token/files', async (c) => {
   const token = c.req.param('token');
   limitRead(c, token);
-  const pl = await resolvePublicLinkFull(token);
+  const pl = await resolveLink(c, token);
   if (pl.link.targetType !== 'dir') throw new ApiError(409, 'not_a_directory', 'This link shares a single file.');
+  await linkRoot(pl);
   const abs = resolveInside(pl, c.req.query('path'));
   const st = await statOrNull(pl.ws, abs, pl.at);
   if (!st) throw notFound();
@@ -121,7 +147,8 @@ publicRoutes.get('/s/:token/files', async (c) => {
 publicRoutes.get('/s/:token/content', async (c) => {
   const token = c.req.param('token');
   limitRead(c, token);
-  const pl = await resolvePublicLinkFull(token);
+  const pl = await resolveLink(c, token);
+  await linkRoot(pl);
   const abs = resolveInside(pl, c.req.query('path'));
   const st = await statOrNull(pl.ws, abs, pl.at);
   if (!st) throw notFound();
@@ -132,7 +159,10 @@ publicRoutes.get('/s/:token/content', async (c) => {
 publicRoutes.get('/s/:token/zip', async (c) => {
   const token = c.req.param('token');
   limitRead(c, token);
-  const pl = await resolvePublicLinkFull(token);
+  const pl = await resolveLink(c, token);
+  const root = await linkRoot(pl);
+  // A file link downloads the file itself; only a folder link zips.
+  if (root.type === 'file') return streamFile(c, pl.ws, pl.link.path, { at: pl.at, download: true });
   const abs = resolveInside(pl, c.req.query('path'));
   const st = await statOrNull(pl.ws, abs, pl.at);
   if (!st || (st.type !== 'file' && st.type !== 'dir')) throw notFound();

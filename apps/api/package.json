@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "bun --env-file=../../.env --env-file=.env --watch src/server.ts",
-    "start": "bun --env-file=../../.env --env-file=.env src/server.ts",
+    "start": "NODE_ENV=production bun --env-file=../../.env --env-file=.env src/server.ts",
     "test": "bun test",
     "typecheck": "tsc --noEmit",
     "db:generate": "bun --env-file=../../.env --env-file=.env x drizzle-kit generate",

@@ -1,11 +1,38 @@
 import type { Context, MiddlewareHandler } from 'hono';
 import { ApiError } from '../lib/http';
 
-/** Best-effort client IP (x-forwarded-for from the Next rewrite, else x-real-ip). */
+/** The connecting socket's address (from the server), or null when the app runs in-process. */
+export function socketIp(c: Context): string | null {
+  const b = c.env as { ip?: string | null } | undefined;
+  return b?.ip ?? null;
+}
+
+/** 127.0.0.0/8, ::1 and their IPv4-mapped forms. */
+export function isLoopback(ip: string | null | undefined): boolean {
+  if (!ip) return false;
+  const v = ip.toLowerCase().replace(/^::ffff:/, '');
+  return v === '::1' || v === 'localhost' || /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(v);
+}
+
+/**
+ * The client's address for rate limits and the audit trail.
+ * - A non-loopback peer is the client itself: forwarding headers are ignored.
+ * - A loopback peer is the web app's rewrite on this host (the API listens on
+ *   127.0.0.1 by default). Only the right-most x-forwarded-for hop is trusted:
+ *   it is the one the nearest proxy wrote; anything left of it is client-supplied.
+ * - In-process calls (tests, the seed script) have no socket and are treated
+ *   like the loopback case.
+ */
 export function clientIp(c: Context): string {
-  const fwd = c.req.header('x-forwarded-for');
-  if (fwd) return fwd.split(',')[0].trim();
-  return c.req.header('x-real-ip') ?? 'local';
+  const peer = socketIp(c);
+  if (peer !== null && !isLoopback(peer)) return peer;
+  const hops = (c.req.header('x-forwarded-for') ?? '')
+    .split(',')
+    .map((h) => h.trim())
+    .filter(Boolean);
+  const last = hops[hops.length - 1];
+  if (last && last.length <= 64) return last;
+  return peer ?? 'local';
 }
 
 interface Bucket {
@@ -94,6 +121,10 @@ export function rateLimit(o: RateLimitOptions): MiddlewareHandler {
 export const limits = {
   uploadPlan: { name: 'upload-plan', capacity: 30, refillPerSec: 30 / 60 },
   devSignIn: { name: 'dev-sign-in', capacity: 10, refillPerSec: 10 / 60 },
+  /** Backstop across every client: forwarding headers can be forged in front of the rewrite. */
+  devSignInAll: { name: 'dev-sign-in-all', capacity: 60, refillPerSec: 1 },
+  /** Per user and upload: 1 MiB blocks at up to ~100/s, without touching the user's general budget. */
+  blockPut: { name: 'block-put', capacity: 2000, refillPerSec: 100 },
   linkOpenIpToken: { name: 'link-open-ip', capacity: 60, refillPerSec: 1 },
   linkOpenToken: { name: 'link-open-token', capacity: 600, refillPerSec: 10 },
   user: { name: 'user', capacity: 600, refillPerSec: 10 },

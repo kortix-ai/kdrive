@@ -24,7 +24,7 @@ const EMAIL = (argValue('--email') ?? process.env.SEED_EMAIL ?? 'dev@volumes.loc
 const FORCE = args.includes('--force');
 const ORIGIN = process.env.BETTER_AUTH_URL ?? 'http://localhost:4100';
 const API_PORT = Number(process.env.API_PORT ?? 4101);
-const API = `http://localhost:${API_PORT}`;
+const API = `http://127.0.0.1:${API_PORT}`;
 
 if (process.env.NODE_ENV === 'production') {
   console.error('seed-demo refuses to run with NODE_ENV=production.');

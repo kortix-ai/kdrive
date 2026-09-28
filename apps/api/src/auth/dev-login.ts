@@ -2,12 +2,14 @@ import type { BetterAuthPlugin } from 'better-auth';
 import { APIError, createAuthEndpoint } from 'better-auth/api';
 import { setSessionCookie } from 'better-auth/cookies';
 import { z } from 'zod';
+import { env } from '../env';
 
 /**
  * Dev-only email sign-in (no password): POST /api/auth/dev/sign-in {email, name?}.
- * Registered only when VOLUMES_DEV_LOGIN=1 and NODE_ENV !== 'production'
- * (see auth/index.ts). Finds or creates the user, then issues a normal
- * better-auth session cookie.
+ * Registered only when env.devLoginEnabled (VOLUMES_DEV_LOGIN=1, NODE_ENV
+ * development or test, and a localhost BETTER_AUTH_URL; see env.ts). app.ts
+ * also refuses callers that are not on this machine. Finds or creates the
+ * user, then issues a normal better-auth session cookie.
  */
 export function devLogin(): BetterAuthPlugin {
   return {
@@ -20,7 +22,7 @@ export function devLogin(): BetterAuthPlugin {
           body: z.object({ email: z.string().email().max(320), name: z.string().max(120).optional() }),
         },
         async (ctx) => {
-          if (process.env.NODE_ENV === 'production') throw new APIError('NOT_FOUND');
+          if (!env.devLoginEnabled) throw new APIError('NOT_FOUND');
           const email = ctx.body.email.trim().toLowerCase();
           const found = await ctx.context.internalAdapter.findUserByEmail(email);
           let user = found?.user;

@@ -4,7 +4,7 @@ import type { NextConfig } from 'next';
 // The browser only ever talks to this origin: /api/* is rewritten to the Hono
 // API, so cookies are first-party and there is no CORS. No proxy.ts/middleware
 // on purpose: it would buffer request bodies (1 MiB block uploads, streams).
-const API = process.env.VOLUMES_API_ORIGIN ?? 'http://localhost:4101';
+const API = process.env.VOLUMES_API_ORIGIN ?? 'http://127.0.0.1:4101';
 
 const nextConfig: NextConfig = {
   transpilePackages: ['@volumes/shared'],
