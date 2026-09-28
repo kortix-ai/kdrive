@@ -8,25 +8,23 @@ import { create } from 'zustand';
 import type { QuotaDetails } from '@volumes/shared';
 
 export type ConflictChoice = 'keep-both' | 'replace';
+/** `all`: use the choice for the rest of THIS upload (never for later drops). */
+export type ConflictAnswer = { choice: ConflictChoice; all: boolean };
 
 interface ConflictPrompt {
   paths: string[];
-  resolve: (choice: ConflictChoice | null) => void;
+  resolve: (answer: ConflictAnswer | null) => void;
 }
 
 interface PromptState {
   conflict: ConflictPrompt | null;
   quota: (QuotaDetails & { fileCount: number }) | null;
-  /** "Apply to all": the choice reused by later batches and uploads in this session. */
-  remembered: ConflictChoice | null;
 }
 
-export const useUploadPrompts = create<PromptState>()(() => ({ conflict: null, quota: null, remembered: null }));
+export const useUploadPrompts = create<PromptState>()(() => ({ conflict: null, quota: null }));
 
-/** Resolves with the person's choice, or null when they cancel the upload. */
-export function askConflict(paths: string[]): Promise<ConflictChoice | null> {
-  const remembered = useUploadPrompts.getState().remembered;
-  if (remembered) return Promise.resolve(remembered);
+/** Resolves with the person's answer, or null when they cancel the upload. */
+export function askConflict(paths: string[]): Promise<ConflictAnswer | null> {
   return new Promise((resolve) => {
     const prev = useUploadPrompts.getState().conflict;
     prev?.resolve(null);
@@ -36,8 +34,8 @@ export function askConflict(paths: string[]): Promise<ConflictChoice | null> {
 
 export function answerConflict(choice: ConflictChoice | null, applyToAll = false): void {
   const cur = useUploadPrompts.getState().conflict;
-  useUploadPrompts.setState({ conflict: null, ...(choice && applyToAll ? { remembered: choice } : {}) });
-  cur?.resolve(choice);
+  useUploadPrompts.setState({ conflict: null });
+  cur?.resolve(choice ? { choice, all: applyToAll } : null);
 }
 
 export function showQuota(d: QuotaDetails, fileCount: number): void {

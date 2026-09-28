@@ -6,6 +6,7 @@
 import { basename, dirname, joinPath, type ActionSummary, type FileEntry } from '@volumes/shared';
 import { isApiError } from '../api/client';
 import { api } from '../api/endpoints';
+import { actionText } from '../format';
 import { useVx } from '../store';
 import { compareHref, contentUrl, zipUrl } from '../urls';
 import { clearPending, markPending, markRemoving, optimistic, withAdded, withRenamed, withoutPaths } from './optimistic';
@@ -41,12 +42,36 @@ export function itemsLabel(entries: readonly { name: string }[]): string {
 
 function afterAction(action: ActionSummary, fallbackLabel: string, preferOwnLabel = false) {
   const s = vx();
-  const label = preferOwnLabel ? fallbackLabel : action.summary || fallbackLabel;
+  const label = preferOwnLabel ? fallbackLabel : actionText(action.summary, action.restoredTo) || fallbackLabel;
   if (action.undoable && action.status === 'committed') s.registerUndo({ label, actionId: action.id });
   s.refresh();
 }
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Storage said "busy, try again": all upload slots taken, the write ceiling, a brief outage. */
+export function isBusyError(e: unknown): boolean {
+  return isApiError(e) && (e.status === 429 || e.status === 503 || e.code === 'rate_limited' || e.code === 'upstream_unavailable');
+}
+
+/**
+ * Runs `fn`, retrying while storage is busy (Retry-After, else a growing
+ * backoff) for up to `maxMs`. `onWait` fires before each wait, so the caller
+ * can say what is going on instead of failing.
+ */
+export async function retryBusy<T>(fn: () => Promise<T>, opts: { maxMs?: number; onWait?: () => void } = {}): Promise<T> {
+  const deadline = Date.now() + (opts.maxMs ?? 2 * 60_000);
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fn();
+    } catch (e) {
+      if (!isBusyError(e) || Date.now() >= deadline) throw e;
+      opts.onWait?.();
+      const ra = isApiError(e) && e.retryAfterSeconds ? e.retryAfterSeconds * 1000 : 0;
+      await wait(Math.min(Math.max(ra, 1000 * 2 ** Math.min(attempt, 4)), Math.max(0, deadline - Date.now())));
+    }
+  }
+}
 
 /** Collapses the rows (160 ms), removes them, deletes on the server, then offers Undo for 8 s. */
 export async function deleteItems(ws: string, entries: readonly FileEntry[]): Promise<boolean> {
@@ -145,7 +170,8 @@ export async function createFolder(ws: string, parent: string, name: string): Pr
     const r = await optimistic(
       ws,
       [{ dir: parent, update: (l) => withAdded(l, { path, name, type: 'dir', size: 0, mtime: Date.now() }) }],
-      () => api.files.createFolder(ws, path),
+      // A new folder is an upload plan: when every upload slot is busy it waits its turn.
+      () => retryBusy(() => api.files.createFolder(ws, path), { onWait: () => markPending([path], 'waiting') }),
     );
     afterAction(r.action, `Created folder ${name}`);
     return path;

@@ -26,7 +26,8 @@ export function withAdded(list: ListResponse, entry: FileEntry): ListResponse {
 
 // ── rows in flight ───────────────────────────────────────────────────────────
 
-export type PendingKind = 'rename' | 'move' | 'create' | 'delete';
+/** `waiting`: the request is queued behind busy storage (e.g. every upload slot is taken) and will retry. */
+export type PendingKind = 'rename' | 'move' | 'create' | 'delete' | 'waiting';
 
 interface PendingState {
   /** path → what is happening to it (drives the 1 px progress hairline). */

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { GiB, MAX_QUOTA_BYTES, type AdminUser } from '@volumes/shared';
+import { GiB, MAX_QUOTA_BYTES, formatBytes, type AdminUser } from '@volumes/shared';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Segmented } from '@/components/ui/segmented';
@@ -27,12 +27,16 @@ export function toGiBInput(bytes: number): string {
   return Number.isInteger(g) ? String(g) : g.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
 }
 
-/** Inline quota editor: GiB input + 10 | 20 | 50 presets; ↵ saves, Esc cancels; over 50 GiB is refused. */
-export function QuotaEditor({ user, onDone }: { user: AdminUser; onDone: (updated?: AdminUser) => void }) {
+/**
+ * Inline quota editor: GiB input + 10 | 20 | 50 presets; ↵ saves, Esc cancels; over 50 GiB is refused.
+ * `capBytes`: storage's size cap for ONE workspace; a quota above it is allowed but flagged.
+ */
+export function QuotaEditor({ user, capBytes, onDone }: { user: AdminUser; capBytes?: number; onDone: (updated?: AdminUser, warning?: string) => void }) {
   const [value, setValue] = useState(toGiBInput(user.quotaBytes));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const parsed = parseGiB(value);
+  const overCap = !!capBytes && parsed.bytes !== null && parsed.bytes > capBytes;
 
   const save = async () => {
     if (parsed.bytes === null || busy) return;
@@ -40,8 +44,8 @@ export function QuotaEditor({ user, onDone }: { user: AdminUser; onDone: (update
     setBusy(true);
     setError(null);
     try {
-      const { user: updated } = await api.admin.setQuota(user.id, parsed.bytes);
-      onDone(updated);
+      const { user: updated, warning } = await api.admin.setQuota(user.id, parsed.bytes);
+      onDone(updated, warning);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save the quota.');
       setBusy(false);
@@ -92,6 +96,12 @@ export function QuotaEditor({ user, onDone }: { user: AdminUser; onDone: (update
           Cancel
         </Button>
       </div>
+      {capBytes ? (
+        <p className={overCap ? 'border-l-2 border-vx-hair-strong pl-2 text-[12px] text-vx-text-2' : 'vx-micro text-vx-text-4'}>
+          Storage caps one workspace at {formatBytes(capBytes)}
+          {overCap ? ': the rest of this quota is usable only across several workspaces.' : '.'}
+        </p>
+      ) : null}
       {error ? <p className="border-l-2 border-vx-danger pl-2 text-[12px] text-vx-danger">{error}</p> : null}
     </div>
   );

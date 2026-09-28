@@ -1,8 +1,10 @@
 // The upload engine (architecture §9.4, SPEC "Upload"):
 //   sources → hash 1 MiB blocks in workers → plan (≤10k files / ≤1M blocks per
 //   plan, same actionId) → PUT only `missing` (6 in parallel, 3 retries) → commit.
-// One drop = one job = one timeline entry. Jobs run one after another, so the
-// server's 4 upload slots are never hogged by a single tab. The job list lives
+// One drop = one job = one timeline entry. A tab runs up to two jobs at once
+// (a small drop never waits behind a big one), which still leaves the server's
+// 4 org-wide upload slots to other people; the server queues and the engine
+// retries `rate_limited` when they are busy. The job list lives
 // in the app store (the tray survives navigation); File handles and hashes stay
 // here, in module memory.
 import {
@@ -20,7 +22,7 @@ import { isApiError } from '../api/client';
 import type { UploadFileState, UploadJob } from '../store';
 import { HashAbortedError } from './hash-core';
 import type { Hasher } from './hasher';
-import type { ConflictChoice } from './prompts';
+import type { ConflictAnswer } from './prompts';
 import type { UploadSources } from './walk';
 
 // ── pure helpers (unit-tested) ──────────────────────────────────────────────
@@ -105,6 +107,12 @@ export interface PlanBatch {
 
 /** Platinum caps a plan's JSON body at 32 MiB; stay well under it. */
 export const PLAN_BODY_BUDGET = 24 * 1024 * 1024;
+/**
+ * Bytes per plan. Storage reserves a plan's full size against its stored-bytes
+ * budget for up to 48 h if the plan is abandoned, so a cancelled upload of a
+ * huge folder should not reserve all of it at once.
+ */
+export const PLAN_BYTES_BUDGET = 2 * 1024 ** 3;
 
 const utf8 = (s: string) => new TextEncoder().encode(s).length;
 export function estimatePlanBytes(f: { path: string; blocks?: string[] }): number {
@@ -115,25 +123,38 @@ export function estimatePlanBytes(f: { path: string; blocks?: string[] }): numbe
 export function splitIntoPlans(
   files: PlannedFile[],
   dirs: string[],
-  limits: { maxFiles: number; maxBlocks: number; maxBody: number } = { maxFiles: MAX_PLAN_FILES, maxBlocks: MAX_PLAN_BLOCKS, maxBody: PLAN_BODY_BUDGET },
+  limits: { maxFiles: number; maxBlocks: number; maxBody: number; maxBytes?: number } = {
+    maxFiles: MAX_PLAN_FILES,
+    maxBlocks: MAX_PLAN_BLOCKS,
+    maxBody: PLAN_BODY_BUDGET,
+    maxBytes: PLAN_BYTES_BUDGET,
+  },
 ): PlanBatch[] {
   const out: PlanBatch[] = [];
   let cur: PlanBatch = { files: [], dirs: [] };
   let blocks = 0;
   let body = 0;
+  let bytes = 0;
+  const maxBytes = limits.maxBytes ?? Infinity;
   const flush = () => {
     if (cur.files.length || cur.dirs.length) out.push(cur);
     cur = { files: [], dirs: [] };
     blocks = 0;
     body = 0;
+    bytes = 0;
   };
   for (const f of files) {
     const b = f.blocks?.length ?? 0;
     const est = estimatePlanBytes(f);
-    if (cur.files.length && (cur.files.length + 1 > limits.maxFiles || blocks + b > limits.maxBlocks || body + est > limits.maxBody)) flush();
+    if (
+      cur.files.length &&
+      (cur.files.length + 1 > limits.maxFiles || blocks + b > limits.maxBlocks || body + est > limits.maxBody || bytes + f.size > maxBytes)
+    )
+      flush();
     cur.files.push(f);
     blocks += b;
     body += est;
+    bytes += f.size;
   }
   // Empty dirs ride in the first plan when they fit, else in their own plans.
   let rest = dirs.slice();
@@ -212,6 +233,8 @@ export interface EngineStore {
   updateUploadJob(id: string, patch: Partial<UploadJob>): void;
   refresh(): void;
   toast(t: { kind?: 'info' | 'success' | 'error'; message: string }): string;
+  /** A finished upload is undoable like any other action (⌘Z undoes it, not whatever came before). */
+  registerUndo?(e: { label: string; actionId: string; workspaceId?: string }): void;
 }
 
 export interface EngineApi {
@@ -225,7 +248,8 @@ export interface EngineDeps {
   api: EngineApi;
   hasher(): Hasher;
   store(): EngineStore;
-  askConflict(paths: string[]): Promise<ConflictChoice | null>;
+  /** The person's choice for these conflicts; `all` = use it for the rest of THIS upload. */
+  askConflict(paths: string[]): Promise<ConflictAnswer | null>;
   showQuota(d: QuotaDetails, fileCount: number): void;
   usage(): Promise<{ usedBytes: number; quotaBytes: number } | null>;
   sleep(ms: number, signal?: AbortSignal): Promise<void>;
@@ -235,6 +259,8 @@ export interface EngineDeps {
   flushMs?: number;
   /** Max wait for a free server upload slot before the job fails (ms). */
   slotWaitMs?: number;
+  /** Jobs this tab runs at once. */
+  maxActiveJobs?: number;
 }
 
 export interface StartOptions {
@@ -267,7 +293,7 @@ interface Runtime {
   controller: AbortController;
   actionId?: string;
   uploadId?: string;
-  conflictMode?: ConflictChoice;
+  conflictMode?: ConflictAnswer['choice'];
   action: ActionSummary | null;
   flushTimer: ReturnType<typeof setTimeout> | null;
 }
@@ -283,9 +309,10 @@ export function createUploadEngine(deps: EngineDeps) {
   const backoff = deps.backoffMs ?? ((a: number) => 400 * 3 ** a);
   const FLUSH_MS = deps.flushMs ?? 120;
   const SLOT_WAIT_MS = deps.slotWaitMs ?? 10 * 60_000;
+  const MAX_ACTIVE = deps.maxActiveJobs ?? 2;
   const runtimes = new Map<string, Runtime>();
   const queue: Runtime[] = [];
-  let active: Runtime | null = null;
+  const active = new Set<Runtime>();
   let seq = 0;
   const uid = (p: string) => `${p}${Date.now().toString(36)}${(seq++).toString(36)}`;
 
@@ -391,109 +418,133 @@ export function createUploadEngine(deps: EngineDeps) {
     setStatus(rt, batch.files.map((f) => f.id), 'committing');
   }
 
+  /** Asks about conflicts; the answer applies to this plan, and to the rest of the job when `all`. */
+  async function resolveConflicts(rt: Runtime, batch: PlanBatch, conflicts: string[]): Promise<ConflictAnswer['choice']> {
+    const set = new Set(conflicts);
+    setStatus(rt, batch.files.filter((f) => set.has(f.path)).map((f) => f.id), 'conflict');
+    const answer = await deps.askConflict(conflicts);
+    if (!answer) throw new CancelledError();
+    if (answer.all) rt.conflictMode = answer.choice;
+    return answer.choice;
+  }
+
   async function runBatch(rt: Runtime, batch: PlanBatch) {
     const ws = rt.job.workspaceId;
     const ids = batch.files.map((f) => f.id);
     let mode: UploadPlanRequest['conflict'] = rt.conflictMode ?? 'ask';
-    let plan: UploadPlanResponse | null = null;
-    const started = Date.now();
-    for (let attempt = 0; !plan; attempt++) {
-      if (rt.controller.signal.aborted) throw new CancelledError();
-      setStatus(rt, ids, 'planning');
-      try {
-        plan = await deps.api.plan(ws, {
-          files: batch.files.map((f) => ({ path: f.path, size: f.size, blocks: f.blocks ?? [], ...(f.mtime ? { mtime: f.mtime } : {}) })),
-          dirs: batch.dirs,
-          conflict: mode,
-          ...(rt.actionId ? { actionId: rt.actionId } : {}),
-        });
-      } catch (e) {
-        if (isApiError(e) && e.status === 409 && e.code === 'conflict' && Array.isArray(e.details.conflicts)) {
-          const conflicts = (e.details.conflicts as unknown[]).map(String);
-          const set = new Set(conflicts);
-          setStatus(rt, batch.files.filter((f) => set.has(f.path)).map((f) => f.id), 'conflict');
-          const choice = await deps.askConflict(conflicts);
-          if (!choice) throw new CancelledError();
-          mode = choice;
-          rt.conflictMode = choice;
-          continue;
-        }
-        if (isApiError(e) && e.status === 413 && e.code === 'quota_exceeded') {
-          const d = e.details as Partial<QuotaDetails>;
-          deps.showQuota(
-            {
-              usedBytes: Number(d.usedBytes ?? 0),
-              quotaBytes: Number(d.quotaBytes ?? 0),
-              requestedBytes: Number(d.requestedBytes ?? 0),
-              overBytes: Number(d.overBytes ?? 0),
-            },
-            rt.entries.length,
-          );
-          throw new HandledError('Over your storage quota. Nothing was sent.');
-        }
-        if (retryable(e) && Date.now() - started < SLOT_WAIT_MS) {
-          setStatus(rt, ids, 'queued');
-          await waitRetry(rt, e, attempt);
-          continue;
-        }
-        throw e;
-      }
-    }
-    rt.actionId = plan.actionId;
-    rt.uploadId = plan.uploadId;
-    setJob(rt, { actionId: plan.actionId });
-    if (plan.renamed.length) {
-      const map = new Map(plan.renamed.map((r) => [r.from, r.to]));
-      for (const f of batch.files) {
-        const to = map.get(f.path);
-        if (to) {
-          f.path = to;
-          patchFile(rt, f.id, { path: to });
+    // A conflict can surface at plan time or, when something was created meanwhile, at commit time.
+    for (;;) {
+      let plan: UploadPlanResponse | null = null;
+      const started = Date.now();
+      for (let attempt = 0; !plan; attempt++) {
+        if (rt.controller.signal.aborted) throw new CancelledError();
+        setStatus(rt, ids, 'planning');
+        try {
+          plan = await deps.api.plan(ws, {
+            files: batch.files.map((f) => ({ path: f.path, size: f.size, blocks: f.blocks ?? [], ...(f.mtime ? { mtime: f.mtime } : {}) })),
+            dirs: batch.dirs,
+            conflict: mode,
+            ...(rt.actionId ? { actionId: rt.actionId } : {}),
+          });
+        } catch (e) {
+          if (isApiError(e) && e.status === 409 && e.code === 'conflict' && Array.isArray(e.details.conflicts)) {
+            mode = await resolveConflicts(rt, batch, (e.details.conflicts as unknown[]).map(String));
+            continue;
+          }
+          if (isApiError(e) && e.status === 413 && e.code === 'quota_exceeded') {
+            const d = e.details as Partial<QuotaDetails> & { limit?: string };
+            // The person's own quota carries the numbers for the dialog; a storage-side
+            // limit (a workspace's size cap, a full history) has only its message.
+            if (typeof d.usedBytes === 'number' && typeof d.quotaBytes === 'number') {
+              deps.showQuota(
+                {
+                  usedBytes: Number(d.usedBytes),
+                  quotaBytes: Number(d.quotaBytes),
+                  requestedBytes: Number(d.requestedBytes ?? 0),
+                  overBytes: Number(d.overBytes ?? 0),
+                },
+                rt.entries.length,
+              );
+              throw new HandledError('Over your storage quota. Nothing was sent.');
+            }
+            throw new Error(e.message || 'Storage refused this upload.');
+          }
+          if (retryable(e) && Date.now() - started < SLOT_WAIT_MS) {
+            setStatus(rt, ids, 'queued');
+            await waitRetry(rt, e, attempt);
+            continue;
+          }
+          throw e;
         }
       }
-    }
-    await putBlocks(rt, batch, plan.missing, plan.uploadId);
-    for (let round = 0; ; round++) {
-      if (rt.controller.signal.aborted) throw new CancelledError();
-      try {
-        const r = await deps.api.commit(ws, plan.uploadId);
-        rt.action = r.action;
-        break;
-      } catch (e) {
-        if (isApiError(e) && e.status === 409 && Array.isArray(e.details.missing) && round < 3) {
-          await putBlocks(rt, batch, (e.details.missing as unknown[]).map(String), plan.uploadId);
-          continue;
+      rt.actionId = plan.actionId;
+      rt.uploadId = plan.uploadId;
+      setJob(rt, { actionId: plan.actionId });
+      if (plan.renamed.length) {
+        const map = new Map(plan.renamed.map((r) => [r.from, r.to]));
+        for (const f of batch.files) {
+          const to = map.get(f.path);
+          if (to) {
+            f.path = to;
+            patchFile(rt, f.id, { path: to });
+          }
         }
-        if (retryable(e) && round < 12) {
-          await waitRetry(rt, e, round);
-          continue;
-        }
-        throw e;
       }
+      await putBlocks(rt, batch, plan.missing, plan.uploadId);
+      let conflictAtCommit: string[] | null = null;
+      for (let round = 0; ; round++) {
+        if (rt.controller.signal.aborted) throw new CancelledError();
+        try {
+          const r = await deps.api.commit(ws, plan.uploadId);
+          rt.action = r.action;
+          break;
+        } catch (e) {
+          if (isApiError(e) && e.status === 409 && Array.isArray(e.details.missing) && round < 3) {
+            await putBlocks(rt, batch, (e.details.missing as unknown[]).map(String), plan.uploadId);
+            continue;
+          }
+          if (isApiError(e) && e.status === 409 && e.code === 'conflict' && Array.isArray(e.details.conflicts)) {
+            conflictAtCommit = (e.details.conflicts as unknown[]).map(String);
+            break;
+          }
+          if (retryable(e) && round < 12) {
+            await waitRetry(rt, e, round);
+            continue;
+          }
+          throw e;
+        }
+      }
+      if (conflictAtCommit) {
+        // Something took one of these names since the plan: drop this plan, ask, plan again.
+        const stale = plan.uploadId;
+        rt.uploadId = undefined;
+        await deps.api.abort(ws, stale).catch(() => {});
+        mode = await resolveConflicts(rt, batch, conflictAtCommit);
+        continue;
+      }
+      rt.uploadId = undefined;
+      setStatus(rt, ids, 'done');
+      rt.dirsDone = rt.dirsDone || batch.dirs.length > 0;
+      return;
     }
-    rt.uploadId = undefined;
-    setStatus(rt, ids, 'done');
-    rt.dirsDone = rt.dirsDone || batch.dirs.length > 0;
   }
 
   async function run(rt: Runtime) {
     const store = deps.store();
     setJob(rt, { status: 'active' });
     try {
-      const pending = rt.entries.filter((f) => rt.files[rt.index.get(f.id)!].status !== 'done');
-      const totalBytes = pending.reduce((n, f) => n + f.size, 0);
-      const u = await deps.usage().catch(() => null);
-      if (u && u.quotaBytes > 0 && totalBytes > u.quotaBytes - u.usedBytes) {
-        const over = totalBytes - Math.max(0, u.quotaBytes - u.usedBytes);
-        deps.showQuota({ usedBytes: u.usedBytes, quotaBytes: u.quotaBytes, requestedBytes: totalBytes, overBytes: over }, pending.length);
-        throw new HandledError('Over your storage quota. Nothing was sent.');
-      }
+      // No client-side quota refusal: only the server knows what a plan replaces
+      // (a replace of a 3 GiB file needs ~0 more bytes), and it answers 413 with
+      // the exact amount before any byte is sent.
       await hashAll(rt);
       const todo = rt.entries.filter((f) => rt.files[rt.index.get(f.id)!].status !== 'done');
       const batches = splitIntoPlans(todo, rt.dirsDone ? [] : rt.dirs);
       for (const b of batches) await runBatch(rt, b);
       flush(rt);
       setJob(rt, { status: 'done' });
+      if (rt.action?.undoable && rt.action.status === 'committed') {
+        store.registerUndo?.({ label: rt.action.summary || 'Uploaded', actionId: rt.action.id, workspaceId: rt.job.workspaceId });
+      }
       store.refresh();
     } catch (e) {
       const cancelled = isAbort(e) || rt.controller.signal.aborted;
@@ -519,14 +570,14 @@ export function createUploadEngine(deps: EngineDeps) {
   }
 
   const pump = () => {
-    if (active) return;
-    const next = queue.shift();
-    if (!next) return;
-    active = next;
-    void run(next).finally(() => {
-      active = null;
-      pump();
-    });
+    while (active.size < MAX_ACTIVE && queue.length) {
+      const next = queue.shift()!;
+      active.add(next);
+      void run(next).finally(() => {
+        active.delete(next);
+        pump();
+      });
+    }
   };
 
   const enqueue = (rt: Runtime) => {
@@ -590,13 +641,13 @@ export function createUploadEngine(deps: EngineDeps) {
 
     cancelAll(): void {
       for (const rt of [...queue]) this.cancel(rt.job.id);
-      if (active) this.cancel(active.job.id);
+      for (const rt of [...active]) this.cancel(rt.job.id);
     },
 
     /** Re-runs a failed or cancelled job (hashes are kept; committed plans are skipped). */
     retry(jobId: string): void {
       const rt = runtimes.get(jobId);
-      if (!rt || rt === active || queue.includes(rt)) return;
+      if (!rt || active.has(rt) || queue.includes(rt)) return;
       if (rt.job.status !== 'error' && rt.job.status !== 'cancelled') return;
       rt.controller = new AbortController();
       rt.conflictMode = undefined;
@@ -612,7 +663,7 @@ export function createUploadEngine(deps: EngineDeps) {
     /** Forgets finished jobs (the tray's close button). */
     forget(jobId: string): void {
       const rt = runtimes.get(jobId);
-      if (rt && (rt === active || queue.includes(rt))) return;
+      if (rt && (active.has(rt) || queue.includes(rt))) return;
       runtimes.delete(jobId);
     },
 
@@ -623,7 +674,7 @@ export function createUploadEngine(deps: EngineDeps) {
     },
 
     isBusy(): boolean {
-      return !!active || queue.length > 0;
+      return active.size > 0 || queue.length > 0;
     },
   };
 }

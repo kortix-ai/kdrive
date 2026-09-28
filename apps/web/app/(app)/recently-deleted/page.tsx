@@ -14,6 +14,7 @@ import { Bytes, When } from '@/components/versioning/readout';
 import { RetentionNote } from '@/components/versioning/retention-note';
 import '@/components/versioning/versioning.css';
 import { api } from '@/lib/api/endpoints';
+import { retryBusy } from '@/lib/drive/actions';
 import { useVx } from '@/lib/store';
 import { driveHref } from '@/lib/urls';
 import { errorText, useDeleted } from '@/lib/versioning/hooks';
@@ -39,36 +40,68 @@ export default function RecentlyDeletedPage() {
   const groups = useMemo(() => groupByDay([...items].sort((x, y) => y.deletedAt.localeCompare(x.deletedAt)).map((it) => ({ ...it, createdAt: it.deletedAt }))), [items]);
   const restorableSel = items.filter((it) => selected.has(keyOf(it)) && it.restorable);
 
-  const restoreOne = async (it: DeletedItem): Promise<boolean> => {
-    if (!ws || !it.restoreAt) return false;
-    const k = keyOf(it);
-    setBusy((s) => new Set(s).add(k));
+  const markBusy = (keys: string[], on: boolean) =>
+    setBusy((s) => {
+      const n = new Set(s);
+      for (const k of keys) if (on) n.add(k);
+      else n.delete(k);
+      return n;
+    });
+
+  /**
+   * Restores items that go back to the SAME version with one request: one
+   * action, one timeline entry, one undo (never N of each).
+   */
+  const restoreGroup = async (group: DeletedItem[], at: string): Promise<void> => {
+    if (!ws || !group.length) return;
+    const keys = group.map(keyOf);
+    markBusy(keys, true);
     try {
-      const r = await api.versioning.restore(ws, { scope: it.type === 'dir' ? 'folder' : 'file', path: it.path, at: it.restoreAt });
-      // the row collapses (160 ms), then leaves the list
-      setCollapsing((s) => new Set(s).add(k));
-      setTimeout(() => setGone((s) => new Set(s).add(k)), 170);
+      const paths = group.map((it) => it.path);
+      const scope = group.some((it) => it.type === 'dir') ? 'folder' : 'file';
+      const r = await retryBusy(() =>
+        paths.length === 1 ? api.versioning.restore(ws, { scope, path: paths[0], at }) : api.versioning.restore(ws, { scope, paths, at }),
+      );
+      // the rows collapse (160 ms), then leave the list
+      setCollapsing((s) => new Set([...s, ...keys]));
+      setTimeout(() => setGone((s) => new Set([...s, ...keys])), 170);
       setSelected((s) => {
         const n = new Set(s);
-        n.delete(k);
+        for (const k of keys) n.delete(k);
         return n;
       });
-      registerUndo({ label: `Restored ${basename(it.path) || it.path}`, actionId: r.action.id });
-      return true;
+      const label = group.length === 1 ? `Restored ${basename(group[0].path) || group[0].path}` : `Restored ${group.length} items`;
+      registerUndo({ label, actionId: r.action.id });
     } catch (e) {
-      toast({ kind: 'error', message: `Couldn't restore ${basename(it.path)}: ${errorText(e)}` });
-      return false;
+      const what = group.length === 1 ? basename(group[0].path) : `${group.length} items`;
+      toast({ kind: 'error', message: `Couldn't restore ${what}: ${errorText(e)}` });
     } finally {
-      setBusy((s) => {
-        const n = new Set(s);
-        n.delete(k);
-        return n;
-      });
+      markBusy(keys, false);
     }
   };
 
   const restoreMany = async (list: DeletedItem[]) => {
-    for (const it of list) await restoreOne(it);
+    // Something else has taken the name since: show what the restore would replace first.
+    const occupied = list.filter((it) => it.occupied && it.restoreAt);
+    if (occupied.length === 1 && list.length === 1) {
+      const it = occupied[0];
+      useVx.getState().openRestore({ scope: it.type === 'dir' ? 'folder' : 'file', path: it.path, at: it.restoreAt! });
+      return;
+    }
+    if (occupied.length) {
+      toast({
+        kind: 'info',
+        message: `${occupied.length === 1 ? '1 item was' : `${occupied.length} items were`} left out: something else has that name now. Restore ${occupied.length === 1 ? 'it' : 'them'} one at a time.`,
+      });
+    }
+    const byVersion = new Map<string, DeletedItem[]>();
+    for (const it of list) {
+      if (!it.restoreAt || it.occupied) continue;
+      const g = byVersion.get(it.restoreAt) ?? [];
+      g.push(it);
+      byVersion.set(it.restoreAt, g);
+    }
+    for (const [at, group] of byVersion) await restoreGroup(group, at);
     refresh();
     setTimeout(() => void mutate(), 200);
   };
@@ -174,6 +207,11 @@ export default function RecentlyDeletedPage() {
                         <span className={cx('vx-name truncate', it.restorable ? 'text-vx-text-1' : 'text-vx-text-4')} title={it.path}>
                           {basename(it.path) || it.path}
                         </span>
+                        {it.occupied ? (
+                          <span className="vx-micro shrink-0 text-vx-text-3" title="A different item has this name now; restoring asks before replacing it.">
+                            name in use
+                          </span>
+                        ) : null}
                       </span>
                       <span className={cx('vx-meta truncate', it.restorable ? 'text-vx-text-3' : 'text-vx-text-4')} title={dirname(it.path)}>
                         {dirname(it.path)}

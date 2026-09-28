@@ -1,7 +1,7 @@
 'use client';
 
 // Upload conflict (DESIGN §6.12): "notes.md and 2 more already exist." with the
-// first five names, an "Apply to all" box (reused for the rest of this session),
+// first five names, an "Apply to all" box (reused for the rest of this upload only),
 // Keep both (default, ↵) · Replace. Esc cancels the upload.
 import { useState } from 'react';
 import { basename, dirname } from '@volumes/shared';
@@ -73,7 +73,7 @@ export default function ConflictDialog() {
           ✓
         </span>
         <span className="vx-ui text-vx-text-2">Apply to all</span>
-        <span className="vx-meta text-vx-text-4">for the rest of this session</span>
+        <span className="vx-meta text-vx-text-4">for the rest of this upload</span>
       </label>
     </Dialog>
   );

@@ -107,10 +107,11 @@ interface Harness {
   quota: unknown[];
   conflictsAsked: string[][];
   refreshes: number;
+  undos: string[];
 }
 
 function harness(overrides: Partial<EngineApi> & { conflictChoice?: 'keep-both' | 'replace' | null; usage?: { usedBytes: number; quotaBytes: number } } = {}) {
-  const h: Harness = { jobs: new Map(), puts: [], plans: [], commits: 0, sleeps: [], toasts: [], quota: [], conflictsAsked: [], refreshes: 0 };
+  const h: Harness = { jobs: new Map(), puts: [], plans: [], commits: 0, sleeps: [], toasts: [], quota: [], conflictsAsked: [], refreshes: 0, undos: [] };
   const action = { id: 'act1', kind: 'upload' as const, summary: 'Uploaded', status: 'committed' as const, headCommitId: 'vc_2', baseCommitId: 'vc_1', createdAt: '', itemCount: 1, bytesDelta: 1, undoable: true };
   const api: EngineApi = {
     plan: async (_ws, req) => {
@@ -139,10 +140,12 @@ function harness(overrides: Partial<EngineApi> & { conflictChoice?: 'keep-both' 
         h.toasts.push(t.message);
         return 't';
       },
+      registerUndo: (e) => void h.undos.push(e.actionId),
     }),
     askConflict: async (paths) => {
       h.conflictsAsked.push(paths);
-      return overrides.conflictChoice === undefined ? 'keep-both' : overrides.conflictChoice;
+      const choice = overrides.conflictChoice === undefined ? 'keep-both' : overrides.conflictChoice;
+      return choice ? { choice, all: false } : null;
     },
     showQuota: (d) => void h.quota.push(d),
     usage: async () => overrides.usage ?? null,
@@ -222,12 +225,73 @@ describe('upload engine', () => {
     expect(h.toasts).toEqual([]);
   });
 
-  test('client-side quota pre-check refuses before hashing', async () => {
+  test('no client-side quota refusal: the server decides (a replace needs no extra room)', async () => {
     const { h, engine } = harness({ usage: { usedBytes: 8, quotaBytes: 10 } });
-    engine.start({ workspaceId: 'ws', basePath: '/', sources: { files: [{ file: file('a.txt', 'aaaaa'), relPath: 'a.txt' }], dirs: [] } });
+    const jobId = engine.start({ workspaceId: 'ws', basePath: '/', sources: { files: [{ file: file('a.txt', 'aaaaa'), relPath: 'a.txt' }], dirs: [] } })!;
     await settle(engine);
-    expect(h.quota).toEqual([{ usedBytes: 8, quotaBytes: 10, requestedBytes: 5, overBytes: 3 }]);
-    expect(h.plans).toEqual([]);
+    expect(h.quota).toEqual([]);
+    expect(h.plans).toHaveLength(1);
+    expect(h.jobs.get(jobId)!.status).toBe('done');
+    // A finished upload is on the undo stack, so ⌘Z undoes it rather than an older action.
+    expect(h.undos).toEqual(['act1']);
+  });
+
+  test('a storage-side 413 (no quota numbers) fails with its own message, not an empty quota dialog', async () => {
+    const { h, engine } = harness({
+      plan: async () => {
+        throw new ApiError(413, 'quota_exceeded', 'History is full; remove checkpoints or wait for old versions to expire.', { limit: 'stored_bytes' });
+      },
+    });
+    const jobId = engine.start({ workspaceId: 'ws', basePath: '/', sources: { files: [{ file: file('a.txt', 'a'), relPath: 'a.txt' }], dirs: [] } })!;
+    await settle(engine);
+    expect(h.quota).toEqual([]);
+    expect(h.jobs.get(jobId)!.status).toBe('error');
+    expect(h.toasts[0]).toContain('History is full');
+  });
+
+  test('a conflict found at commit time asks, aborts the stale plan and plans again', async () => {
+    let commits = 0;
+    const aborted: string[] = [];
+    const { h, engine } = harness({
+      commit: async (_ws, id) => {
+        if (++commits === 1) throw new ApiError(409, 'conflict', 'created since', { conflicts: ['/n.txt'], uploadId: id });
+        return { action: { id: 'act1', kind: 'upload', summary: 'Uploaded n (1).txt', status: 'committed', headCommitId: 'vc_2', baseCommitId: 'vc_1', createdAt: '', itemCount: 1, bytesDelta: 1, undoable: true }, files: 1 };
+      },
+      abort: async (_ws, id) => void aborted.push(id),
+    });
+    const jobId = engine.start({ workspaceId: 'ws', basePath: '/', sources: { files: [{ file: file('n.txt', 'nnn'), relPath: 'n.txt' }], dirs: [] } })!;
+    await settle(engine);
+    expect(h.conflictsAsked).toEqual([['/n.txt']]);
+    expect(aborted).toEqual(['up1']);
+    expect(h.plans.map((p) => p.conflict)).toEqual(['ask', 'keep-both']);
+    expect(h.jobs.get(jobId)!.status).toBe('done');
+  });
+
+  test('two jobs run at once: a small drop does not wait behind a big one', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const bigUploads = new Set<string>();
+    const { h, engine } = harness({
+      plan: async (_ws, req) => {
+        h.plans.push(req);
+        const id = `up${h.plans.length}`;
+        if (req.files.some((f) => f.path === '/big.bin')) bigUploads.add(id);
+        return { uploadId: id, actionId: 'act1', missing: [], renamed: [], expiresAt: '' };
+      },
+      commit: async (_ws, id) => {
+        if (bigUploads.has(id)) await gate;
+        h.commits++;
+        return { action: { id: 'act1', kind: 'upload', summary: '', status: 'committed', headCommitId: null, baseCommitId: null, createdAt: '', itemCount: 1, bytesDelta: 0, undoable: false }, files: 1 };
+      },
+    });
+    const big = engine.start({ workspaceId: 'ws', basePath: '/', sources: { files: [{ file: file('big.bin', 'b'.repeat(64)), relPath: 'big.bin' }], dirs: [] } })!;
+    const small = engine.start({ workspaceId: 'ws', basePath: '/', sources: { files: [{ file: file('note.txt', 'n'), relPath: 'note.txt' }], dirs: [] } })!;
+    for (let i = 0; i < 200 && h.jobs.get(small)!.status !== 'done'; i++) await new Promise((r) => setTimeout(r, 2));
+    expect(h.jobs.get(small)!.status).toBe('done');
+    expect(h.jobs.get(big)!.status).toBe('active');
+    release();
+    await settle(engine);
+    expect(h.jobs.get(big)!.status).toBe('done');
   });
 
   test('rate-limited plan waits Retry-After; flaky block PUTs retry; commit re-sends missing', async () => {

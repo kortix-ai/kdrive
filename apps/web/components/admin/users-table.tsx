@@ -49,7 +49,7 @@ function InlineMeter({ used, quota }: { used: number; quota: number }) {
 }
 
 /** Users table: email, workspaces, used, quota (click to edit inline), meter, last sign-in, created. */
-export function UsersTable({ users, onUpdated }: { users: AdminUser[]; onUpdated: (u: AdminUser) => void }) {
+export function UsersTable({ users, capBytes, onUpdated }: { users: AdminUser[]; capBytes?: number; onUpdated: (u: AdminUser, warning?: string) => void }) {
   const [sort, setSort] = useState<{ key: UserSortKey; dir: 1 | -1 }>({ key: 'used', dir: -1 });
   const [editing, setEditing] = useState<string | null>(null);
   const rows = useMemo(() => sortUsers(users, sort.key, sort.dir), [users, sort]);
@@ -110,9 +110,10 @@ export function UsersTable({ users, onUpdated }: { users: AdminUser[]; onUpdated
                     <div className="flex justify-end">
                       <QuotaEditor
                         user={u}
-                        onDone={(updated) => {
+                        capBytes={capBytes}
+                        onDone={(updated, warning) => {
                           setEditing(null);
-                          if (updated) onUpdated(updated);
+                          if (updated) onUpdated(updated, warning);
                         }}
                       />
                     </div>

@@ -52,8 +52,9 @@ function UsersTab() {
     keepPreviousData: true,
   });
 
-  const onUpdated = (u: AdminUser) => {
-    void mutate((cur) => (cur ? { users: cur.users.map((x) => (x.id === u.id ? u : x)) } : cur), { revalidate: false });
+  const onUpdated = (u: AdminUser, warning?: string) => {
+    void mutate((cur) => (cur ? { ...cur, users: cur.users.map((x) => (x.id === u.id ? u : x)) } : cur), { revalidate: false });
+    if (warning) useVx.getState().toast({ kind: 'info', message: warning });
     if (query) void globalMutate(['admin-users', '']);
   };
 
@@ -88,7 +89,7 @@ function UsersTab() {
       ) : data.users.length === 0 ? (
         <p className="vx-body border border-vx-hair p-6 text-center text-vx-text-3">{query ? `No users match “${query}”.` : 'No users yet.'}</p>
       ) : (
-        <UsersTable users={data.users} onUpdated={onUpdated} />
+        <UsersTable users={data.users} capBytes={data.workspaceCapBytes} onUpdated={onUpdated} />
       )}
       <p className="vx-micro mt-3 text-vx-text-4">Quotas go up to 50 GiB. Usage is each workspace&apos;s current size; history is not counted.</p>
     </div>
