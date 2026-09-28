@@ -1,0 +1,23 @@
+{
+  "name": "volumes",
+  "private": true,
+  "type": "module",
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "dev": "concurrently -k -n api,web -c blue,magenta \"bun run --cwd apps/api dev\" \"bun run --cwd apps/web dev\"",
+    "dev:api": "bun run --cwd apps/api dev",
+    "dev:web": "bun run --cwd apps/web dev",
+    "test": "bun run --cwd packages/shared test && bun run --cwd apps/api test && bun run --cwd apps/web test",
+    "typecheck": "bun run --cwd packages/shared typecheck && bun run --cwd apps/api typecheck && bun run --cwd apps/web typecheck",
+    "build": "bun run typecheck && bun run --cwd apps/web build",
+    "db:migrate": "bun run --cwd apps/api db:migrate",
+    "db:generate": "bun run --cwd apps/api db:generate",
+    "seed": "bun run --cwd apps/api seed",
+    "hygiene": "bash scripts/check-repo-hygiene.sh --tracked"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.2",
+    "concurrently": "^9",
+    "typescript": "^5.7"
+  }
+}
