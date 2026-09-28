@@ -1,0 +1,75 @@
+/* WEB-drive motion and a few shapes Tailwind can't express (DESIGN §6.2, §6.12, §8).
+   Durations stay ≤ 200 ms; the global reduced-motion rule turns them off. */
+
+/* delete: the row collapses (160 ms) before it leaves the list */
+@keyframes vxCollapse {
+  from { opacity: 1; transform: scaleY(1); }
+  to { opacity: 0; transform: scaleY(0.15); }
+}
+.removing { animation: vxCollapse 160ms var(--vx-ease) forwards; transform-origin: top; pointer-events: none; }
+
+/* pending rename / move / create: 1 px hairline sweeping under the row */
+@keyframes vxSweep {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(340%); }
+}
+.pendingLine { position: absolute; left: 0; right: 0; bottom: 0; height: 1px; overflow: hidden; pointer-events: none; }
+.pendingLine::after {
+  content: ''; position: absolute; top: 0; left: 0; width: 30%; height: 1px; background: var(--vx-text-4);
+  animation: vxSweep 1.1s linear infinite;
+}
+
+/* past mode: 1 px amber progress line along the top of main while a frame loads */
+.pastLine { position: absolute; left: 0; right: 0; top: 0; height: 1px; overflow: hidden; pointer-events: none; z-index: 5; }
+.pastLine::after {
+  content: ''; position: absolute; top: 0; left: 0; width: 30%; height: 1px; background: var(--vx-past);
+  animation: vxSweep 0.9s linear infinite;
+}
+.nowLine { position: absolute; left: 0; right: 0; top: 0; height: 1px; overflow: hidden; pointer-events: none; z-index: 5; }
+.nowLine::after {
+  content: ''; position: absolute; top: 0; left: 0; width: 30%; height: 1px; background: var(--vx-text-4);
+  animation: vxSweep 0.9s linear infinite;
+}
+
+/* selection bar replaces the column header: fade + 4 px x-shift */
+@keyframes vxSelIn {
+  from { opacity: 0; transform: translateX(4px); }
+  to { opacity: 1; transform: none; }
+}
+.selIn { animation: vxSelIn 160ms var(--vx-ease); }
+
+/* drift chips fade in (no stagger) */
+@keyframes vxFade { from { opacity: 0; } to { opacity: 1; } }
+.fadeIn { animation: vxFade 120ms ease-out; }
+
+/* grid: 4:3 mat through a padding-bottom spacer (not aspect-ratio) */
+.mat { position: relative; background: var(--vx-mat); overflow: hidden; }
+.mat::before { content: ''; display: block; padding-bottom: 75%; }
+.matInner { position: absolute; inset: 0; }
+.pastFilter { filter: var(--vx-past-filter); }
+
+/* drop target: machined corner brackets snapping in from 24 px out */
+@keyframes vxBracketIn {
+  from { opacity: 0; transform: translate(var(--dx), var(--dy)); }
+  to { opacity: 1; transform: none; }
+}
+.bracket { position: absolute; width: 16px; height: 16px; animation: vxBracketIn 160ms var(--vx-ease) both; }
+.bracketTL { border-left: 1px solid currentColor; border-top: 1px solid currentColor; --dx: -24px; --dy: -24px; }
+.bracketTR { border-right: 1px solid currentColor; border-top: 1px solid currentColor; --dx: 24px; --dy: -24px; }
+.bracketBL { border-left: 1px solid currentColor; border-bottom: 1px solid currentColor; --dx: -24px; --dy: 24px; }
+.bracketBR { border-right: 1px solid currentColor; border-bottom: 1px solid currentColor; --dx: 24px; --dy: 24px; }
+.dropBox { position: fixed; pointer-events: none; transition: left 120ms var(--vx-ease), top 120ms var(--vx-ease), width 120ms var(--vx-ease), height 120ms var(--vx-ease); }
+
+/* tray rows enter */
+@keyframes vxRowIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+.rowIn { animation: vxRowIn 160ms var(--vx-ease); }
+
+/* ghost rows (added later): dashed frame */
+.ghost { outline: 1px dashed var(--vx-hair-dash); outline-offset: -3px; }
+
+/* hide number spinners in the palette etc. */
+.noScrollbar { scrollbar-width: none; }
+.noScrollbar::-webkit-scrollbar { display: none; }
