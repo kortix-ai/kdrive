@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeftRight, Copy, Eye, RotateCcw, Undo2 } from 'lucide-react';
 import type { TimelineEntry as Entry } from '@volumes/shared';
 import { cx } from '@/components/ui/cx';
+import { actionText } from '@/lib/format';
 import type { MenuItem } from '@/components/ui/menu';
 import { driveCompareHref } from '@/lib/urls';
 import { useVx } from '@/lib/store';
@@ -110,7 +111,7 @@ export const TimelineEntryRow = forwardRef<HTMLDivElement, TimelineEntryProps>(f
       role="button"
       tabIndex={0}
       aria-pressed={selected}
-      aria-label={`${e.summary}, ${new Date(e.createdAt).toLocaleString()}`}
+      aria-label={`${actionText(e.summary, e.restoredTo)}, ${new Date(e.createdAt).toLocaleString()}`}
       data-commit={e.commitId}
       onClick={onOpen}
       onKeyDown={(ev) => {
@@ -130,10 +131,9 @@ export const TimelineEntryRow = forwardRef<HTMLDivElement, TimelineEntryProps>(f
     >
       <div className="flex min-w-0 items-center gap-2">
         <EntryGlyph e={e} className="w-3.5 shrink-0 text-center font-mono text-[11px]" />
-        {e.checkpoints.length ? <CheckpointBadge bare name={e.checkpoints.map((c) => c.name).join(', ')} className="shrink-0 max-w-[45%]" /> : null}
-        {e.checkpoints.length ? <span className="text-vx-text-4">—</span> : null}
-        <span className="vx-name min-w-0 flex-1 truncate text-vx-text-1" title={e.summary}>
-          {e.summary}
+        {/* Line 1 is the change itself; checkpoint names ride on line 2 (the ◆ glyph already marks the row). */}
+        <span className="vx-name min-w-0 flex-1 truncate text-vx-text-1" title={actionText(e.summary, e.restoredTo)}>
+          {actionText(e.summary, e.restoredTo)}
         </span>
         {e.isHead ? <Badge>Now</Badge> : null}
         <When at={e.createdAt} className="vx-meta shrink-0 text-vx-text-3" />
@@ -143,6 +143,9 @@ export const TimelineEntryRow = forwardRef<HTMLDivElement, TimelineEntryProps>(f
         <span className="vx-meta text-vx-text-4">·</span>
         <Delta n={e.bytesDelta} className="vx-meta shrink-0" />
         {showActor ? <span className="vx-meta truncate text-vx-text-3">· {e.actor?.name || e.actor?.email}</span> : null}
+        {e.checkpoints.length ? (
+          <CheckpointBadge bare glyph={false} name={e.checkpoints.map((c) => c.name).join(', ')} className="min-w-0 max-w-[50%] shrink" />
+        ) : null}
         <span className="flex-1" />
         <CommitId id={e.commitId} className="vx-meta shrink-0 text-vx-text-4" />
         <button

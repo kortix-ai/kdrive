@@ -14,7 +14,7 @@ import { isApiError } from '@/lib/api/client';
 import { api } from '@/lib/api/endpoints';
 import { useTimeline } from '@/lib/api/hooks';
 import { goToMatches } from '@/lib/drive/goto';
-import { formatTimeTravelLabel } from '@/lib/format';
+import { actionText, formatTimeTravelLabel } from '@/lib/format';
 import { useVx } from '@/lib/store';
 import { DriveEmpty } from './empty-drive';
 import SearchResults, { type PaletteItem } from './search-results';
@@ -79,7 +79,7 @@ function Palette({ onClose, onPick, rootName }: { onClose: () => void; onPick: (
   });
   const timeline = useTimeline();
   const timelineEntries = useMemo(
-    () => (timeline.data ?? []).flatMap((p: TimelineResponse) => p.entries).map((e) => ({ commitId: e.commitId, createdAt: e.createdAt, summary: e.summary, isHead: e.isHead })),
+    () => (timeline.data ?? []).flatMap((p: TimelineResponse) => p.entries).map((e) => ({ commitId: e.commitId, createdAt: e.createdAt, summary: actionText(e.summary, e.restoredTo), isHead: e.isHead })),
     [timeline.data],
   );
   const items: PaletteItem[] = useMemo(() => {

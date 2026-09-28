@@ -76,6 +76,8 @@ export const axisDayLabel = (d: Date | string) => format(typeof d === 'string' ?
 
 /** Time Strip timecode: "28 SEP 2026 · 10:41" (upper-cased by CSS). */
 export const timecode = (d: Date | string) => format(typeof d === 'string' ? new Date(d) : d, 'd MMM yyyy · HH:mm');
+/** Phones: "28 SEP 10:41", so the time survives a 132 px block. */
+export const shortTimecode = (d: Date | string) => format(typeof d === 'string' ? new Date(d) : d, 'd MMM HH:mm');
 
 /** Tooltip time: "16:40 · 14 SEP". */
 export const tooltipTime = (d: Date | string) => format(typeof d === 'string' ? new Date(d) : d, 'HH:mm · d MMM');

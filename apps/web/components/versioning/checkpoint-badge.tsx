@@ -1,7 +1,10 @@
 import { cx } from '@/components/ui/cx';
 
-/** `◆ name`: a named version (purple diamond, hairline badge, name in text-2). */
-export function CheckpointBadge({ name, className, bare }: { name: string; className?: string; bare?: boolean }) {
+/**
+ * `◆ name`: a named version (purple diamond, hairline badge, name in text-2).
+ * `glyph={false}` drops the diamond where a ◆ node glyph already marks the row.
+ */
+export function CheckpointBadge({ name, className, bare, glyph = true }: { name: string; className?: string; bare?: boolean; glyph?: boolean }) {
   return (
     <span
       title={`Checkpoint: ${name}`}
@@ -11,9 +14,11 @@ export function CheckpointBadge({ name, className, bare }: { name: string; class
         className,
       )}
     >
-      <span aria-hidden className="text-vx-accent">
-        ◆
-      </span>
+      {glyph ? (
+        <span aria-hidden className="text-vx-accent">
+          ◆
+        </span>
+      ) : null}
       <span className="truncate text-vx-text-2">{name}</span>
     </span>
   );

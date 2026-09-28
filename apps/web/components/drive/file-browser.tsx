@@ -7,15 +7,13 @@
 // with the reason, and rows say how they differ from now.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import useSWR from 'swr';
 import { Clock, Copy, Download, FolderInput, Share2, Trash, X } from 'lucide-react';
 import { basename, dirname, type FileEntry } from '@volumes/shared';
 import { Button } from '@/components/ui/button';
 import { Tooltip } from '@/components/ui/tooltip';
 import { cx } from '@/components/ui/cx';
 import { isApiError } from '@/lib/api/client';
-import { api } from '@/lib/api/endpoints';
-import { useListing } from '@/lib/api/hooks';
+import { useListing, useNowListing } from '@/lib/api/hooks';
 import { compareWithPrevious, deleteItems, downloadEntries, createFolder, moveItems, renameItem } from '@/lib/drive/actions';
 import { computeDrift } from '@/lib/drive/drift';
 import { computeGridLayout } from '@/lib/drive/layout';
@@ -91,10 +89,7 @@ export default function FileBrowser({ path }: { path: string }) {
   const rootName = me?.workspaces.find((w) => w.id === ws)?.name ?? 'My Drive';
 
   const listing = useListing(path);
-  const nowListing = useSWR(ws && past ? ['ls', ws, path, null] : null, () => api.files.list(ws!, { path }), {
-    revalidateOnFocus: false,
-    shouldRetryOnError: false,
-  });
+  const nowListing = useNowListing(path, past);
 
   const [sort, setSort] = useState<SortSpec>(DEFAULT_SORT);
   useEffect(() => setSort(loadSort()), []);
@@ -145,11 +140,14 @@ export default function FileBrowser({ path }: { path: string }) {
   const order = useMemo(() => entries.map((e) => e.path), [entries]);
   // The folder may not exist any more: then every past row is "gone now".
   const goneNow = isApiError(nowListing.error, 'path_not_found') || isApiError(nowListing.error, 'not_a_directory');
+  // Drift compares THIS version's listing with a fresh one at head: never while
+  // either is still the previous frame (stepping, re-entering time travel).
+  const nowFresh = !!nowListing.data && !nowListing.isValidating && nowListing.data.path === path;
   const drift = useMemo(() => {
-    if (!past || !data || stale) return null;
+    if (!past || !data || stale || data.commitId !== at) return null;
     if (goneNow) return computeDrift(data.entries, []);
-    return nowListing.data && nowListing.data.path === path ? computeDrift(data.entries, nowListing.data.entries) : null;
-  }, [past, data, stale, nowListing.data, path, goneNow]);
+    return nowFresh ? computeDrift(data.entries, nowListing.data!.entries) : null;
+  }, [past, data, stale, at, nowFresh, nowListing.data, goneNow]);
   const addedLater = useMemo(() => (drift ? sortEntries(drift.addedLater, sort) : []), [drift, sort]);
   const selection = useMemo(() => new Set(selectionArr), [selectionArr]);
   const selectedEntries = useMemo(() => selectionArr.map((p) => byPath.get(p)).filter((e): e is FileEntry => !!e), [selectionArr, byPath]);
@@ -747,7 +745,7 @@ export default function FileBrowser({ path }: { path: string }) {
                 </span>
               ) : null}
             </span>
-            <span className={cx(view === 'list' && 'text-right')}>
+            <span className={cx('vx-col-mtime', view === 'list' && 'text-right')}>
               <SortHead label="Modified" k="mtime" sort={sort} onSort={onSort} align={view === 'list' ? 'right' : 'left'} />
             </span>
             <span className={cx(view === 'list' && 'text-right')}>
@@ -785,7 +783,7 @@ export default function FileBrowser({ path }: { path: string }) {
                   <span />
                   <span className="skeleton h-3.5 w-3.5" />
                   <span className="skeleton skel-line" style={{ width: `${30 + ((i * 37) % 40)}%` }} />
-                  <span className="skeleton skel-line ml-auto w-12" />
+                  <span className="vx-col-mtime skeleton skel-line ml-auto w-12" />
                   <span className="skeleton skel-line ml-auto w-10" />
                   <span />
                 </div>

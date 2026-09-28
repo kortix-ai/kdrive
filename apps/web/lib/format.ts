@@ -35,3 +35,22 @@ export function formatAgo(d: string | number | Date): string {
 export function isoTitle(d: string | number | Date): string {
   return toDate(d).toISOString();
 }
+
+const EARLIER = ' to an earlier version';
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+/** Summaries written before times moved client-side: "… to 28 Sep 2026, 05:57 UTC". */
+const LEGACY_UTC = /(\d{1,2}) ([A-Z][a-z]{2}) (\d{4}), (\d{2}):(\d{2}) UTC/g;
+
+/**
+ * An action's summary with any time in the VIEWER's clock: restores say
+ * "Restored plan.md to 28 Sep, 11:26" from `restoredTo`, never a UTC time next
+ * to the local ones around it.
+ */
+export function actionText(summary: string, restoredTo?: string | null): string {
+  if (restoredTo && summary.endsWith(EARLIER)) return `${summary.slice(0, -EARLIER.length)} to ${formatTimeTravelLabel(restoredTo)}`;
+  return summary.replace(LEGACY_UTC, (m, d: string, mon: string, y: string, h: string, min: string) => {
+    const mi = MONTHS.indexOf(mon);
+    if (mi < 0) return m;
+    return formatTimeTravelLabel(new Date(Date.UTC(Number(y), mi, Number(d), Number(h), Number(min))));
+  });
+}

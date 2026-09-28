@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Download, Eye } from 'lucide-react';
+import { Download, Eye, RotateCcw } from 'lucide-react';
 import { basename, type FileVersion } from '@volumes/shared';
 import { Button } from '@/components/ui/button';
 import { cx } from '@/components/ui/cx';
@@ -18,6 +18,9 @@ import { Badge, CheckpointBadge } from './checkpoint-badge';
 import { Bytes, CommitId, When } from './readout';
 import { RetentionNote } from './retention-note';
 import './versioning.css';
+
+/** Shared by the header and the rows: the actions column (3 x 28 px) never overlaps the size. */
+const ROW_GRID = 'grid grid-cols-[20px_20px_minmax(0,1fr)_64px_88px] items-center gap-x-2 px-4';
 
 const OP_LABEL: Record<FileVersion['op'], string> = {
   added: 'Added',
@@ -129,12 +132,13 @@ function Versions({ path }: { path: string }) {
         <EmptyState className="py-10" title="No versions kept yet." body="Every upload of this file adds a version here." />
       ) : (
         <>
-          <div className="grid shrink-0 grid-cols-[20px_20px_minmax(0,1fr)_76px_minmax(0,0.9fr)] items-center gap-x-2 border-y border-vx-hair bg-vx-surface-2 px-4 py-1.5">
+          {/* [A][B][when + change, badges on line 2][size][actions: their own column, never over the size] */}
+          <div className={cx(ROW_GRID, 'shrink-0 border-y border-vx-hair bg-vx-surface-2 py-1.5')}>
             <span className="vx-label text-center">A</span>
             <span className="vx-label text-center">B</span>
-            <span className="vx-label">When</span>
+            <span className="vx-label">When · change</span>
             <span className="vx-label text-right">Size</span>
-            <span className="vx-label">Change</span>
+            <span aria-hidden />
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto" role="list" aria-label={`Versions of ${name}`}>
             {versions.map((v) => {
@@ -144,31 +148,38 @@ function Versions({ path }: { path: string }) {
                 <div key={v.commitId} role="listitem" className="border-b border-vx-hair-soft">
                   <div
                     className={cx(
-                      'group relative grid h-10 grid-cols-[20px_20px_minmax(0,1fr)_76px_minmax(0,0.9fr)] items-center gap-x-2 px-4 transition-colors duration-[120ms] hover:bg-vx-surface-2',
+                      ROW_GRID,
+                      'group relative min-h-10 py-1 transition-colors duration-[120ms] hover:bg-vx-surface-2',
                       ghost && 'shadow-[inset_1px_0_0_var(--vx-hair-dash)]',
                       isConfirming && 'bg-vx-past-wash',
                     )}
                   >
                     <Radio checked={a === v.commitId} label={`Use as A: ${formatTimeTravelLabel(v.createdAt)}`} onChange={() => setA(v.commitId)} />
                     <Radio checked={b === v.commitId} label={`Use as B: ${formatTimeTravelLabel(v.createdAt)}`} onChange={() => setB(v.commitId)} />
-                    <div className="flex min-w-0 items-center gap-1.5">
-                      {v.isCurrent ? (
-                        <span className="vx-meta text-vx-text-1">now</span>
-                      ) : (
-                        <When at={v.createdAt} className={cx('vx-meta', ghost ? 'text-vx-text-3' : 'text-vx-text-2')} />
-                      )}
-                      <CommitId id={v.commitId} className="vx-meta text-vx-text-4" />
-                      {v.isCurrent ? <Badge>Current</Badge> : null}
-                      {v.checkpointNames.map((c) => (
-                        <CheckpointBadge key={c} name={c} className="max-w-[96px]" />
-                      ))}
+                    <div className="flex min-w-0 flex-col gap-0.5">
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        {v.isCurrent ? (
+                          <span className="vx-meta shrink-0 text-vx-text-1">now</span>
+                        ) : (
+                          <When at={v.createdAt} className={cx('vx-meta shrink-0', ghost ? 'text-vx-text-3' : 'text-vx-text-2')} />
+                        )}
+                        <CommitId id={v.commitId} className="vx-meta shrink-0 text-vx-text-4" />
+                        <span className={cx('vx-meta min-w-0 truncate', v.isCurrent ? 'text-vx-text-1' : 'text-vx-text-3')} title={v.summary ?? undefined}>
+                          · {changeLabel(v)}
+                        </span>
+                      </div>
+                      {v.isCurrent || v.checkpointNames.length ? (
+                        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                          {v.isCurrent ? <Badge>Current</Badge> : null}
+                          {v.checkpointNames.map((c) => (
+                            <CheckpointBadge key={c} name={c} className="max-w-full" />
+                          ))}
+                        </div>
+                      ) : null}
                     </div>
                     <Bytes n={ghost && v.size === 0 ? null : v.size} className={cx('vx-meta text-right', v.isCurrent ? 'text-vx-text-1' : 'text-vx-text-3')} />
-                    <span className={cx('vx-meta truncate', v.isCurrent ? 'text-vx-text-1' : 'text-vx-text-3')} title={v.summary ?? undefined}>
-                      {changeLabel(v)}
-                    </span>
-                    {/* hover actions */}
-                    <div className="absolute inset-y-0 right-2 hidden items-center gap-0.5 bg-vx-surface-2 pl-2 group-focus-within:flex group-hover:flex">
+                    {/* hover actions: a column of their own */}
+                    <div className="flex items-center justify-end gap-0.5 opacity-0 transition-opacity duration-[120ms] focus-within:opacity-100 group-hover:opacity-100">
                       <RowAction label="Open this version" onClick={() => openPreview(v.path ?? path, { at: v.commitId })}>
                         <Eye size={14} strokeWidth={1.5} />
                       </RowAction>
@@ -186,13 +197,15 @@ function Versions({ path }: { path: string }) {
                       {!v.isCurrent ? (
                         <button
                           type="button"
+                          aria-label="Restore this version"
+                          title="Restore this version"
                           onClick={() => {
                             setRowError(null);
                             setConfirming(v.commitId);
                           }}
-                          className="inline-flex h-7 items-center gap-1 px-2 font-mono text-[12px] text-vx-past hover:bg-vx-past-wash"
+                          className="inline-flex h-7 w-7 items-center justify-center text-vx-past hover:bg-vx-past-wash"
                         >
-                          ↺ Restore
+                          <RotateCcw size={14} strokeWidth={1.5} />
                         </button>
                       ) : null}
                     </div>

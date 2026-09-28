@@ -7,7 +7,7 @@ import useSWR from 'swr';
 import { Button } from '@/components/ui/button';
 import { Menu } from '@/components/ui/menu';
 import { isTypingTarget } from '@/lib/keys';
-import { formatTimeTravelLabel } from '@/lib/format';
+import { actionText, formatTimeTravelLabel } from '@/lib/format';
 import { useVx, type TimeTravel } from '@/lib/store';
 import { driveCompareHref } from '@/lib/urls';
 import { useCommit, useTimelineEntries } from '@/lib/versioning/hooks';
@@ -24,7 +24,8 @@ export default function TimeTravelBanner() {
   const timeline = useTimelineEntries();
   useTimeKeys(timeline);
   if (!tt) return null;
-  return <Banner tt={tt} headCommitId={timeline.headCommitId} summary={timeline.entries.find((e) => e.commitId === tt.commitId)?.summary ?? null} />;
+  const entry = timeline.entries.find((e) => e.commitId === tt.commitId);
+  return <Banner tt={tt} headCommitId={timeline.headCommitId} summary={entry ? actionText(entry.summary, entry.restoredTo) : null} />;
 }
 
 function Banner({ tt, headCommitId, summary }: { tt: NonNullable<TimeTravel>; headCommitId: string | null; summary: string | null }) {
@@ -37,7 +38,8 @@ function Banner({ tt, headCommitId, summary }: { tt: NonNullable<TimeTravel>; he
   const openShare = useVx((s) => s.openShare);
   const drivePath = useVx((s) => s.path);
   const commit = useCommit(summary ? null : tt.commitId);
-  const text = summary ?? commit.data?.action?.summary ?? (commit.isLoading ? '…' : null);
+  const action = commit.data?.action;
+  const text = summary ?? (action ? actionText(action.summary, action.restoredTo) : null) ?? (commit.isLoading ? '…' : null);
   const onDrive = pathname === '/drive' || pathname.startsWith('/drive/');
   // The drive listing for this frame (same swr key as useListing, read-only here): while it loads,
   // a 1 px amber progress line runs along the banner's edge; the previous frame stays on screen.

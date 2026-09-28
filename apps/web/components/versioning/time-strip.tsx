@@ -7,6 +7,7 @@ import type { TimelineEntry } from '@volumes/shared';
 import { Button } from '@/components/ui/button';
 import { cx } from '@/components/ui/cx';
 import { ContextMenu, Menu, type MenuItem } from '@/components/ui/menu';
+import { actionText } from '@/lib/format';
 import { useVx } from '@/lib/store';
 import { errorText, useFileVersions, useTimelineEntries } from '@/lib/versioning/hooks';
 import {
@@ -20,6 +21,7 @@ import {
   stepEntry,
   tickDirection,
   tickHeight,
+  shortTimecode,
   timecode,
   tooltipTime,
 } from '@/lib/versioning/timeline';
@@ -271,7 +273,9 @@ export default function TimeStrip() {
   const viewedEntry = viewedIdx >= 0 ? ordered[viewedIdx] : null;
   const shownCommit = tt?.commitId ?? headCommitId;
   const ordinal = shownCommit ? ordered.findIndex((e) => e.commitId === shownCommit) + 1 : 0;
-  const code = tt ? timecode(tt.createdAt) : headEntry ? timecode(headEntry.createdAt) : timecode(new Date());
+  const codeAt = tt ? tt.createdAt : headEntry ? headEntry.createdAt : new Date();
+  const code = timecode(codeAt);
+  const shortCode = shortTimecode(codeAt);
 
   const tools: MenuItem[] = [
     { id: 'h', label: timelineOpen ? 'Hide history' : 'History', kbd: 'H', onSelect: () => toggleTimeline() },
@@ -292,7 +296,8 @@ export default function TimeStrip() {
       <div className="flex w-[216px] shrink-0 flex-col justify-center gap-0.5 border-r border-vx-hair px-4 max-[720px]:w-[132px] max-[720px]:px-3">
         <span className={cx('vx-label', tt ? 'text-vx-past' : 'text-vx-text-3')}>{tt ? 'Viewing' : 'Now'}</span>
         <span className={cx('vx-title truncate uppercase tabular-nums max-[720px]:text-[12px]', tt ? '!text-vx-past' : 'text-vx-text-1')} title={code}>
-          {code}
+          <span className="max-[720px]:hidden">{code}</span>
+          <span className="hidden max-[720px]:inline">{shortCode}</span>
         </span>
         <span key={stamp?.n ?? 0} className={cx('vx-meta w-fit truncate text-vx-text-3 max-[720px]:hidden', flashing && !tt && 'vxv-stamp')}>
           {shownCommit ? <CommitId id={shownCommit} /> : '—'}
@@ -376,7 +381,7 @@ export default function TimeStrip() {
                     key={e.id}
                     type="button"
                     tabIndex={-1}
-                    aria-label={`${e.summary}, ${new Date(e.createdAt).toLocaleString()}`}
+                    aria-label={`${actionText(e.summary, e.restoredTo)}, ${new Date(e.createdAt).toLocaleString()}`}
                     onClick={(ev) => (ev.shiftKey ? actions.compareWithViewed(e, entries) : actions.open(e))}
                     onContextMenu={(ev) => {
                       ev.preventDefault();
@@ -444,7 +449,7 @@ export default function TimeStrip() {
                 aria-valuemin={1}
                 aria-valuemax={Math.max(1, n)}
                 aria-valuenow={viewedIdx >= 0 ? viewedIdx + 1 : Math.max(1, n)}
-                aria-valuetext={tt ? `Viewing ${viewedEntry?.summary ?? ''} ${new Date(tt.createdAt).toLocaleString()}` : 'Now'}
+                aria-valuetext={tt ? `Viewing ${viewedEntry ? actionText(viewedEntry.summary, viewedEntry.restoredTo) : ''} ${new Date(tt.createdAt).toLocaleString()}` : 'Now'}
                 onKeyDown={onGripKey}
                 onPointerDown={onDragStart}
                 onPointerMove={onDragMove}
@@ -517,7 +522,7 @@ function TickTooltip({ e, rect }: { e: TimelineEntry; rect: DOMRect }) {
       style={{ left, bottom, width: w }}
     >
       <div className="vx-meta uppercase text-vx-text-3">{tooltipTime(e.createdAt)}</div>
-      <div className="vx-name mt-1 text-vx-text-1">{e.summary}</div>
+      <div className="vx-name mt-1 text-vx-text-1">{actionText(e.summary, e.restoredTo)}</div>
       <div className="vx-meta mt-1 text-vx-text-3">
         {plural(e.itemCount, 'item')} · <Delta n={e.bytesDelta} />
       </div>
