@@ -108,6 +108,8 @@ export const actionPaths = pgTable(
   },
   (t) => [
     index('action_paths_ws_path_idx').on(t.workspaceId, t.path),
+    // "Which of these blocks has this user already stored?" (upload plans never reveal other users' blocks)
+    index('action_paths_blocks_gin').using('gin', t.blockHashes),
     index('action_paths_action_idx').on(t.actionId),
     index('action_paths_ws_deleted_idx').on(t.workspaceId).where(sql`op = 'deleted'`),
   ],
@@ -152,6 +154,11 @@ export const shareLinks = pgTable(
     tag: text('tag'), // pinned only: ln-<id>
     expiresAt: timestamp('expires_at', tz),
     revokedAt: timestamp('revoked_at', tz),
+    // A live link follows its item through moves; when the item is deleted (or
+    // removed by a restore) the link is detached, so nothing created later at
+    // that path is ever served. Undoing that action re-attaches it.
+    detachedAt: timestamp('detached_at', tz),
+    detachedByActionId: text('detached_by_action_id'),
     openCount: integer('open_count').notNull().default(0),
     lastOpenedAt: timestamp('last_opened_at', tz),
     createdAt: timestamp('created_at', tz).defaultNow().notNull(),
@@ -164,6 +171,10 @@ export type UploadRowPlan = {
   dirs: string[];
   overwrite: boolean;
   renamed: { from: string; to: string }[];
+  /** Head when the plan was made: a commit onto a moved head re-checks conflicts and re-plans. */
+  baseCommitId?: string;
+  /** Head right before the first commit attempt (recognises a commit whose response was lost). */
+  commitHead?: string;
 };
 
 export const uploads = pgTable(
@@ -181,6 +192,8 @@ export const uploads = pgTable(
     status: text('status').$type<'planned' | 'uploading' | 'committed' | 'failed' | 'aborted' | 'expired'>().notNull(),
     plan: jsonb('plan').$type<UploadRowPlan>().notNull(),
     totalBytes: bigint('total_bytes', { mode: 'number' }).notNull(),
+    // Quota reserved by this plan until it commits or ends (growth of logicalBytes, like assertQuota counts).
+    addedBytes: bigint('added_bytes', { mode: 'number' }).notNull().default(0),
     missingCount: integer('missing_count').notNull().default(0),
     expiresAt: timestamp('expires_at', tz),
     createdAt: timestamp('created_at', tz).defaultNow().notNull(),

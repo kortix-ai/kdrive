@@ -77,6 +77,8 @@ export const ActionSummarySchema = z.object({
   itemCount: z.number(),
   bytesDelta: z.number(),
   undoable: z.boolean(),
+  /** Restores: when the version it went back to was made (the client shows it in local time). */
+  restoredTo: IsoDateSchema.nullable().optional(),
 });
 export type ActionSummary = z.infer<typeof ActionSummarySchema>;
 

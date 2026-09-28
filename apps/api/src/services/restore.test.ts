@@ -177,7 +177,7 @@ describe('drive restore', () => {
     const r = await k.client.post(`/api/w/${k.ws}/restore`, { scope: 'drive', at: v1.action.headCommitId });
     expect(r.status).toBe(200);
     expect(r.body.action.kind).toBe('restore.drive');
-    expect(r.body.checkpoint.name).toMatch(/^Before restore — /);
+    expect(r.body.checkpoint.name).toBe('Before restore');
     expect(r.body.checkpointSkipped).toBeUndefined();
     expect(await ls(k.vol)).toEqual(['/a.txt']);
     expect(await readText(k, '/a.txt')).toBe('a1');

@@ -14,7 +14,7 @@ import {
   deletedRows,
   finalize,
   getAction,
-  lastKnownBlocks,
+  exactBlockLists,
   pathRows,
   reconcilePending,
   recordIntent,
@@ -50,7 +50,7 @@ describe('ledger', () => {
     expect(action.headCommitId).toBe(result.commitId);
     expect(action.baseCommitId).not.toBe(result.commitId);
     expect(action.itemCount).toBe(1);
-    expect(action.bytesDelta).toBe(4096);
+    expect(action.bytesDelta).toBe(5); // the file's real size, not its 4 KiB page
     expect(action.undoable).toBe(true);
     const row = await getAction(ctx.ws.id, action.id);
     expect(row!.commitIds).toEqual([result.commitId]);
@@ -122,10 +122,10 @@ describe('ledger', () => {
     expect(rows[0].contentHash).toBe(contentHashOf([]));
   });
 
-  test('queries: pathRows (fromPath, descendants), lastKnownBlocks, deletedRows, actionsInRange', async () => {
+  test('queries: pathRows (fromPath, descendants), exactBlockLists, deletedRows, actionsInRange', async () => {
     const ctx = await ctxFor('ledger5@test.local');
     const store = getStore();
-    const blocks = ['aa'.repeat(32), 'bb'.repeat(32)];
+    const blocks = ['aa'.repeat(32)];
     const t0 = new Date(Date.now() - 1000);
     await withAction(ctx, { kind: 'upload', summary: 'up', paths: [{ op: 'added', path: '/dir/f.bin', entryType: 'file', size: 10, blockHashes: blocks }] }, async (rec) => {
       await rec.commit(await store.write(ctx.ws.volumeId, '/dir/f.bin', enc('0123456789')));
@@ -133,6 +133,11 @@ describe('ledger', () => {
     await withAction(ctx, { kind: 'move', summary: 'mv', paths: [{ op: 'moved', path: '/dir/g.bin', fromPath: '/dir/f.bin', entryType: 'file', size: 10, blockHashes: blocks }] }, async (rec) => {
       await rec.commit(await store.move(ctx.ws.volumeId, '/dir/f.bin', '/dir/g.bin'));
     });
+    const moved = await store.stat(ctx.ws.volumeId, '/dir/g.bin');
+    // Trusted only for the exact version its action wrote.
+    expect((await exactBlockLists(ctx.ws.id, [moved])).get('/dir/g.bin')).toEqual(blocks);
+    expect((await exactBlockLists(ctx.ws.id, [{ ...moved, version: '01ZZZZZZZZZZZZZZZZZZZZZZZZ' }])).size).toBe(0);
+    expect((await exactBlockLists(ctx.ws.id, [{ ...moved, size: 11 }])).size).toBe(0);
     await withAction(ctx, { kind: 'delete', summary: 'rm', paths: [{ op: 'deleted', path: '/dir', entryType: 'dir', size: 10 }] }, async (rec) => {
       await rec.commit(await store.remove(ctx.ws.volumeId, '/dir', { recursive: true }));
     });
@@ -140,9 +145,6 @@ describe('ledger', () => {
     expect(f.map((r) => r.op)).toEqual(['moved', 'added']);
     const all = await pathRows(ctx.ws.id, '/dir', { includeDescendants: true });
     expect(all.length).toBe(3);
-    const lkb = await lastKnownBlocks(ctx.ws.id, '/dir/g.bin', new Date());
-    expect(lkb).toEqual({ blocks, size: 10 });
-    expect(await lastKnownBlocks(ctx.ws.id, '/dir/g.bin', t0)).toBeNull();
     const del = await deletedRows(ctx.ws.id, 10);
     expect(del.map((d) => d.path)).toEqual(['/dir']);
     expect(del[0].action.kind).toBe('delete');

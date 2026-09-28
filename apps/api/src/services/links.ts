@@ -33,6 +33,7 @@ export function toShareLink(row: ShareLinkRow): ShareLink {
     commitId: row.commitId,
     expiresAt: row.expiresAt ? row.expiresAt.toISOString() : null,
     revokedAt: row.revokedAt ? row.revokedAt.toISOString() : null,
+    detachedAt: row.detachedAt ? row.detachedAt.toISOString() : null,
     openCount: row.openCount,
     lastOpenedAt: row.lastOpenedAt ? row.lastOpenedAt.toISOString() : null,
     createdAt: row.createdAt.toISOString(),
@@ -48,9 +49,16 @@ function parseExpiry(v: string | null | undefined): Date | null {
   return d;
 }
 
-/** Links of a workspace (optionally for one path), newest first. Revoked ones are included (the UI badges them). */
+/**
+ * Links of a workspace (optionally for one path), newest first. Revoked ones
+ * are included (the UI badges them). For one path, links detached from a
+ * deleted item are left out: they belong to that item, not to whatever sits
+ * at the path now.
+ */
 export async function listLinks(ws: WorkspaceCtx, path?: string): Promise<ShareLink[]> {
-  const where = path ? and(eq(shareLinks.workspaceId, ws.id), eq(shareLinks.path, path)) : eq(shareLinks.workspaceId, ws.id);
+  const where = path
+    ? and(eq(shareLinks.workspaceId, ws.id), eq(shareLinks.path, path), isNull(shareLinks.detachedAt))
+    : eq(shareLinks.workspaceId, ws.id);
   const rows = await db.select().from(shareLinks).where(where).orderBy(desc(shareLinks.createdAt), desc(shareLinks.id));
   return rows.map(toShareLink);
 }
@@ -194,6 +202,8 @@ export async function resolvePublicLinkFull(token: string): Promise<PublicLink> 
   if (!hit) throw new ApiError(404, 'not_found', 'This link does not exist.');
   const { link } = hit;
   if (link.revokedAt) throw new ApiError(410, 'link_revoked', 'This link was revoked by its owner.');
+  // The shared item was deleted: whatever appears at that path later is not what was shared.
+  if (link.detachedAt) throw new ApiError(404, 'not_found', 'Nothing is shared at this address.');
   if (link.expiresAt && link.expiresAt.getTime() <= Date.now()) throw new ApiError(410, 'link_expired', 'This link has expired.');
   const ws = toCtx(await ensureVolume(hit.ws));
   return {
@@ -231,4 +241,51 @@ export function linkDisplayName(link: Pick<ShareLinkRow, 'path'>, workspaceName:
 export async function deleteWorkspaceLinks(workspaceId: string): Promise<number> {
   const rows = await db.delete(shareLinks).where(eq(shareLinks.workspaceId, workspaceId)).returning({ id: shareLinks.id });
   return rows.length;
+}
+
+// ── live links follow their item ─────────────────────────────────────────────
+// A live link names a path, so every mutation that moves or removes an item
+// updates the links rooted at or under it, inside the same workspace lock.
+// Pinned links read their own commit and never change.
+
+/** Links rooted at `p` or anywhere under it (never matches siblings like `/a b` for `/a`). */
+const atOrUnder = (p: string) =>
+  p === '/' ? sql`true` : sql`(${shareLinks.path} = ${p} OR starts_with(${shareLinks.path}, ${p + '/'}))`;
+
+/** A move / rename: live links at or under `from` now point at the same item under `to`. */
+export async function moveLiveLinks(wsId: string, from: string, to: string): Promise<void> {
+  if (from === to || from === '/') return;
+  await db.execute(sql`
+    UPDATE share_links SET path = ${to} || substr(path, char_length(${from}) + 1)
+    WHERE workspace_id = ${wsId} AND mode = 'live' AND revoked_at IS NULL AND detached_at IS NULL
+      AND ${atOrUnder(from)}`);
+}
+
+/** The item at `path` is gone (deleted, replaced or removed by a restore): detach its live links. */
+export async function detachLiveLinks(wsId: string, path: string, actionId: string): Promise<void> {
+  await db.execute(sql`
+    UPDATE share_links SET detached_at = now(), detached_by_action_id = ${actionId}
+    WHERE workspace_id = ${wsId} AND mode = 'live' AND revoked_at IS NULL AND detached_at IS NULL
+      AND ${atOrUnder(path)}`);
+}
+
+/** Undo of `actionId` put its items back: the links it detached work again. */
+export async function reattachLinks(wsId: string, actionId: string): Promise<void> {
+  await db
+    .update(shareLinks)
+    .set({ detachedAt: null, detachedByActionId: null })
+    .where(and(eq(shareLinks.workspaceId, wsId), eq(shareLinks.detachedByActionId, actionId)));
+}
+
+/**
+ * Undo of a move put the item back at `from`. The undo removed `to` (detaching
+ * its links under the undo's own action id); move those links back and re-attach them.
+ */
+export async function unmoveLiveLinks(wsId: string, to: string, from: string, undoActionId: string): Promise<void> {
+  if (from === to || to === '/') return;
+  await db.execute(sql`
+    UPDATE share_links SET path = ${from} || substr(path, char_length(${to}) + 1), detached_at = NULL, detached_by_action_id = NULL
+    WHERE workspace_id = ${wsId} AND mode = 'live' AND revoked_at IS NULL
+      AND (detached_at IS NULL OR detached_by_action_id = ${undoActionId})
+      AND ${atOrUnder(to)}`);
 }

@@ -19,7 +19,7 @@ import { getStore } from '../storage';
 import type { Commit } from '../storage/types';
 import type { WorkspaceCtx } from '../types';
 import { checkpointsByCommit } from './checkpoints';
-import { actionsByCommits, reconcilePending } from './ledger';
+import { actionsByCommits, reconcilePending, restoredToOf } from './ledger';
 import { cmpCommitId } from './versioning-util';
 
 const PREVIEW_PATHS = 5;
@@ -189,10 +189,11 @@ export async function buildTimeline(ws: WorkspaceCtx, opts: { limit: number; bef
           : 'Workspace duplicated'
         : 'Changed outside the app';
     const ownItems = a ? a.itemCount : kind === 'fork' ? c.fileCount : c.stats.changedPaths + c.stats.deletedPaths;
-    const bytesDelta = lower
-      ? c.logicalBytes - lower.logicalBytes
-      : a
-        ? a.bytesDelta + m.reduce((s, x) => s + x.bytesDelta, 0)
+    // Real file bytes from the ledger for app actions; storage pages only for changes made outside the app.
+    const bytesDelta = a
+      ? a.bytesDelta + m.reduce((s, x) => s + x.bytesDelta, 0)
+      : lower
+        ? c.logicalBytes - lower.logicalBytes
         : c.logicalBytes;
     const u = a?.userId ? userById.get(a.userId) : undefined;
     const preview = [...(a ? (paths.get(a.id) ?? []) : []), ...m.flatMap((x) => paths.get(x.id) ?? [])]
@@ -212,6 +213,7 @@ export async function buildTimeline(ws: WorkspaceCtx, opts: { limit: number; bef
       isHead: g.commits.some((gc) => gc.id === headCommitId),
       undoable: a?.status === 'committed',
       actionId: a?.id ?? null,
+      restoredTo: a ? restoredToOf(a) : null,
       paths: preview,
     };
   });

@@ -15,7 +15,7 @@ import { actionPaths, actions, type ActionRow } from '../db/schema';
 import { getStore } from '../storage';
 import type { Commit, FileEntry, FileStat, Ref } from '../storage/types';
 import type { WorkspaceCtx } from '../types';
-import { actionsByCommits } from './ledger';
+import { actionsByCommits, exactBlockLists } from './ledger';
 import { listTree } from './tree';
 import { ancestorsOf, cmpCommit, cmpCommitId, isUnder, mapLimit, statIfReadable, visibleHistory } from './versioning-util';
 
@@ -113,6 +113,25 @@ async function ledgerCompare(ws: WorkspaceCtx, ca: Commit, cb: Commit): Promise<
     if (statsB[i]) B.set(p, statsB[i]!);
   });
 
+  // Same content under a new version (a delete then a restore, a re-upload of
+  // the same bytes) is not a change: compare the exact block lists when the
+  // ledger has both, and fall back to the version only when it does not.
+  const versionDiffers: FileStat[][] = [[], []];
+  for (const p of list) {
+    const sA = A.get(p);
+    const sB = B.get(p);
+    if (sA && sB && kindOf(sA.type) === 'file' && kindOf(sB.type) === 'file' && sA.version && sB.version && sA.version !== sB.version) {
+      versionDiffers[0].push(sA);
+      versionDiffers[1].push(sB);
+    }
+  }
+  const [blocksA, blocksB] = await Promise.all([exactBlockLists(ws.id, versionDiffers[0]), exactBlockLists(ws.id, versionDiffers[1])]);
+  const sameContent = (p: string) => {
+    const a = blocksA.get(p);
+    const b = blocksB.get(p);
+    return !!a && !!b && a.length === b.length && a.every((x, i) => x === b[i]);
+  };
+
   const changes: DriveChange[] = [];
   const consumed = new Set<string>();
   for (const [dst, src] of origin) {
@@ -142,7 +161,8 @@ async function ledgerCompare(ws: WorkspaceCtx, ca: Commit, cb: Commit): Promise<
         changes.push({ op: 'removed', path: p, type: kindOf(sA.type), ...(sA.type === 'file' ? { sizeA: sA.size } : {}) });
         changes.push({ op: 'added', path: p, type: kindOf(sB.type), ...(sB.type === 'file' ? { sizeB: sB.size } : {}) });
       } else if (kindOf(sB.type) === 'file') {
-        const differs = sA.version && sB.version ? sA.version !== sB.version : sA.size !== sB.size || sA.mtime !== sB.mtime;
+        const differs =
+          sA.version && sB.version ? sA.version !== sB.version && !sameContent(p) : sA.size !== sB.size || sA.mtime !== sB.mtime;
         if (differs) changes.push({ op: 'changed', path: p, type: 'file', sizeA: sA.size, sizeB: sB.size });
       }
     }

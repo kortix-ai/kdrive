@@ -15,6 +15,8 @@ export const ShareLinkSchema = z.object({
   commitId: z.string().nullable(),
   expiresAt: IsoDateSchema.nullable(),
   revokedAt: IsoDateSchema.nullable(),
+  /** Set when the shared item was deleted: the link no longer opens (undoing the delete brings it back). */
+  detachedAt: IsoDateSchema.nullable().optional(),
   openCount: z.number(),
   lastOpenedAt: IsoDateSchema.nullable(),
   createdAt: IsoDateSchema,

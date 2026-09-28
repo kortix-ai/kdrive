@@ -1,10 +1,13 @@
 // Recently deleted: ledger delete ops whose pre-delete version still exists.
 // Owner: API-versioning (architecture §9.2).
+import { and, eq, gt, inArray, or } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { DeletedQuery, DeletedResponse, type DeletedItem } from '@volumes/shared';
+import { db } from '../db/client';
+import { actionPaths, actions } from '../db/schema';
 import { ok, parseQuery } from '../lib/http';
 import { deletedRows } from '../services/ledger';
-import { cmpCommitId, mapLimit, statIfReadable, visibleHistory } from '../services/versioning-util';
+import { ancestorsOf as ancestors, cmpCommitId, mapLimit, statIfReadable, visibleHistory } from '../services/versioning-util';
 import { getStore } from '../storage';
 import type { Commit } from '../storage/types';
 import type { AppEnv, WorkspaceCtx } from '../types';
@@ -30,8 +33,14 @@ export async function listDeleted(ws: WorkspaceCtx, limit: number): Promise<Dele
   };
 
   const items = await mapLimit(latest, 8, async (r): Promise<DeletedItem | null> => {
-    // Back again (restored, re-uploaded, or a new item with that name): not "deleted".
-    if (await statIfReadable(ws.volumeId, r.path, head)) return null;
+    // Something is at that path again. If this very item came back (a restore or
+    // an undo of the delete), it is not deleted. A NEW item that took the name
+    // does not bring the old one back: keep listing it, marked occupied.
+    let occupied = false;
+    if (await statIfReadable(ws.volumeId, r.path, head)) {
+      if (await cameBack(ws.id, r)) return null;
+      occupied = true;
+    }
     let restoreAt: string | null = null;
     const base = r.action.baseCommitId;
     if (base && (await statIfReadable(ws.volumeId, r.path, base))) restoreAt = base;
@@ -51,9 +60,32 @@ export async function listDeleted(ws: WorkspaceCtx, limit: number): Promise<Dele
       deletedAt: (r.action.finalizedAt ?? r.action.createdAt).toISOString(),
       restoreAt,
       restorable: restoreAt !== null,
+      ...(occupied ? { occupied: true } : {}),
     };
   });
   return items.filter((i): i is DeletedItem => i !== null).slice(0, limit);
+}
+
+/** True when a later committed action restored this path (or a folder above it), or undid the delete. */
+async function cameBack(wsId: string, r: { path: string; action: { id: string; createdAt: Date } }): Promise<boolean> {
+  const paths = [r.path, ...ancestors(r.path).filter((p) => p !== '/')];
+  const [hit] = await db
+    .select({ id: actions.id })
+    .from(actions)
+    .leftJoin(actionPaths, eq(actionPaths.actionId, actions.id))
+    .where(
+      and(
+        eq(actions.workspaceId, wsId),
+        eq(actions.status, 'committed'),
+        gt(actions.createdAt, r.action.createdAt),
+        or(
+          eq(actions.undoOfActionId, r.action.id),
+          and(eq(actionPaths.op, 'restored'), inArray(actionPaths.path, paths)),
+        ),
+      ),
+    )
+    .limit(1);
+  return !!hit;
 }
 
 /** GET /api/w/:ws/deleted?limit */

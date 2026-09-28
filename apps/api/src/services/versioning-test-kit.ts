@@ -12,7 +12,7 @@ import { resetDb, signInWithWorkspace, type TestClient } from '../../test/helper
 import { getStore, setStoreForTests } from '../storage';
 import { EmulatedStore, type EmulatedStoreOptions } from '../storage/emulated';
 import type { VolumeStore } from '../storage/types';
-import { withAction, lastKnownBlocks, type ActionCtx } from './ledger';
+import { withAction, exactBlockLists, type ActionCtx } from './ledger';
 import { statOrNull, listTree } from './tree';
 import { getWorkspaceForUser } from './workspaces';
 
@@ -120,7 +120,7 @@ export async function move(k: Kit, from: string, to: string, kind: 'rename' | 'm
   const store = getStore();
   const s = await statOrNull(k.ctx.ws, from);
   if (!s) throw new Error(`no ${from}`);
-  const known = s.type === 'file' ? await lastKnownBlocks(k.ctx.ws.id, from, new Date()) : null;
+  const known = s.type === 'file' ? (await exactBlockLists(k.ctx.ws.id, [s])).get(from) : undefined;
   return withAction(
     k.ctx,
     {
@@ -133,7 +133,7 @@ export async function move(k: Kit, from: string, to: string, kind: 'rename' | 'm
           fromPath: from,
           entryType: s.type === 'dir' ? 'dir' : 'file',
           size: s.size,
-          blockHashes: known && known.size === s.size ? known.blocks : undefined,
+          blockHashes: known,
         },
       ],
     },

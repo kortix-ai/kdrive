@@ -1,12 +1,15 @@
 // File mutations that are one request = one ledger action: create folder,
-// move / rename, copy, delete. Every one runs through `withAction`, so it holds
-// the workspace lock, writes the intent first and finalises with the commit.
+// move / rename, copy, delete. Every one runs through `withPreparedAction`: the
+// checks and the ledger rows (stats, block lists, sizes, quota) are computed
+// under the workspace lock, so they describe exactly the state the mutation
+// changes; then the intent is written and the commit finalises it.
 import { basename, dirname, isWithin, type ActionSummary } from '@volumes/shared';
 import { ApiError } from '../lib/http';
 import { getStore } from '../storage';
 import type { FileEntry, FileStat } from '../storage/types';
 import type { WorkspaceCtx } from '../types';
-import { lastKnownBlocks, withAction, type ActionCtx, type PathChange } from './ledger';
+import { exactBlockLists, withPreparedAction, type ActionCtx, type PathChange } from './ledger';
+import { detachLiveLinks, moveLiveLinks } from './links';
 import { assertQuota } from './quota';
 import { listTree, statOrNull } from './tree';
 import { logicalSize } from './upload-plan';
@@ -46,11 +49,10 @@ async function mustStat(ws: WorkspaceCtx, path: string): Promise<FileStat> {
   return st;
 }
 
-/** Block list of a file from the ledger when it still matches the file's size. */
+/** Block list of a file from the ledger row that wrote its current version (never a same-size lookalike). */
 async function knownBlocks(ws: WorkspaceCtx, st: FileStat): Promise<string[] | undefined> {
   if (st.type !== 'file') return undefined;
-  const k = await lastKnownBlocks(ws.id, st.path, new Date());
-  return k && k.size === st.size ? k.blocks : undefined;
+  return (await exactBlockLists(ws.id, [st])).get(st.path);
 }
 
 // ── create folder ──────────────────────────────────────────────────────────
@@ -58,24 +60,29 @@ async function knownBlocks(ws: WorkspaceCtx, st: FileStat): Promise<string[] | u
 /** Creates one empty folder (an upload plan with only `dirs`). An existing path is 409 `path_exists`. */
 export async function createFolder(ctx: ActionCtx, path: string): Promise<ActionSummary> {
   if (path === '/') throw new ApiError(400, 'invalid_path', 'The root folder already exists.');
-  const existing = await statOrNull(ctx.ws, path);
-  if (existing) {
-    throw new ApiError(409, 'path_exists', `"${basename(path)}" already exists.`, { paths: [path] });
-  }
-  // A parent that is a file cannot hold a folder.
-  for (let up = dirname(path); up !== '/'; up = dirname(up)) {
-    const st = await statOrNull(ctx.ws, up);
-    if (!st) continue;
-    if (st.type !== 'dir') throw new ApiError(409, 'not_a_directory', `"${basename(up)}" is a file, so it cannot hold a folder.`, { path: up });
-    break;
-  }
   const parent = dirname(path);
-  const { action } = await withAction(
+  const { action } = await withPreparedAction(
     ctx,
-    {
-      kind: 'folder.create',
-      summary: `Created folder ${basename(path)}${parent === '/' ? '' : ` in ${parent}`}`,
-      paths: [{ op: 'added', path, entryType: 'dir' }],
+    async () => {
+      const existing = await statOrNull(ctx.ws, path);
+      if (existing) {
+        throw new ApiError(409, 'path_exists', `"${basename(path)}" already exists.`, { paths: [path] });
+      }
+      // A parent that is a file cannot hold a folder.
+      for (let up = dirname(path); up !== '/'; up = dirname(up)) {
+        const st = await statOrNull(ctx.ws, up);
+        if (!st) continue;
+        if (st.type !== 'dir') throw new ApiError(409, 'not_a_directory', `"${basename(up)}" is a file, so it cannot hold a folder.`, { path: up });
+        break;
+      }
+      return {
+        spec: {
+          kind: 'folder.create',
+          summary: `Created folder ${basename(path)}${parent === '/' ? '' : ` in ${parent}`}`,
+          paths: [{ op: 'added', path, entryType: 'dir' }],
+        },
+        data: undefined,
+      };
     },
     async (rec) => {
       const store = getStore();
@@ -83,6 +90,7 @@ export async function createFolder(ctx: ActionCtx, path: string): Promise<Action
       try {
         await rec.commit(await store.commitUpload(ctx.ws.volumeId, plan.uploadId));
       } finally {
+        // After a commit the plan is gone; after a failure it still holds its slot until it expires.
         store.releaseUpload(plan.uploadId);
       }
     },
@@ -163,65 +171,80 @@ export function transferSummary(verb: 'Moved' | 'Copied', items: TransferItem[],
 
 /** Move or rename (one item within the same folder = rename). One action, one Platinum call per item. */
 export async function movePaths(ctx: ActionCtx, items: TransferItem[], overwrite = false): Promise<ActionSummary> {
-  const checked = await checkTransfer(ctx.ws, items, overwrite, 'move');
-  if (!checked.length) throw new ApiError(400, 'bad_request', 'Nothing to move: every item is already there.');
-  const isRename = checked.length === 1 && dirname(checked[0].from) === dirname(checked[0].to);
-  const paths: PathChange[] = [];
-  for (const i of checked) {
-    const blocks = await knownBlocks(ctx.ws, i.st);
-    const fp = i.st.type === 'dir' ? await footprint(ctx.ws, i.st) : { size: i.st.size };
-    paths.push({
-      op: 'moved',
-      path: i.to,
-      fromPath: i.from,
-      entryType: i.st.type === 'dir' ? 'dir' : 'file',
-      size: fp.size,
-      prevSize: i.dest && i.dest.type === 'file' ? i.dest.size : undefined,
-      blockHashes: blocks,
-      mtime: i.st.mtime,
-    });
-  }
-  const summary = isRename ? `Renamed ${basename(checked[0].from)} to ${basename(checked[0].to)}` : transferSummary('Moved', checked, ctx.ws.name);
-  const { action } = await withAction(ctx, { kind: isRename ? 'rename' : 'move', summary, paths }, async (rec) => {
-    const store = getStore();
-    for (const i of checked) {
-      await rec.commit(await store.move(ctx.ws.volumeId, i.from, i.to, { overwrite }));
-    }
-  });
+  const { action } = await withPreparedAction(
+    ctx,
+    async () => {
+      const checked = await checkTransfer(ctx.ws, items, overwrite, 'move');
+      if (!checked.length) throw new ApiError(400, 'bad_request', 'Nothing to move: every item is already there.');
+      const isRename = checked.length === 1 && dirname(checked[0].from) === dirname(checked[0].to);
+      const paths: PathChange[] = [];
+      for (const i of checked) {
+        const fp = i.st.type === 'dir' ? await footprint(ctx.ws, i.st) : { size: i.st.size };
+        paths.push({
+          op: 'moved',
+          path: i.to,
+          fromPath: i.from,
+          entryType: i.st.type === 'dir' ? 'dir' : 'file',
+          size: fp.size,
+          prevSize: i.dest && i.dest.type === 'file' ? i.dest.size : undefined,
+          blockHashes: await knownBlocks(ctx.ws, i.st),
+          mtime: i.st.mtime,
+        });
+      }
+      const summary = isRename ? `Renamed ${basename(checked[0].from)} to ${basename(checked[0].to)}` : transferSummary('Moved', checked, ctx.ws.name);
+      return { spec: { kind: isRename ? 'rename' : 'move', summary, paths }, data: checked };
+    },
+    async (rec, checked) => {
+      const store = getStore();
+      for (const i of checked) {
+        await rec.commit(await store.move(ctx.ws.volumeId, i.from, i.to, { overwrite }));
+        // Live links follow the item; links to an item the move replaced are detached.
+        if (i.dest) await detachLiveLinks(ctx.ws.id, i.to, rec.actionId);
+        await moveLiveLinks(ctx.ws.id, i.from, i.to);
+      }
+    },
+  );
   return action;
 }
 
-/** Copy files or folders (recursive). The quota is checked for the added bytes first. */
+/** Copy files or folders (recursive). The quota is checked for the added bytes first, under the lock. */
 export async function copyPaths(ctx: ActionCtx, items: TransferItem[], overwrite = false): Promise<ActionSummary> {
   for (const it of items) {
     if (it.from === it.to) throw new ApiError(409, 'path_exists', `"${basename(it.to)}" already exists there.`, { paths: [it.to] });
   }
-  const checked = await checkTransfer(ctx.ws, items, overwrite, 'copy');
-  const paths: PathChange[] = [];
-  let added = 0;
-  for (const i of checked) {
-    const fp = await footprint(ctx.ws, i.st);
-    let replacedLogical = 0;
-    if (i.dest) replacedLogical = (await footprint(ctx.ws, i.dest)).logical;
-    added += fp.logical - replacedLogical;
-    paths.push({
-      op: 'copied',
-      path: i.to,
-      fromPath: i.from,
-      entryType: i.st.type === 'dir' ? 'dir' : 'file',
-      size: fp.size,
-      prevSize: i.dest && i.dest.type === 'file' ? i.dest.size : undefined,
-      blockHashes: await knownBlocks(ctx.ws, i.st),
-      mtime: i.st.mtime,
-    });
-  }
-  await assertQuota(ctx.userId, added);
-  const { action } = await withAction(ctx, { kind: 'copy', summary: transferSummary('Copied', checked, ctx.ws.name), paths }, async (rec) => {
-    const store = getStore();
-    for (const i of checked) {
-      await rec.commit(await store.copy(ctx.ws.volumeId, i.from, i.to, { recursive: i.st.type === 'dir', overwrite }));
-    }
-  });
+  const { action } = await withPreparedAction(
+    ctx,
+    async () => {
+      const checked = await checkTransfer(ctx.ws, items, overwrite, 'copy');
+      const paths: PathChange[] = [];
+      let added = 0;
+      for (const i of checked) {
+        const fp = await footprint(ctx.ws, i.st);
+        let replacedLogical = 0;
+        if (i.dest) replacedLogical = (await footprint(ctx.ws, i.dest)).logical;
+        added += fp.logical - replacedLogical;
+        paths.push({
+          op: 'copied',
+          path: i.to,
+          fromPath: i.from,
+          entryType: i.st.type === 'dir' ? 'dir' : 'file',
+          size: fp.size,
+          prevSize: i.dest && i.dest.type === 'file' ? i.dest.size : undefined,
+          blockHashes: await knownBlocks(ctx.ws, i.st),
+          mtime: i.st.mtime,
+        });
+      }
+      await assertQuota(ctx.userId, added);
+      return { spec: { kind: 'copy', summary: transferSummary('Copied', checked, ctx.ws.name), paths }, data: checked };
+    },
+    async (rec, checked) => {
+      const store = getStore();
+      for (const i of checked) {
+        await rec.commit(await store.copy(ctx.ws.volumeId, i.from, i.to, { recursive: i.st.type === 'dir', overwrite }));
+        if (i.dest) await detachLiveLinks(ctx.ws.id, i.to, rec.actionId);
+      }
+    },
+  );
   return action;
 }
 
@@ -233,34 +256,42 @@ export async function deletePaths(ctx: ActionCtx, paths: string[]): Promise<Acti
   if (uniq.includes('/')) throw new ApiError(400, 'bad_request', 'The root folder cannot be deleted.');
   // A folder already covers everything inside it.
   const tops = uniq.filter((p) => !uniq.some((o) => o !== p && isWithin(o, p)));
-  const rows: PathChange[] = [];
-  const stats: FileStat[] = [];
-  for (const p of tops) {
-    const st = await mustStat(ctx.ws, p);
-    stats.push(st);
-    const fp = await footprint(ctx.ws, st);
-    rows.push({
-      op: 'deleted',
-      path: p,
-      entryType: st.type === 'dir' ? 'dir' : 'file',
-      size: fp.size,
-      blockHashes: await knownBlocks(ctx.ws, st),
-      mtime: st.mtime,
-    });
-  }
-  const summary =
-    tops.length === 1
-      ? `Deleted ${basename(tops[0])}`
-      : stats.every((s) => s.type === 'dir')
-        ? `Deleted ${plural(tops.length, 'folder')}`
-        : stats.every((s) => s.type !== 'dir')
-          ? `Deleted ${plural(tops.length, 'file')}`
-          : `Deleted ${plural(tops.length, 'item')}`;
-  const { action } = await withAction(ctx, { kind: 'delete', summary, paths: rows }, async (rec) => {
-    const store = getStore();
-    for (const p of tops) {
-      await rec.commit(await store.remove(ctx.ws.volumeId, p, { recursive: true }));
-    }
-  });
+  const { action } = await withPreparedAction(
+    ctx,
+    async () => {
+      const rows: PathChange[] = [];
+      const stats: FileStat[] = [];
+      for (const p of tops) {
+        const st = await mustStat(ctx.ws, p);
+        stats.push(st);
+        const fp = await footprint(ctx.ws, st);
+        rows.push({
+          op: 'deleted',
+          path: p,
+          entryType: st.type === 'dir' ? 'dir' : 'file',
+          size: fp.size,
+          blockHashes: await knownBlocks(ctx.ws, st),
+          mtime: st.mtime,
+        });
+      }
+      const summary =
+        tops.length === 1
+          ? `Deleted ${basename(tops[0])}`
+          : stats.every((s) => s.type === 'dir')
+            ? `Deleted ${plural(tops.length, 'folder')}`
+            : stats.every((s) => s.type !== 'dir')
+              ? `Deleted ${plural(tops.length, 'file')}`
+              : `Deleted ${plural(tops.length, 'item')}`;
+      return { spec: { kind: 'delete', summary, paths: rows }, data: undefined };
+    },
+    async (rec) => {
+      const store = getStore();
+      for (const p of tops) {
+        await rec.commit(await store.remove(ctx.ws.volumeId, p, { recursive: true }));
+        // Whatever is created at this path later is not what was shared.
+        await detachLiveLinks(ctx.ws.id, p, rec.actionId);
+      }
+    },
+  );
   return action;
 }

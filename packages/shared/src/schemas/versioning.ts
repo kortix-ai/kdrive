@@ -24,6 +24,8 @@ export const TimelineEntrySchema = z.object({
   isHead: z.boolean(),
   undoable: z.boolean(),
   actionId: z.string().nullable(),
+  /** Restores: when the version it went back to was made (the client shows it in local time). */
+  restoredTo: IsoDateSchema.nullable().optional(),
   /** At most 5 entries (a preview). */
   paths: z.array(z.object({ op: PathOpSchema, path: z.string(), fromPath: z.string().nullable() })),
 });
@@ -125,8 +127,14 @@ export const RestoreScopeSchema = z.enum(['file', 'folder', 'drive']);
 export type RestoreScope = z.infer<typeof RestoreScopeSchema>;
 
 export const RestoreRequest = z
-  .object({ scope: RestoreScopeSchema, path: PathSchema.optional(), at: RefSchema })
-  .refine((r) => r.scope === 'drive' || !!r.path, { message: 'path is required for file and folder restores.' });
+  .object({
+    scope: RestoreScopeSchema,
+    path: PathSchema.optional(),
+    /** Several items restored to the same version as ONE action (Recently deleted's "Restore N items"). */
+    paths: z.array(PathSchema).min(1).max(1000).optional(),
+    at: RefSchema,
+  })
+  .refine((r) => r.scope === 'drive' || !!r.path || !!r.paths?.length, { message: 'path is required for file and folder restores.' });
 export type RestoreRequest = z.input<typeof RestoreRequest>;
 
 export const RestoreResponse = z.object({
@@ -151,6 +159,8 @@ export const DeletedItemSchema = z.object({
   deletedAt: IsoDateSchema,
   restoreAt: z.string().nullable(),
   restorable: z.boolean(),
+  /** A different item has taken this name since: restoring would replace it (the client asks first). */
+  occupied: z.boolean().optional(),
 });
 export type DeletedItem = z.infer<typeof DeletedItemSchema>;
 

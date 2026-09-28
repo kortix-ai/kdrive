@@ -8,6 +8,20 @@
       "when": 1790570652283,
       "tag": "0000_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790578259062,
+      "tag": "0001_link_follows_item",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790578790324,
+      "tag": "0002_upload_reservations",
+      "breakpoints": true
     }
   ]
 }

@@ -27,8 +27,10 @@ describe('timeline', () => {
     expect(e[0].undoable).toBe(true);
     expect(e[2].paths).toEqual([{ op: 'added', path: '/a.txt', fromPath: null }]);
     expect(e[1].paths).toEqual([{ op: 'moved', path: '/b.txt', fromPath: '/a.txt' }]);
-    expect(e[2].bytesDelta).toBe(4096);
-    expect(e[0].bytesDelta).toBe(-4096);
+    // Real file bytes from the ledger, not 4 KiB storage pages.
+    expect(e[2].bytesDelta).toBe(5);
+    expect(e[1].bytesDelta).toBe(0);
+    expect(e[0].bytesDelta).toBe(-5);
     expect(e[2].actor).toEqual({ name: expect.anything(), email: 'tl1@test.local' });
     expect(e.every((x: any) => x.mergedCount === 0)).toBe(true);
     expect(r.body.headCommitId).toBe(e[0].commitId);
