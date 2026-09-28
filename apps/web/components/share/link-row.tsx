@@ -43,6 +43,15 @@ export function LinkRow({ link, onRevoke }: { link: ShareLink; onRevoke: (link: 
           : `expires ${formatDate(link.expiresAt)}`
         : 'never expires';
 
+  const metaTitle = [
+    expiry,
+    link.mode === 'pinned' && link.commitId ? shortId(link.commitId) : null,
+    plural(link.openCount, 'open'),
+    `created ${formatRelative(link.createdAt)}`,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
   return (
     <li className="border-b border-vx-hair-soft last:border-b-0">
       <div className={cx('flex min-h-11 items-center gap-3 py-2', inactive && 'opacity-80')}>
@@ -55,14 +64,19 @@ export function LinkRow({ link, onRevoke }: { link: ShareLink; onRevoke: (link: 
         ) : (
           <Badge>Pinned</Badge>
         )}
-        <div className={cx('vx-meta min-w-0 flex-1 truncate', inactive ? 'text-vx-text-4' : 'text-vx-text-3')}>
-          {link.mode === 'pinned' && link.commitId ? (
-            <span className={inactive ? '' : 'text-vx-text-2'} title={link.commitId}>
-              {shortId(link.commitId)} ·{' '}
-            </span>
-          ) : null}
-          <span title={isoTitle(link.createdAt)}>created {formatRelative(link.createdAt)}</span> · {plural(link.openCount, 'open')} ·{' '}
-          <span title={link.expiresAt ? isoTitle(link.expiresAt) : undefined}>{expiry}</span>
+        {/* Expiry first (the fact that says how long the link lives); wraps to a second line rather than clipping. */}
+        <div
+          className={cx('vx-meta line-clamp-2 min-w-0 flex-1 break-words', inactive ? 'text-vx-text-4' : 'text-vx-text-3')}
+          title={metaTitle}
+        >
+          <span className={inactive ? '' : 'text-vx-text-2'} title={link.expiresAt ? isoTitle(link.expiresAt) : undefined}>
+            {expiry}
+          </span>
+          {link.mode === 'pinned' && link.commitId ? <span title={link.commitId}> · {shortId(link.commitId)}</span> : null}
+          {' · '}
+          {plural(link.openCount, 'open')}
+          {' · '}
+          <span title={isoTitle(link.createdAt)}>created {formatRelative(link.createdAt)}</span>
         </div>
         {status === 'active' ? <CopyButton text={link.url} /> : null}
         {status !== 'revoked' && !confirming ? (

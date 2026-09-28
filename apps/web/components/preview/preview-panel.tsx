@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import useSWR from 'swr';
 import { ChevronDown, ChevronLeft, ChevronRight, Download, ExternalLink, History, Link2 } from 'lucide-react';
-import { RETENTION_COPY, basename, dirname, formatBytes, mimeFor, shortId, type FileStat } from '@volumes/shared';
+import { RETENTION_COPY, basename, dirname, formatBytes, isActiveContent, mimeFor, shortId, type FileStat } from '@volumes/shared';
 import { Button } from '@/components/ui/button';
 import { cx } from '@/components/ui/cx';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -34,7 +34,8 @@ function useCommitTime(ws: string | null, at: string | null): string | null | un
 /** Siblings of `path` (files only, drive order) at `at`; shares the drive's listing cache key. */
 function useSiblings(ws: string | null, path: string, at: string | null): string[] {
   const parent = dirname(path);
-  const { data } = useSWR(ws ? ['ls', ws, parent, at] : null, () => api.files.list(ws!, { path: parent, at }), {
+  // Key-derived fetcher (see useListing): never a closure over `at`.
+  const { data } = useSWR(ws ? (['ls', ws, parent, at] as [string, string, string, string | null]) : null, ([, w, p, a]: [string, string, string, string | null]) => api.files.list(w, { path: p, at: a }), {
     ...noRetry,
     keepPreviousData: true,
   });
@@ -227,19 +228,30 @@ export default function PreviewPanel() {
         )}
       </div>
       {stat && stat.type !== 'dir' ? (
-        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+        <div className="mt-3 flex flex-nowrap items-center gap-1.5">
           <a href={contentUrl(ws, path, { at, download: true })} className={linkBtn}>
             <Download size={13} aria-hidden /> Download {selected ? <Kbd>D</Kbd> : null}
           </a>
           <Button size="sm" icon={<Link2 size={13} />} onClick={() => openShare(path)}>
             Share {selected ? <Kbd>S</Kbd> : null}
           </Button>
-          <Button size="sm" icon={<History size={13} />} onClick={() => openVersions(path)}>
-            Versions
-          </Button>
-          <a href={contentUrl(ws, path, { at })} target="_blank" rel="noopener noreferrer" className={linkBtn} title="Open in a new tab">
-            <ExternalLink size={13} aria-hidden /> Open
-          </a>
+          {/* Icon-only so the row fits the 440 px panel on one line. */}
+          <IconButton label="Versions" size="sm" onClick={() => openVersions(path)}>
+            <History size={14} />
+          </IconButton>
+          {/* HTML, SVG, XML and JS are always served as a download, so "Open" would only flash a tab. */}
+          {!isActiveContent(stat.name || basename(path)) ? (
+            <a
+              href={contentUrl(ws, path, { at })}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Open in a new tab"
+              title="Open in a new tab"
+              className="inline-flex h-7 w-7 items-center justify-center text-vx-text-3 transition-colors duration-[120ms] hover:bg-vx-surface-2 hover:text-vx-text-1"
+            >
+              <ExternalLink size={14} aria-hidden />
+            </a>
+          ) : null}
         </div>
       ) : stat ? (
         <div className="mt-3 flex flex-wrap items-center gap-1.5">

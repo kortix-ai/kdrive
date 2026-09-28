@@ -7,7 +7,8 @@ const GROUPS: { label: string; keys: [string, string][] }[] = [
   { label: 'Global', keys: [['/  ⌘K', 'Search'], ['?', 'Keyboard shortcuts'], ['h', 'Timeline'], ['⌘Z', 'Undo last action'], ['g d', 'Go to drive'], ['g c', 'Go to checkpoints'], ['g x', 'Go to recently deleted'], ['g ,', 'Go to settings']] },
   { label: 'Drive', keys: [['u  ⇧U', 'Upload files / folder'], ['n', 'New folder'], ['↵', 'Open'], ['Space', 'Preview'], ['F2', 'Rename'], ['⌫', 'Delete'], ['d', 'Download'], ['m  ⇧M', 'Move / copy to…'], ['s', 'Share'], ['⇧H', 'Versions'], ['v', 'List / grid'], ['⌘A', 'Select all']] },
   { label: 'Time', keys: [[',  .', 'Older / newer version'], ['p', 'New checkpoint'], ['c', 'Compare'], ['r', 'Restore (in the past)'], ['Esc', 'Back to now']] },
-  { label: 'Preview', keys: [['←  →', 'Previous / next file'], ['Esc', 'Close']] },
+  { label: 'Preview', keys: [['←  →', 'Previous / next file'], ['+  −  0  1', 'Zoom in / out / fit / 100 %'], ['Esc', 'Close']] },
+  { label: 'Compare', keys: [[']  [', 'Next / previous change'], ['x', 'Swap A and B'], ['←  →', 'Move the swipe (⇧ ×10)'], ['Esc', 'Back']] },
 ];
 
 export function ShortcutSheet({ open, onClose }: { open: boolean; onClose: () => void }) {

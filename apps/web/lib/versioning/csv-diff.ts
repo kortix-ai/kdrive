@@ -146,8 +146,12 @@ export function diffCsv(aText: string, bText: string, opts: { delimiter?: string
 
 const plural = (n: number, one: string, many = one + 's') => `${n} ${n === 1 ? one : many}`;
 
-/** "+2 rows −1 row · 4 cells changed" */
+/** "+2 rows −1 row · 4 cells changed", naming only the counts that are not zero. */
 export function csvSummary(d: Pick<CsvDiff, 'addedRows' | 'removedRows' | 'changedCells'>): string {
   if (!d.addedRows && !d.removedRows && !d.changedCells) return 'No row changes';
-  return `+${plural(d.addedRows, 'row')} −${plural(d.removedRows, 'row')} · ${plural(d.changedCells, 'cell')} changed`;
+  const rows = [d.addedRows ? `+${plural(d.addedRows, 'row')}` : '', d.removedRows ? `\u2212${plural(d.removedRows, 'row')}` : '']
+    .filter(Boolean)
+    .join(' ');
+  const cells = d.changedCells ? `${plural(d.changedCells, 'cell')} changed` : '';
+  return [rows, cells].filter(Boolean).join(' · ');
 }

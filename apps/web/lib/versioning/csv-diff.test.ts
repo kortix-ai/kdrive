@@ -69,5 +69,9 @@ describe('csv-diff', () => {
     expect(d.rows.map((r) => r.status)).toEqual(['add']);
     expect(csvSummary(diffCsv('a\n1\n', 'a\n1\n'))).toBe('No row changes');
     expect(csvSummary({ addedRows: 2, removedRows: 1, changedCells: 4 })).toBe('+2 rows −1 row · 4 cells changed');
+    // Zero counts are left out (never "−0 rows").
+    expect(csvSummary({ addedRows: 1, removedRows: 0, changedCells: 4 })).toBe('+1 row · 4 cells changed');
+    expect(csvSummary({ addedRows: 0, removedRows: 2, changedCells: 0 })).toBe('−2 rows');
+    expect(csvSummary({ addedRows: 0, removedRows: 0, changedCells: 1 })).toBe('1 cell changed');
   });
 });

@@ -125,15 +125,20 @@ export default function GlobalDropZone() {
   const tone = past ? 'text-vx-past' : full ? 'text-vx-danger' : 'text-vx-text-1';
   const dest = target.dir === '/' ? 'My Drive/' : `${basename(target.dir)}/`;
   const what = count > 0 ? `${count} ${count === 1 ? 'ITEM' : 'ITEMS'}` : 'FILES';
-  const readout = past
-    ? 'GO BACK TO NOW TO UPLOAD'
-    : full && usage
-      ? `YOUR ${formatBytes(usage.quotaBytes).toUpperCase()} IS FULL`
-      : `DROP ${what} → ${dest.toUpperCase()} · 1 VERSION`;
+  // The folder keeps its real casing ("Photos" vs "photos"); only the fixed words are upper-cased.
+  const readout: React.ReactNode = past ? (
+    'GO BACK TO NOW TO UPLOAD'
+  ) : full && usage ? (
+    `YOUR ${formatBytes(usage.quotaBytes).toUpperCase()} IS FULL`
+  ) : (
+    <>
+      DROP {what} → <span className="normal-case tracking-normal">{dest}</span> · 1 VERSION
+    </>
+  );
   const { left, top, width, height } = target.rect;
 
   return (
-    <div className={cx(s.dropBox, tone, 'z-[45]')} style={{ left, top, width, height }} aria-live="polite">
+    <div className={cx(s.dropFrame, tone, 'z-[45]')} style={{ left, top, width, height }} aria-live="polite">
       <span key={`tl-${target.dir}`} className={cx(s.bracket, s.bracketTL)} style={{ left: 0, top: 0 }} />
       <span key={`tr-${target.dir}`} className={cx(s.bracket, s.bracketTR)} style={{ right: 0, top: 0 }} />
       <span key={`bl-${target.dir}`} className={cx(s.bracket, s.bracketBL)} style={{ left: 0, bottom: 0 }} />

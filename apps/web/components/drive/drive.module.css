@@ -58,7 +58,7 @@
 .bracketTR { border-right: 1px solid currentColor; border-top: 1px solid currentColor; --dx: 24px; --dy: -24px; }
 .bracketBL { border-left: 1px solid currentColor; border-bottom: 1px solid currentColor; --dx: -24px; --dy: 24px; }
 .bracketBR { border-right: 1px solid currentColor; border-bottom: 1px solid currentColor; --dx: 24px; --dy: 24px; }
-.dropBox { position: fixed; pointer-events: none; transition: left 120ms var(--vx-ease), top 120ms var(--vx-ease), width 120ms var(--vx-ease), height 120ms var(--vx-ease); }
+.dropFrame { position: fixed; pointer-events: none; transition: left 120ms var(--vx-ease), top 120ms var(--vx-ease), width 120ms var(--vx-ease), height 120ms var(--vx-ease); }
 
 /* tray rows enter */
 @keyframes vxRowIn {

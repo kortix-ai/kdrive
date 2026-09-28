@@ -43,7 +43,7 @@ export function NewFolderEditor({ variant, style }: { variant: 'row' | 'tile'; s
       <span />
       <Folder size={16} strokeWidth={1.5} className="text-vx-text-2" aria-hidden />
       <span className="flex min-w-0 pr-3">{input}</span>
-      <span className="vx-meta text-right text-vx-text-4">now</span>
+      <span className="vx-col-mtime vx-meta text-right text-vx-text-4">now</span>
       <span className="vx-meta text-right text-vx-text-4">—</span>
       <span />
     </div>

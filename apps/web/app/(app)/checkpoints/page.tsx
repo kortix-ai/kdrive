@@ -106,8 +106,9 @@ export default function CheckpointsPage() {
             {budget ? (
               <div className="mt-3 flex flex-col gap-2">
                 <span className="vx-meta text-vx-text-3">
-                  <span className="text-vx-text-1">{budget.used}</span> of {budget.max} kept
-                  {budget.pinnedLinks ? <> · {budget.pinnedLinks} used by pinned links</> : null}
+                  <span className="text-vx-text-1">{budget.checkpoints}</span> {budget.checkpoints === 1 ? 'checkpoint' : 'checkpoints'}
+                  {budget.pinnedLinks ? <> · {budget.pinnedLinks} pinned {budget.pinnedLinks === 1 ? 'link' : 'links'}</> : null} ·{' '}
+                  <span className="text-vx-text-1">{budget.used}</span> of {budget.max} slots used
                 </span>
                 <BudgetBar budget={budget} />
               </div>

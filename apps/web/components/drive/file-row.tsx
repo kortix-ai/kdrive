@@ -15,7 +15,8 @@ import { RenameInput } from './rename-dialog';
 import s from './drive.module.css';
 
 /** `[checkbox 28][icon 20][name 1fr][modified 128][size 96][⋯ 28]` */
-export const LIST_COLS = '28px 20px minmax(240px, 1fr) 128px 96px 28px';
+/** Columns come from CSS (--vx-list-cols) so phones drop "Modified" (`.vx-col-mtime`) and never scroll sideways. */
+export const LIST_COLS = 'var(--vx-list-cols)';
 export const ROW_H = 32;
 
 /** Middle truncation that keeps the extension: `quarterly-rep…final.pdf`. */
@@ -130,6 +131,7 @@ function FileRowImpl({ entry, style }: { entry: FileEntry; style?: React.CSSProp
           <MiddleName name={entry.name} className={cx('vx-name', drift === 'gone' ? 'text-vx-text-2' : 'text-vx-text-1')} />
         )}
         {drift && !renaming ? <DriftChip drift={drift} /> : null}
+        {pending === 'waiting' ? <span className="vx-meta shrink-0 text-vx-text-3">waiting for a free upload slot</span> : null}
         {drift === 'gone' ? (
           <button
             type="button"
@@ -144,7 +146,7 @@ function FileRowImpl({ entry, style }: { entry: FileEntry; style?: React.CSSProp
           </button>
         ) : null}
       </span>
-      <span className="vx-meta truncate text-right text-vx-text-3" title={isoTitle(entry.mtime)}>
+      <span className="vx-col-mtime vx-meta truncate text-right text-vx-text-3" title={isoTitle(entry.mtime)}>
         {entry.mtime ? formatRelative(entry.mtime) : '—'}
       </span>
       <span className="vx-meta truncate text-right text-vx-text-3">{isDir ? '—' : <Bytes n={entry.size} />}</span>
@@ -193,7 +195,7 @@ export function GhostRow({ entry, style }: { entry: FileEntry; style?: React.CSS
         <MiddleName name={entry.name} className="vx-name" />
         <DriftChip drift="ghost" />
       </span>
-      <span className="vx-meta text-right">{entry.mtime ? formatRelative(entry.mtime) : '—'}</span>
+      <span className="vx-col-mtime vx-meta text-right">{entry.mtime ? formatRelative(entry.mtime) : '—'}</span>
       <span className="vx-meta text-right">{entry.type === 'dir' ? '—' : formatBytes(entry.size)}</span>
       <span />
     </div>

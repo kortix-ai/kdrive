@@ -40,6 +40,7 @@
   --vx-accent: #a78bfa;
   --vx-accent-strong: #c4b5fd;
   --vx-accent-wash: rgba(167, 139, 250, 0.08);
+  --vx-selection: rgba(167, 139, 250, 0.35); /* text selection: visible on any row wash */
   --vx-accent-edge: rgba(167, 139, 250, 0.55);
 
   /* past: amber (and the ≥80 % meter) */
@@ -73,6 +74,7 @@
 
   /* layout */
   --vx-topbar-h: 48px; --vx-rail-w: 240px; --vx-timeline-w: 320px; --vx-panel-w: 440px;
+  --vx-list-cols: 28px 20px minmax(240px, 1fr) 128px 96px 28px;
   --vx-strip-h: 56px; --vx-row-h: 32px; --vx-ctl-h: 32px; --vx-ctl-h-sm: 28px;
 
   /* motion */
@@ -98,6 +100,7 @@ html[data-vx-theme='light'] {
 
   --vx-accent: #6d4fd6; --vx-accent-strong: #5b3fc4;
   --vx-accent-wash: rgba(109, 79, 214, 0.07); --vx-accent-edge: rgba(109, 79, 214, 0.60);
+  --vx-selection: rgba(109, 79, 214, 0.25);
 
   --vx-past: #a35c06; --vx-past-strong: #8a4d04;
   --vx-past-wash: rgba(217, 140, 30, 0.09); --vx-past-edge: rgba(163, 92, 6, 0.45);
@@ -180,7 +183,7 @@ body { overflow: hidden; }
 .tabular-nums, .vx-meta { font-variant-numeric: tabular-nums; }
 :focus-visible { outline: 1px solid var(--vx-accent-edge); outline-offset: 2px; }
 .vx-inset-focus:focus-visible { outline-offset: -1px; }
-::selection { background: var(--vx-accent-wash); color: var(--vx-text-1); }
+::selection { background: var(--vx-selection); color: var(--vx-text-1); }
 button { cursor: pointer; }
 button:disabled { cursor: not-allowed; }
 
@@ -323,4 +326,10 @@ html[data-vx-theme='light'] .btn-platinum { background: linear-gradient(180deg, 
   .vx-shell > .vx-rail[data-open='true'] { transform: none; }
   .vx-shell > .vx-rail .vx-rail-label, .vx-shell > .vx-rail .vx-rail-extra { display: revert !important; }
   .vx-shell > .vx-timeline, .vx-shell > .vx-panel { width: 100vw; }
+}
+
+/* Phones: the drive list drops "Modified" and fits the width (no sideways scroll). */
+@media (max-width: 720px) {
+  :root { --vx-list-cols: 28px 20px minmax(0, 1fr) 72px 28px; }
+  .vx-col-mtime { display: none; }
 }

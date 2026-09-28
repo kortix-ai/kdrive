@@ -68,7 +68,7 @@ const components: Components = {
     </div>
   ),
   th: ({ children, style }) => (
-    <th style={style} className="vx-label border border-vx-hair bg-vx-surface-2 px-2 py-1.5 text-left">
+    <th style={style} className="border border-vx-hair bg-vx-surface-2 px-2 py-1.5 text-left font-medium text-vx-text-1">
       {children}
     </th>
   ),

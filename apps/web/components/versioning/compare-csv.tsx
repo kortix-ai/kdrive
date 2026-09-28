@@ -86,7 +86,7 @@ export function CompareCsv({ a, b, path, changesOnly }: { a: FileSide | null; b:
               <tr>
                 <th className="w-7 border-b border-r border-vx-hair" aria-label="Change" />
                 {cols.map((c, i) => (
-                  <th key={i} className="vx-label whitespace-nowrap border-b border-r border-vx-hair px-3 py-1.5 text-left font-medium">
+                  <th key={i} className="vx-meta whitespace-nowrap border-b border-r border-vx-hair px-3 py-1.5 text-left font-medium text-vx-text-2">
                     {c}
                   </th>
                 ))}
