@@ -28,7 +28,8 @@ export function MiddleName({ name, className }: { name: string; className?: stri
   const tail = stem.slice(stem.length - tailLen) + ext;
   return (
     <span className={cx('flex min-w-0', className)} title={name}>
-      <span className="truncate">{head}</span>
+      {/* whitespace-pre: a space at the split (e.g. "Volumes launch") must not collapse. */}
+      <span className="overflow-hidden text-ellipsis whitespace-pre">{head}</span>
       <span className="shrink-0 whitespace-pre">{tail}</span>
     </span>
   );

@@ -21,7 +21,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* Pre-paint: dark unless localStorage['vx-theme'] === 'light' (never prefers-color-scheme). */}
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
       </head>
-      <body>
+      {/* Extensions add attributes to <body> before hydration; do not report those as mismatches. */}
+      <body suppressHydrationWarning>
         {children}
         <Toaster />
       </body>
