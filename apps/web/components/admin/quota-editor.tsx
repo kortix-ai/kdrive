@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { GiB, MAX_QUOTA_BYTES, formatBytes, type AdminUser } from '@volumes/shared';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Segmented } from '@/components/ui/segmented';
+import { Chip } from '@/components/ui/chip';
 import { api } from '@/lib/api/endpoints';
 
 export const MAX_QUOTA_GIB = MAX_QUOTA_BYTES / GiB;
@@ -28,7 +28,7 @@ export function toGiBInput(bytes: number): string {
 }
 
 /**
- * Inline quota editor: GiB input + 10 | 20 | 50 presets; ↵ saves, Esc cancels; over 50 GiB is refused.
+ * Inline quota editor: a GiB field + 10 · 20 · 50 preset chips; ↵ saves, Esc cancels; over 50 GiB is refused.
  * `capBytes`: storage's size cap for ONE workspace; a quota above it is allowed but flagged.
  */
 export function QuotaEditor({ user, capBytes, onDone }: { user: AdminUser; capBytes?: number; onDone: (updated?: AdminUser, warning?: string) => void }) {
@@ -52,17 +52,18 @@ export function QuotaEditor({ user, capBytes, onDone }: { user: AdminUser; capBy
     }
   };
 
+  const preset = PRESETS.find((p) => p === value.trim());
   return (
-    <div className="flex flex-col gap-1.5" onClick={(e) => e.stopPropagation()}>
-      <div className="flex items-center gap-2">
+    <div className="my-1 flex w-[280px] flex-col items-stretch gap-2 rounded-vx-md bg-vx-surface-2 p-3 text-left" onClick={(e) => e.stopPropagation()}>
+      <div className="flex items-start gap-2">
         <Input
           autoFocus
+          size="sm"
           type="number"
           inputMode="decimal"
           min={0}
           max={MAX_QUOTA_GIB}
           step="any"
-          mono
           aria-label={`Quota for ${user.email} in GiB`}
           value={value}
           suffix="GiB"
@@ -78,31 +79,31 @@ export function QuotaEditor({ user, capBytes, onDone }: { user: AdminUser; capBy
             }
           }}
           invalid={parsed.error && value.trim() ? parsed.error : null}
-          className="w-[120px] [&_input]:[appearance:textfield] [&_input::-webkit-inner-spin-button]:appearance-none [&_input::-webkit-outer-spin-button]:appearance-none"
-        />
-        <Segmented
-          size="sm"
-          label="Quota presets"
-          value={PRESETS.find((p) => p === value.trim()) ?? ('' as (typeof PRESETS)[number])}
-          onChange={(v) => setValue(v)}
-          options={PRESETS.map((p) => ({ value: p, label: p }))}
+          className="min-w-0 flex-1 [&_input]:[appearance:textfield] [&_input::-webkit-inner-spin-button]:appearance-none [&_input::-webkit-outer-spin-button]:appearance-none"
         />
       </div>
-      <div className="flex items-center gap-1.5">
-        <Button size="sm" variant="primary" onClick={() => void save()} loading={busy} disabled={parsed.bytes === null} kbd="↵">
-          Save
-        </Button>
-        <Button size="sm" variant="ghost" onClick={() => onDone()} disabled={busy} kbd="Esc">
-          Cancel
-        </Button>
+      <div className="flex items-center gap-1.5" role="group" aria-label="Quota presets">
+        {PRESETS.map((p) => (
+          <Chip key={p} size="sm" on={preset === p} onClick={() => setValue(p)}>
+            {p} GiB
+          </Chip>
+        ))}
       </div>
       {capBytes ? (
-        <p className={overCap ? 'border-l-2 border-vx-hair-strong pl-2 text-[12px] text-vx-text-2' : 'vx-micro text-vx-text-4'}>
+        <p className={overCap ? 'vx-meta rounded-vx-sm bg-vx-surface px-2 py-1.5 text-vx-text-2' : 'vx-meta text-vx-text-3'}>
           Storage caps one workspace at {formatBytes(capBytes)}
           {overCap ? ': the rest of this quota is usable only across several workspaces.' : '.'}
         </p>
       ) : null}
-      {error ? <p className="border-l-2 border-vx-danger pl-2 text-[12px] text-vx-danger">{error}</p> : null}
+      {error ? <p role="alert" className="rounded-vx-sm bg-vx-danger-wash px-2 py-1.5 text-[13px] leading-5 text-vx-del-fg">{error}</p> : null}
+      <div className="flex items-center justify-end gap-1">
+        <Button size="sm" variant="text" onClick={() => onDone()} disabled={busy} kbd="Esc">
+          Cancel
+        </Button>
+        <Button size="sm" variant="primary" onClick={() => void save()} loading={busy} disabled={parsed.bytes === null} kbd="↵">
+          Save
+        </Button>
+      </div>
     </div>
   );
 }

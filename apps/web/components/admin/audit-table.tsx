@@ -3,9 +3,11 @@
 import { useState } from 'react';
 import useSWRInfinite from 'swr/infinite';
 import { AUDIT_KINDS, type AuditListResponse } from '@volumes/shared';
-import { AuditRows, nextBefore } from '@/components/settings/activity-section';
+import { ChevronDown } from 'lucide-react';
+import { AuditRows, auditTh, nextBefore } from '@/components/settings/activity-section';
 import { auditLabel } from '@/components/settings/audit-labels';
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
 import { api } from '@/lib/api/endpoints';
 
 const PAGE = 100;
@@ -27,62 +29,65 @@ export function AuditTable() {
 
   return (
     <div>
-      <div className="mb-3 flex items-center gap-3">
-        <label htmlFor="audit-kind" className="vx-label">
+      <div className="mb-3 flex flex-wrap items-center gap-3">
+        <label htmlFor="audit-kind" className="text-[13px] font-medium leading-5 text-vx-text-2">
           Event
         </label>
-        <select
-          id="audit-kind"
-          value={kind}
-          onChange={(e) => setKind(e.target.value)}
-          className="h-8 border border-vx-hair bg-vx-surface-2 px-2 font-mono text-[12px] text-vx-text-1 outline-none focus:border-vx-hair-strong"
-        >
-          <option value="">All events</option>
-          {AUDIT_KINDS.map((k) => (
-            <option key={k} value={k}>
-              {auditLabel(k)}
-            </option>
-          ))}
-        </select>
+        <div className="relative">
+          <select
+            id="audit-kind"
+            value={kind}
+            onChange={(e) => setKind(e.target.value)}
+            className="vx-inset-focus h-9 appearance-none rounded-vx-sm border border-vx-outline bg-vx-surface pl-3 pr-9 text-[14px] text-vx-text-1 outline-none transition-colors duration-[120ms] hover:border-vx-text-3"
+          >
+            <option value="">All events</option>
+            {AUDIT_KINDS.map((k) => (
+              <option key={k} value={k}>
+                {auditLabel(k)}
+              </option>
+            ))}
+          </select>
+          <ChevronDown size={16} strokeWidth={1.75} aria-hidden className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-vx-text-3" />
+        </div>
         <span className="flex-1" />
-        {data ? <span className="vx-meta text-vx-text-4">{events.length} shown</span> : null}
+        {data ? <span className="vx-meta text-vx-text-3">{events.length} shown</span> : null}
       </div>
       {error && !data ? (
-        <div className="flex items-center gap-2 border border-vx-hair p-4">
-          <span className="text-[12px] text-vx-danger">Couldn&apos;t load the audit log.</span>
-          <Button size="sm" variant="ghost" onClick={() => void mutate()}>
+        <div className="flex items-center gap-2 rounded-vx-md bg-vx-surface-2 px-4 py-3">
+          <span className="text-[13px] text-vx-del-fg">Couldn&apos;t load the audit log.</span>
+          <Button size="sm" variant="text" onClick={() => void mutate()}>
             Retry
           </Button>
         </div>
       ) : !data ? (
-        <div className="border border-vx-hair p-4">
+        <div className="px-1 py-2">
           <span className="skeleton skel-line w-full" />
           <span className="skeleton skel-line w-5/6" />
           <span className="skeleton skel-line w-4/6" />
         </div>
       ) : events.length === 0 ? (
-        <p className="vx-body border border-vx-hair p-6 text-center text-vx-text-3">No events{kind ? ` of type “${auditLabel(kind)}”` : ''} yet.</p>
+        <EmptyState art={false} className="py-10" title={`No events${kind ? ` of type “${auditLabel(kind)}”` : ''} yet.`} />
       ) : (
-        <div className="overflow-x-auto border border-vx-hair">
-          <table className="w-full min-w-[760px] border-collapse text-left">
-            <thead className="bg-vx-surface-2">
-              <tr className="border-b border-vx-hair">
-                <th className="vx-label h-8 pl-3 pr-3 font-medium">Time</th>
-                <th className="vx-label h-8 pr-3 font-medium">Actor</th>
-                <th className="vx-label h-8 pr-3 font-medium">Event</th>
-                <th className="vx-label h-8 pr-3 font-medium">Target</th>
-                <th className="vx-label h-8 pr-3 font-medium">Detail</th>
+        <div className="-mx-2 overflow-x-auto px-2">
+          <table className="w-full min-w-[760px] border-separate border-spacing-0 text-left">
+            <thead>
+              <tr className="[&>th]:bg-vx-surface-2 [&>th:first-child]:rounded-l-vx-sm [&>th:last-child]:rounded-r-vx-sm">
+                <th className={auditTh}>Time</th>
+                <th className={auditTh}>Actor</th>
+                <th className={auditTh}>Event</th>
+                <th className={auditTh}>Target</th>
+                <th className={auditTh}>Detail</th>
               </tr>
             </thead>
-            <tbody className="[&_td:first-child]:pl-3">
+            <tbody className="[&_td]:border-b [&_td]:border-vx-hair-soft">
               <AuditRows events={events} showActor />
             </tbody>
           </table>
         </div>
       )}
       {more ? (
-        <Button size="sm" variant="ghost" className="mt-3" loading={isValidating && size > (data?.length ?? 0)} onClick={() => void setSize(size + 1)}>
-          Show older
+        <Button size="sm" variant="outline" className="mt-4" loading={isValidating && size > (data?.length ?? 0)} onClick={() => void setSize(size + 1)}>
+          Load more
         </Button>
       ) : null}
     </div>

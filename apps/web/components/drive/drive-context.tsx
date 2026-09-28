@@ -6,6 +6,7 @@ import { createContext, useContext } from 'react';
 import type { FileEntry } from '@volumes/shared';
 import type { Drift } from '@/lib/drive/drift';
 import type { PendingKind } from '@/lib/drive/optimistic';
+import type { DriveCommands } from './context-menu';
 
 export interface DriveItemHandlers {
   onItemMouseDown(e: React.MouseEvent, entry: FileEntry): void;
@@ -46,6 +47,12 @@ export interface DriveCtxValue extends DriveItemHandlers {
   /** Current folder's entries (rename / new-folder validation). */
   siblings: readonly FileEntry[];
   addedLaterOpen: boolean;
+  /** wide: 5 list columns · compact: panel or rail open, or a narrow sheet · phone: ≤ 720 px. */
+  density: 'wide' | 'compact' | 'phone';
+  /** At least one item is selected (checkboxes stay visible). */
+  anySelected: boolean;
+  /** Row and card actions (Download · Share · Versions). */
+  cmd: DriveCommands;
 }
 
 export const DriveCtx = createContext<DriveCtxValue | null>(null);

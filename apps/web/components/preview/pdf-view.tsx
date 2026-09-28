@@ -7,9 +7,9 @@ import { ExternalLink } from 'lucide-react';
 export function PdfView({ src, name }: { src: string; name: string }) {
   const [loaded, setLoaded] = useState(false);
   return (
-    <div className="flex min-w-0 flex-col">
-      <div className="relative h-[70vh] min-h-[360px] bg-vx-mat">
-        {!loaded ? <span aria-hidden className="skeleton absolute inset-0" /> : null}
+    <div className="flex min-w-0 flex-col p-3">
+      <div className="relative h-[calc(100dvh-400px)] min-h-[320px] overflow-hidden rounded-vx-sm bg-vx-mat shadow-vx-1">
+        {!loaded ? <span aria-hidden className="skeleton absolute inset-0 rounded-none" /> : null}
         <iframe
           src={src}
           title={`PDF: ${name}`}
@@ -18,14 +18,14 @@ export function PdfView({ src, name }: { src: string; name: string }) {
           className="relative h-full w-full border-0"
         />
       </div>
-      <div className="flex h-9 items-center justify-end border-t border-vx-hair-soft px-3">
+      <div className="flex h-9 items-end justify-end">
         <a
           href={src}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 font-mono text-[11.5px] text-vx-text-3 hover:text-vx-text-1"
+          className="inline-flex items-center gap-1.5 rounded-vx-xs text-[13px] font-medium text-vx-accent hover:text-vx-accent-strong hover:underline"
         >
-          <ExternalLink size={12} aria-hidden /> Open in a new tab
+          <ExternalLink size={16} strokeWidth={1.75} aria-hidden /> Open in a new tab
         </a>
       </div>
     </div>

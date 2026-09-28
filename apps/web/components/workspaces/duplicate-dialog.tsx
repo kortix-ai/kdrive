@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import useSWR from 'swr';
+import { Clock, Copy } from 'lucide-react';
 import { formatBytes, shortId } from '@volumes/shared';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
@@ -72,12 +73,19 @@ function DuplicateBody({ ws, wsName, at, onClose }: { ws: string; wsName: string
       open
       onClose={onClose}
       title="Duplicate as new workspace"
+      description={`From ${wsName}`}
+      icon={
+        <span aria-hidden className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-vx-surface-3 text-vx-text-2">
+          <Copy size={18} strokeWidth={1.75} />
+        </span>
+      }
+      width={480}
       busy={busy}
       error={error}
       onSubmit={() => void submit()}
       footer={
         <>
-          <Button variant="ghost" onClick={onClose} disabled={busy}>
+          <Button variant="text" onClick={onClose} disabled={busy}>
             Cancel
           </Button>
           <Button variant="primary" onClick={() => void submit()} loading={busy} disabled={!!invalid}>
@@ -86,22 +94,36 @@ function DuplicateBody({ ws, wsName, at, onClose }: { ws: string; wsName: string
         </>
       }
     >
-      <label className="vx-label mb-2 block" htmlFor="ws-dup-name">
-        Name
-      </label>
-      <Input id="ws-dup-name" autoFocus value={name} maxLength={80} onChange={(e) => setName(e.target.value)} invalid={invalid} />
-      <div className="mt-4 flex items-baseline gap-3">
-        <span className="vx-label w-[64px] shrink-0">Version</span>
-        {at ? (
-          <span className="vx-meta text-vx-past" title={when ? isoTitle(when) : at}>
-            {when ? formatTimeTravelLabel(when) : commit.error ? 'an earlier version' : '…'} · {shortId(at)}
-          </span>
-        ) : (
-          <span className="vx-meta text-vx-text-1">Now · the latest version of {wsName}</span>
-        )}
+      <div className="flex flex-col gap-4 pb-2">
+        <Input id="ws-dup-name" label="Name" autoFocus value={name} maxLength={80} onChange={(e) => setName(e.target.value)} invalid={invalid} />
+        <div>
+          <div className="mb-1 text-[13px] font-medium leading-5 text-vx-text-2">Version</div>
+          {at ? (
+            <div
+              className="inline-flex max-w-full items-center gap-2 rounded-vx-sm bg-vx-past-wash px-3 py-2 text-[13px] leading-5 text-vx-past shadow-[inset_0_0_0_1px_var(--vx-past-edge)]"
+              title={when ? isoTitle(when) : at}
+            >
+              <Clock size={16} strokeWidth={1.75} className="shrink-0" aria-hidden />
+              <span className="min-w-0 truncate">
+                <span className="font-semibold text-vx-past-strong">{when ? formatTimeTravelLabel(when) : commit.error ? 'An earlier version' : '…'}</span>
+                {' · '}
+                <span className="font-mono text-[12px]">{shortId(at)}</span>
+              </span>
+            </div>
+          ) : (
+            <div className="inline-flex max-w-full items-center gap-2 rounded-vx-sm bg-vx-surface-2 px-3 py-2 text-[13px] leading-5 text-vx-text-2">
+              <span aria-hidden className="h-2 w-2 shrink-0 rounded-full bg-vx-accent" />
+              <span className="min-w-0 truncate">
+                <span className="font-semibold text-vx-text-1">Now</span> · the latest version of {wsName}
+              </span>
+            </div>
+          )}
+        </div>
+        <div>
+          <p className="vx-body text-vx-text-2">Creates a separate workspace from this version. Your current workspace does not change.</p>
+          <p className="vx-meta mt-1 text-vx-text-3">The copy counts toward your storage quota. Its history starts at this version.</p>
+        </div>
       </div>
-      <p className="vx-body mt-4 text-vx-text-3">Creates a separate workspace from this version. Your current workspace does not change.</p>
-      <p className="vx-micro mt-2 text-vx-text-4">The copy counts toward your storage quota. Its history starts at this version.</p>
     </Dialog>
   );
 }

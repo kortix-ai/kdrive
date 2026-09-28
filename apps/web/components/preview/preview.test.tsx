@@ -7,7 +7,7 @@ import { parseCsv } from './csv-view';
 import { FilePreview, rendererFor } from './file-preview';
 import { stepZoom } from './image-view';
 import { MarkdownBody, safeHref, safeImageSrc } from './markdown-view';
-import { compareEntries, middleTruncate, stepSibling, typeLabel } from './names';
+import { compareEntries, formatWhen, kindLabel, middleTruncate, stepSibling, typeLabel } from './names';
 import { prettyJson } from './text-view';
 import { formatDuration } from './video-view';
 
@@ -161,5 +161,29 @@ describe('helpers', () => {
     expect(contentErrorCopy(404, 'path_not_found').retry).toBe(false);
     expect(contentErrorCopy(500, 'internal')).toEqual({ title: "Couldn't load this file", retry: true });
     expect(contentErrorCopy(410, 'link_revoked').title).toBe('This link is no longer active.');
+  });
+});
+
+describe('friendly labels', () => {
+  test('kindLabel', () => {
+    expect(kindLabel('plan.md', 'markdown')).toBe('Markdown');
+    expect(kindLabel('cover.png', 'image')).toBe('PNG image');
+    expect(kindLabel('a.pdf', 'pdf')).toBe('PDF');
+    expect(kindLabel('main.ts', 'code')).toBe('TypeScript');
+    expect(kindLabel('notes.log', 'code')).toBe('LOG file');
+    expect(kindLabel('Makefile', 'text')).toBe('Text');
+    expect(kindLabel('blob', 'none')).toBe('File');
+  });
+
+  test('formatWhen', () => {
+    const now = new Date(2026, 8, 28, 12, 0);
+    expect(formatWhen(new Date(2026, 8, 28, 11, 59, 50), now)).toBe('just now');
+    expect(formatWhen(new Date(2026, 8, 28, 11, 56), now)).toBe('4 min ago');
+    expect(formatWhen(new Date(2026, 8, 28, 10, 0), now)).toBe('2 hours ago');
+    expect(formatWhen(new Date(2026, 8, 28, 3, 5), now)).toBe('Today 03:05');
+    expect(formatWhen(new Date(2026, 8, 27, 18, 2), now)).toBe('Yesterday, 18:02');
+    expect(formatWhen(new Date(2026, 8, 22, 16, 40), now)).toBe('Tue 16:40');
+    expect(formatWhen(new Date(2026, 8, 14, 16, 40), now)).toBe('14 Sep');
+    expect(formatWhen(new Date(2025, 8, 14, 16, 40), now)).toBe('14 Sep 2025');
   });
 });

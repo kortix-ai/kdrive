@@ -7,7 +7,8 @@ import useSWR from 'swr';
 import { decodePathFromUrl } from '@volumes/shared';
 import { FilePreview } from '@/components/preview/file-preview';
 import { PublicBrowser } from '@/components/public/public-browser';
-import { PublicHero, PublicShell, StencilArt, inactiveCopy } from '@/components/public/public-shell';
+import { PublicHero, PublicShell, inactiveCopy } from '@/components/public/public-shell';
+import { EmptyState } from '@/components/ui/empty-state';
 import { ApiError } from '@/lib/api/client';
 import { api } from '@/lib/api/endpoints';
 import { publicContentUrl, publicZipUrl } from '@/lib/urls';
@@ -40,10 +41,8 @@ export default function PublicSharePage() {
     const copy = inactiveCopy(error ?? new ApiError(404, 'not_found', 'Not found'));
     return (
       <PublicShell>
-        <div className="flex flex-1 flex-col items-center justify-center py-16 text-center">
-          <StencilArt />
-          <div className="vx-title">{copy.title}</div>
-          <p className="vx-body mt-2 max-w-[420px] text-vx-text-3">{copy.body}</p>
+        <div className="flex flex-1 items-center justify-center">
+          <EmptyState tone="past" title={copy.title} body={copy.body} />
         </div>
       </PublicShell>
     );
@@ -54,9 +53,9 @@ export default function PublicSharePage() {
       <PublicShell>
         <div aria-busy className="flex flex-col gap-3">
           <span className="skeleton skel-line w-24" />
-          <span className="skeleton block h-10 w-2/3" />
+          <span className="skeleton block h-11 w-2/3" />
           <span className="skeleton skel-line w-48" />
-          <span className="skeleton mt-6 block h-[50vh] w-full" />
+          <span className="skeleton mt-6 block h-[50vh] w-full rounded-vx-lg" />
         </div>
       </PublicShell>
     );
@@ -73,13 +72,14 @@ export default function PublicSharePage() {
       {isDir ? (
         <PublicBrowser token={token} meta={meta} rel={rel} />
       ) : (
-        <div className="border border-vx-hair bg-vx-surface">
+        <div className="vx-sheet overflow-hidden p-3 max-[720px]:p-2">
           <FilePreview
             src={publicContentUrl(token, '/')}
             downloadHref={publicContentUrl(token, '/', { download: true })}
             name={meta.name}
             size={meta.size ?? 0}
             mime={meta.mime}
+            className="overflow-hidden rounded-vx-md bg-vx-surface-2"
           />
         </div>
       )}

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { FileMusic } from 'lucide-react';
+import { FileIcon } from '@/components/ui/file-icon';
 import { PreviewError } from './states';
 import { formatDuration } from './video-view';
 
@@ -22,15 +22,13 @@ export function AudioView({ src, name }: { src: string; name: string }) {
     );
   }
   return (
-    <div className="flex min-w-0 flex-col">
-      <div className="flex flex-col items-center gap-3 bg-vx-mat px-6 py-10">
-        <FileMusic size={40} strokeWidth={1.25} className="text-vx-text-3" aria-hidden />
-        <div className="vx-name max-w-full truncate text-vx-text-1" title={name}>
+    <div className="flex min-w-0 flex-col p-3">
+      <div className="flex flex-col items-center rounded-vx-sm bg-vx-surface px-6 pb-6 pt-8 shadow-vx-1">
+        <FileIcon name={name} type="file" size={48} />
+        <div className="vx-ui mt-3 max-w-full truncate text-vx-text-1" title={name}>
           {name}
         </div>
-        <div className="vx-meta text-vx-text-3">{duration !== null ? formatDuration(duration) : state === 'loading' ? '…' : '—'}</div>
-      </div>
-      <div className="border-t border-vx-hair-soft px-3 py-3">
+        <div className="vx-meta mt-1 text-vx-text-3">{duration !== null ? formatDuration(duration) : state === 'loading' ? 'Loading…' : '—'}</div>
         <audio
           key={nonce}
           src={src}
@@ -42,7 +40,7 @@ export function AudioView({ src, name }: { src: string; name: string }) {
             setState('ok');
           }}
           onError={() => setState('error')}
-          className="block w-full"
+          className="mt-5 block w-full rounded-vx-sm"
         />
       </div>
     </div>

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Layers } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -65,12 +66,18 @@ export function NewWorkspaceDialog({ open, onClose }: { open: boolean; onClose: 
       open={open}
       onClose={close}
       title="New workspace"
+      icon={
+        <span aria-hidden className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-vx-surface-3 text-vx-text-2">
+          <Layers size={18} strokeWidth={1.75} />
+        </span>
+      }
+      width={480}
       busy={busy}
       error={error}
       onSubmit={() => void submit()}
       footer={
         <>
-          <Button variant="ghost" onClick={close} disabled={busy}>
+          <Button variant="text" onClick={close} disabled={busy}>
             Cancel
           </Button>
           <Button variant="primary" onClick={() => void submit()} loading={busy} disabled={touched && !!invalid}>
@@ -79,22 +86,20 @@ export function NewWorkspaceDialog({ open, onClose }: { open: boolean; onClose: 
         </>
       }
     >
-      <label className="vx-label mb-2 block" htmlFor="ws-new-name">
-        Name
-      </label>
-      <Input
-        id="ws-new-name"
-        autoFocus
-        value={name}
-        maxLength={80}
-        placeholder="Projects"
-        onChange={(e) => setName(e.target.value)}
-        onBlur={() => setTouched(true)}
-        invalid={touched ? invalid : null}
-      />
-      <p className="vx-body mt-4 text-vx-text-3">
-        A separate drive with its own history and checkpoints. It counts toward the same storage quota.
-      </p>
+      <div className="flex flex-col gap-4 pb-2">
+        <Input
+          id="ws-new-name"
+          label="Name"
+          autoFocus
+          value={name}
+          maxLength={80}
+          placeholder="Projects"
+          onChange={(e) => setName(e.target.value)}
+          onBlur={() => setTouched(true)}
+          invalid={touched ? invalid : null}
+        />
+        <p className="vx-body text-vx-text-2">A separate drive with its own history and checkpoints. It counts toward the same storage quota.</p>
+      </div>
     </Dialog>
   );
 }

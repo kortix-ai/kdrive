@@ -1,13 +1,14 @@
 'use client';
 
-// Corner-bracket drop target (DESIGN §6.12, signature 4). Dragging files from
-// the OS over /drive snaps four machined brackets onto the main area, or onto
-// the folder row / tile / crumb under the pointer, with one mono readout:
-//   DROP 3 ITEMS → q3-report/ · 1 VERSION
-// Red when storage is already full, amber in the past (uploads are refused).
+// OS drop target (DESIGN-v2 §6.13). Dragging files from the OS over /drive draws a 2 px
+// dashed accent ring with a light accent tint on the drive sheet, or on the folder row /
+// card / crumb under the pointer, with one centred float pill:
+//   Drop 3 items → q3-report · 1 version
+// Danger when storage is already full, amber in the past (uploads are refused).
 // Drops keep the folder tree, empty folders included.
 import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
+import { CircleAlert, Clock, Upload } from 'lucide-react';
 import { basename, formatBytes } from '@volumes/shared';
 import { cx } from '@/components/ui/cx';
 import { useUsage } from '@/lib/api/hooks';
@@ -20,6 +21,7 @@ interface Target {
   rect: { left: number; top: number; width: number; height: number };
   dir: string;
   folder: boolean;
+  radius: string;
 }
 
 function findTarget(el: EventTarget | null, fallbackDir: string): Target | null {
@@ -27,12 +29,12 @@ function findTarget(el: EventTarget | null, fallbackDir: string): Target | null 
   const hit = node?.closest<HTMLElement>('[data-vx-drop-dir]');
   if (hit?.dataset.vxDropDir) {
     const r = hit.getBoundingClientRect();
-    return { rect: { left: r.left, top: r.top, width: r.width, height: r.height }, dir: hit.dataset.vxDropDir, folder: true };
+    return { rect: { left: r.left, top: r.top, width: r.width, height: r.height }, dir: hit.dataset.vxDropDir, folder: true, radius: getComputedStyle(hit).borderRadius || 'var(--vx-r-sm)' };
   }
   const main = document.querySelector<HTMLElement>('.vx-main');
   if (!main) return null;
   const r = main.getBoundingClientRect();
-  return { rect: { left: r.left + 8, top: r.top + 8, width: r.width - 16, height: r.height - 16 }, dir: fallbackDir, folder: false };
+  return { rect: { left: r.left, top: r.top, width: r.width, height: r.height }, dir: fallbackDir, folder: false, radius: getComputedStyle(main).borderRadius || 'var(--vx-r-lg)' };
 }
 
 export default function GlobalDropZone() {
@@ -71,7 +73,7 @@ export default function GlobalDropZone() {
       const t = findTarget(e.target, useVx.getState().path);
       setTarget((prev) => {
         if (!t) return null;
-        if (prev && prev.dir === t.dir && prev.rect.left === t.rect.left && prev.rect.top === t.rect.top && prev.rect.width === t.rect.width && prev.rect.height === t.rect.height) return prev;
+        if (prev && prev.dir === t.dir && prev.rect.left === t.rect.left && prev.rect.top === t.rect.top && prev.rect.width === t.rect.width && prev.rect.height === t.rect.height && prev.radius === t.radius) return prev;
         return t;
       });
     };
@@ -122,36 +124,32 @@ export default function GlobalDropZone() {
   if (!target || !onDrive) return null;
 
   const full = !!usage && usage.quotaBytes > 0 && usage.usedBytes >= usage.quotaBytes;
-  const tone = past ? 'text-vx-past' : full ? 'text-vx-danger' : 'text-vx-text-1';
-  const dest = target.dir === '/' ? 'My Drive/' : `${basename(target.dir)}/`;
-  const what = count > 0 ? `${count} ${count === 1 ? 'ITEM' : 'ITEMS'}` : 'FILES';
-  // The folder keeps its real casing ("Photos" vs "photos"); only the fixed words are upper-cased.
-  const readout: React.ReactNode = past ? (
-    'GO BACK TO NOW TO UPLOAD'
-  ) : full && usage ? (
-    `YOUR ${formatBytes(usage.quotaBytes).toUpperCase()} IS FULL`
-  ) : (
-    <>
-      DROP {what} → <span className="normal-case tracking-normal">{dest}</span> · 1 VERSION
-    </>
-  );
+  const dest = target.dir === '/' ? 'My Drive' : basename(target.dir);
+  const what = count > 0 ? `${count} ${count === 1 ? 'item' : 'items'}` : 'files';
+  const readout = past
+    ? 'Go back to now to upload'
+    : full && usage
+      ? `Your ${formatBytes(usage.quotaBytes)} is full`
+      : `Drop ${what} → ${dest} · 1 version`;
   const { left, top, width, height } = target.rect;
+  // Small targets (a row, a crumb): the pill sits just under the ring instead of inside it.
+  const below = target.folder && height < 80;
 
   return (
-    <div className={cx(s.dropFrame, tone, 'z-[45]')} style={{ left, top, width, height }} aria-live="polite">
-      <span key={`tl-${target.dir}`} className={cx(s.bracket, s.bracketTL)} style={{ left: 0, top: 0 }} />
-      <span key={`tr-${target.dir}`} className={cx(s.bracket, s.bracketTR)} style={{ right: 0, top: 0 }} />
-      <span key={`bl-${target.dir}`} className={cx(s.bracket, s.bracketBL)} style={{ left: 0, bottom: 0 }} />
-      <span key={`br-${target.dir}`} className={cx(s.bracket, s.bracketBR)} style={{ right: 0, bottom: 0 }} />
-      <div className="absolute inset-0 flex items-center justify-center">
+    <div
+      className={cx(s.dropFrame, target.folder && s.folder, past ? s.past : full ? s.danger : null, 'z-[45]')}
+      style={{ left, top, width, height, borderRadius: target.radius }}
+      aria-live="polite"
+    >
+      <div className={cx('absolute inset-x-0 flex justify-center', below ? 'top-full mt-2' : 'inset-y-0 items-center')}>
         <span
           className={cx(
-            'vx-label whitespace-nowrap border bg-vx-float px-2 py-1 tracking-[0.14em]',
-            past ? 'border-vx-past-edge text-vx-past' : full ? 'border-vx-danger-edge text-vx-danger' : 'border-vx-hair-strong text-vx-text-1',
-            target.folder && height < 80 && 'translate-y-[calc(50%+14px)]',
+            'inline-flex h-10 max-w-[calc(100vw-32px)] items-center gap-2 truncate whitespace-nowrap rounded-full border border-vx-hair bg-vx-float px-4 text-[14px] font-medium leading-5 shadow-vx-3',
+            past ? 'text-vx-past' : full ? 'text-vx-del-fg' : 'text-vx-text-1',
           )}
         >
-          {readout}
+          {past ? <Clock size={18} strokeWidth={1.75} className="shrink-0" aria-hidden /> : full ? <CircleAlert size={18} strokeWidth={1.75} className="shrink-0" aria-hidden /> : <Upload size={18} strokeWidth={1.75} className="shrink-0 text-vx-accent" aria-hidden />}
+          <span className="truncate">{readout}</span>
         </span>
       </div>
     </div>

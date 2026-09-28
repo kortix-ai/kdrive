@@ -1,8 +1,7 @@
 'use client';
 
-// Admin (DESIGN.md 6.18): users (usage, inline quota editor) and the audit log. Admins only; a 403 view otherwise.
+// Admin (DESIGN-v2 §6.19): users (usage, inline quota editor) and the audit log. Admins only; a 403 view otherwise.
 import { useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
 import useSWR, { mutate as globalMutate } from 'swr';
 import { Search } from 'lucide-react';
 import { formatBytes, meterLevel, type AdminUser } from '@volumes/shared';
@@ -31,21 +30,11 @@ function Forbidden() {
       className="h-full"
       title="Admins only."
       body="This page manages every account on this server. Your account is not on the admin list."
-      actions={
-        <Link
-          href="/drive"
-          className="inline-flex h-8 items-center border border-vx-hair px-3 font-mono text-[12px] text-vx-text-2 hover:border-vx-hair-strong hover:text-vx-text-1"
-        >
-          Go to My Drive
-        </Link>
-      }
     />
   );
 }
 
-function UsersTab() {
-  const [q, setQ] = useState('');
-  const query = useDebounced(q.trim(), 250);
+function UsersTab({ query }: { query: string }) {
   const { data, error, isLoading, mutate } = useSWR(['admin-users', query], () => api.admin.users({ q: query || undefined }), {
     revalidateOnFocus: false,
     shouldRetryOnError: false,
@@ -61,37 +50,26 @@ function UsersTab() {
   if (isApiError(error) && error.status === 403) return <Forbidden />;
 
   return (
-    <div>
-      <div className="mb-3 flex items-center gap-3">
-        <Input
-          leading={<Search size={14} />}
-          placeholder="Search by email or name"
-          aria-label="Search users"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          className="max-w-[320px]"
-        />
-        {isLoading && data ? <span className="vx-meta text-vx-text-4">searching…</span> : null}
-      </div>
+    <div aria-busy={isLoading || undefined}>
       {error && !data ? (
-        <div className="flex items-center gap-2 border border-vx-hair p-4">
-          <span className="text-[12px] text-vx-danger">Couldn&apos;t load users.</span>
-          <Button size="sm" variant="ghost" onClick={() => void mutate()}>
+        <div className="flex items-center gap-2 rounded-vx-md bg-vx-surface-2 px-4 py-3">
+          <span className="text-[13px] text-vx-del-fg">Couldn&apos;t load users.</span>
+          <Button size="sm" variant="text" onClick={() => void mutate()}>
             Retry
           </Button>
         </div>
       ) : !data ? (
-        <div className="border border-vx-hair p-4">
+        <div className="px-1 py-2">
           {[90, 80, 85, 70].map((w, i) => (
             <span key={i} className="skeleton skel-line" style={{ width: `${w}%` }} />
           ))}
         </div>
       ) : data.users.length === 0 ? (
-        <p className="vx-body border border-vx-hair p-6 text-center text-vx-text-3">{query ? `No users match “${query}”.` : 'No users yet.'}</p>
+        <EmptyState art={false} title={query ? `No users match “${query}”.` : 'No users yet.'} className="py-10" />
       ) : (
         <UsersTable users={data.users} capBytes={data.workspaceCapBytes} onUpdated={onUpdated} />
       )}
-      <p className="vx-micro mt-3 text-vx-text-4">Quotas go up to 50 GiB. Usage is each workspace&apos;s current size; history is not counted.</p>
+      <p className="vx-meta mt-4 text-vx-text-3">Quotas go up to 50 GiB. Usage is each workspace&apos;s current size; history is not counted.</p>
     </div>
   );
 }
@@ -106,9 +84,9 @@ function Totals() {
   }, [data]);
   if (!totals) return <span className="skeleton skel-line inline-block w-56" />;
   return (
-    <span className="vx-meta text-vx-text-3">
-      {totals.users} <span className="vx-unit">users</span> · {formatBytes(totals.stored)} <span className="vx-unit">stored</span> ·{' '}
-      <span style={{ color: totals.high ? 'var(--vx-past)' : undefined }}>{totals.high}</span> <span className="vx-unit">over 80 %</span>
+    <span className="vx-meta-row text-vx-text-3">
+      {totals.users} {totals.users === 1 ? 'user' : 'users'} · {formatBytes(totals.stored)} stored ·{' '}
+      <span className={totals.high ? 'font-semibold text-vx-text-1' : undefined}>{totals.high}</span> over 80%
     </span>
   );
 }
@@ -116,24 +94,40 @@ function Totals() {
 export default function AdminPage() {
   const me = useVx((s) => s.me);
   const [tab, setTab] = useState<'users' | 'audit'>('users');
+  const [q, setQ] = useState('');
+  const query = useDebounced(q.trim(), 250);
   if (!me) return null;
   if (!me.isAdmin) return <Forbidden />;
   return (
-    <div className="mx-auto w-full max-w-[1180px] px-6 py-8">
-      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+    <div className="mx-auto w-full max-w-[1180px] px-5 pb-12 pt-6 max-[720px]:px-4">
+      <div className="flex flex-col gap-1">
         <h1 className="vx-h1">Admin</h1>
         <Totals />
       </div>
-      <Tabs
-        className="mb-5 mt-5"
-        value={tab}
-        onChange={setTab}
-        items={[
-          { id: 'users', label: 'Users' },
-          { id: 'audit', label: 'Audit' },
-        ]}
-      />
-      {tab === 'users' ? <UsersTab /> : <AuditTable />}
+      <div className="mb-4 mt-4 flex flex-wrap items-end justify-between gap-x-4 gap-y-3 border-b border-vx-hair-soft">
+        <Tabs
+          className="-mb-px border-b-0"
+          value={tab}
+          onChange={setTab}
+          items={[
+            { id: 'users', label: 'Users' },
+            { id: 'audit', label: 'Audit' },
+          ]}
+        />
+        {tab === 'users' ? (
+          <div className="mb-2 w-full max-w-[320px] max-[720px]:max-w-none">
+            <Input
+              size="sm"
+              leading={<Search size={16} strokeWidth={1.75} />}
+              placeholder="Search by email or name"
+              aria-label="Search users"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+            />
+          </div>
+        ) : null}
+      </div>
+      {tab === 'users' ? <UsersTab query={query} /> : <AuditTable />}
     </div>
   );
 }

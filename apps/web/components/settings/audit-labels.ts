@@ -25,12 +25,12 @@ export function auditLabel(kind: string): string {
   return LABELS[kind] ?? kind;
 }
 
-/** Badge tone: destructive kinds read red, restores amber-free neutral, the rest neutral. */
-export function auditTone(kind: string): 'default' | 'dim' | 'danger' | 'accent' {
+/** Badge tone: destructive kinds read red, checkpoints and links blue, sign-ins dashed, the rest neutral (never amber). */
+export function auditTone(kind: string): 'neutral' | 'dashed' | 'danger' | 'accent' {
   if (kind === 'account.delete' || kind === 'workspace.delete' || kind === 'link.revoke' || kind === 'checkpoint.delete') return 'danger';
   if (kind.startsWith('checkpoint.') || kind.startsWith('link.')) return 'accent';
-  if (kind.startsWith('auth.')) return 'dim';
-  return 'default';
+  if (kind.startsWith('auth.')) return 'dashed';
+  return 'neutral';
 }
 
 /** One-line detail from an event's meta (known keys first; secrets are never in meta). */

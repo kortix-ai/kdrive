@@ -2,27 +2,29 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import useSWR from 'swr';
-import { ChevronDown, ChevronLeft, ChevronRight, Download, ExternalLink, History, Link2 } from 'lucide-react';
-import { RETENTION_COPY, basename, dirname, formatBytes, isActiveContent, mimeFor, shortId, type FileStat } from '@volumes/shared';
-import { Button } from '@/components/ui/button';
+import { ChevronDown, ChevronLeft, ChevronRight, Clock, Download, ExternalLink, Share2 } from 'lucide-react';
+import { RETENTION_COPY, basename, dirname, formatBytes, isActiveContent, mimeFor, previewKind, shortId, type FileStat } from '@volumes/shared';
+import { Badge } from '@/components/ui/badge';
+import { Button, buttonClass } from '@/components/ui/button';
 import { cx } from '@/components/ui/cx';
 import { EmptyState } from '@/components/ui/empty-state';
+import { FileIcon } from '@/components/ui/file-icon';
 import { IconButton } from '@/components/ui/icon-button';
-import { Kbd } from '@/components/ui/kbd';
+import { Tooltip } from '@/components/ui/tooltip';
 import { ApiError } from '@/lib/api/client';
 import { api } from '@/lib/api/endpoints';
 import { useStat } from '@/lib/api/hooks';
-import { formatDate, formatRelative, formatTimeTravelLabel, isoTitle } from '@/lib/format';
+import { formatDate, formatTimeTravelLabel, isoTitle } from '@/lib/format';
 import { useHotkeys } from '@/lib/keys';
 import { useVx } from '@/lib/store';
 import { contentUrl, zipUrl } from '@/lib/urls';
 import { FilePreview, rendererFor } from './file-preview';
-import { compareEntries, middleTruncate, stepSibling, typeLabel } from './names';
+import { compareEntries, formatWhen, kindLabel, middleTruncate, stepSibling } from './names';
 import { PreviewError, PreviewSkeleton } from './states';
 
 const noRetry = { revalidateOnFocus: false, shouldRetryOnError: false } as const;
 
-/** Commit time for the "AS OF" chip (from the time-travel state when it matches, else the commit). */
+/** Commit time for the "As of" badge (from the time-travel state when it matches, else the commit). */
 function useCommitTime(ws: string | null, at: string | null): string | null | undefined {
   const tt = useVx((s) => s.timeTravel);
   const known = at && tt?.commitId === at ? tt.createdAt : null;
@@ -66,37 +68,52 @@ function useEscToClose(enabled: boolean, close: () => void) {
 function Details({ stat, at }: { stat: FileStat; at: string | null }) {
   const [open, setOpen] = useState(false);
   const rows: [string, React.ReactNode][] = [
-    ['path', <span key="p" className="break-all">{stat.path}</span>],
+    ['Path', <span key="p" className="break-all">{stat.path}</span>],
     [
-      'size',
+      'Size',
       stat.type === 'dir' ? '—' : (
         <span key="s">
-          {formatBytes(stat.size)} <span className="vx-unit">· {stat.size.toLocaleString('en-US')} bytes</span>
+          {formatBytes(stat.size)} <span className="text-vx-text-3">· {stat.size.toLocaleString('en-US')} bytes</span>
         </span>
       ),
     ],
-    ['type', stat.type === 'dir' ? 'folder' : mimeFor(stat.name).split(';')[0]],
-    ['modified', <span key="m" title={isoTitle(stat.mtime)}>{formatDate(stat.mtime)}</span>],
-    ['version', stat.version ? <span key="v" title={stat.version}>{shortId('vc_' + stat.version)}</span> : '—'],
-    ['read at', <span key="c" title={stat.commitId}>{at ? shortId(stat.commitId) : `now · ${shortId(stat.commitId)}`}</span>],
+    ['Type', stat.type === 'dir' ? 'Folder' : mimeFor(stat.name).split(';')[0]],
+    ['Modified', <span key="m" title={isoTitle(stat.mtime)}>{formatDate(stat.mtime)}</span>],
+    [
+      'Version',
+      stat.version ? (
+        <span key="v" className="font-mono text-[12px]" title={stat.version}>
+          {shortId('vc_' + stat.version)}
+        </span>
+      ) : (
+        '—'
+      ),
+    ],
+    [
+      'Read at',
+      <span key="c" title={stat.commitId}>
+        {at ? null : 'Now · '}
+        <span className="font-mono text-[12px]">{shortId(stat.commitId)}</span>
+      </span>,
+    ],
   ];
   return (
-    <div className="border-t border-vx-hair">
+    <div className="mx-3 border-t border-vx-hair-soft">
       <button
         type="button"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className="vx-label flex h-9 w-full items-center gap-2 px-4 text-left hover:text-vx-text-1"
+        className="mt-1 flex h-10 w-full items-center gap-2 rounded-vx-sm px-2 text-left text-[14px] font-semibold text-vx-text-1 transition-colors duration-[120ms] hover:bg-vx-hover"
       >
         Details
-        <ChevronDown size={12} className={cx('transition-transform duration-[120ms]', open ? '' : '-rotate-90')} aria-hidden />
+        <ChevronDown size={16} strokeWidth={1.75} className={cx('text-vx-text-3 transition-transform duration-[120ms]', open ? '' : '-rotate-90')} aria-hidden />
       </button>
       {open ? (
-        <dl className="vx-meta grid grid-cols-[88px_1fr] gap-x-3 gap-y-1.5 px-4 pb-4">
+        <dl className="grid grid-cols-[96px_minmax(0,1fr)] gap-x-3 gap-y-2 px-2 pb-4 pt-1 text-[13px] leading-5">
           {rows.map(([k, v]) => (
             <div key={k} className="contents">
-              <dt className="text-vx-text-4">{k}</dt>
-              <dd className="min-w-0 text-vx-text-2">{v}</dd>
+              <dt className="text-vx-text-3">{k}</dt>
+              <dd className="min-w-0 tabular-nums text-vx-text-1">{v}</dd>
             </div>
           ))}
         </dl>
@@ -105,9 +122,6 @@ function Details({ stat, at }: { stat: FileStat; at: string | null }) {
   );
 }
 
-const linkBtn =
-  'inline-flex h-7 items-center gap-1.5 border border-vx-hair px-2.5 font-mono text-[12px] font-medium text-vx-text-2 transition-colors duration-[120ms] hover:border-vx-hair-strong hover:text-vx-text-1';
-
 function FolderSummary({ ws, stat, at }: { ws: string; stat: FileStat; at: string | null }) {
   const openRestore = useVx((s) => s.openRestore);
   const { data, error } = useSWR(['ls', ws, stat.path, at], () => api.files.list(ws, { path: stat.path, at }), { ...noRetry, keepPreviousData: true });
@@ -115,26 +129,26 @@ function FolderSummary({ ws, stat, at }: { ws: string; stat: FileStat; at: strin
   const dirs = data?.entries.filter((e) => e.type === 'dir').length ?? 0;
   const newest = data?.entries.reduce((m, e) => Math.max(m, e.mtime), 0) ?? 0;
   return (
-    <div className="px-4 py-6">
+    <div className="mx-3 mb-3 rounded-vx-md bg-vx-surface-2 px-4 py-5">
       {error ? (
         <PreviewError status={error instanceof ApiError ? error.status : 500} code={error instanceof ApiError ? error.code : undefined} />
       ) : !data ? (
-        <PreviewSkeleton className="px-0" />
+        <PreviewSkeleton className="px-0 py-0" />
       ) : (
-        <dl className="vx-meta grid grid-cols-[88px_1fr] gap-y-1.5">
-          <dt className="text-vx-text-4">items</dt>
-          <dd className="text-vx-text-2">
-            {data.entries.length} <span className="vx-unit">· {files} files, {dirs} folders</span>
+        <dl className="grid grid-cols-[96px_minmax(0,1fr)] gap-x-3 gap-y-2 text-[13px] leading-5">
+          <dt className="text-vx-text-3">Items</dt>
+          <dd className="tabular-nums text-vx-text-1">
+            {data.entries.length} <span className="text-vx-text-3">· {files} {files === 1 ? 'file' : 'files'}, {dirs} {dirs === 1 ? 'folder' : 'folders'}</span>
           </dd>
-          <dt className="text-vx-text-4">last change</dt>
-          <dd className="text-vx-text-2" title={newest ? isoTitle(newest) : undefined}>
-            {newest ? formatRelative(newest) : '—'}
+          <dt className="text-vx-text-3">Last change</dt>
+          <dd className="text-vx-text-1" title={newest ? isoTitle(newest) : undefined}>
+            {newest ? formatWhen(newest) : '—'}
           </dd>
         </dl>
       )}
       <div className="mt-5 flex flex-wrap gap-2">
-        <a href={zipUrl(ws, [stat.path], at)} className={linkBtn}>
-          <Download size={13} aria-hidden /> Download .zip
+        <a href={zipUrl(ws, [stat.path], at)} className={buttonClass('outline', 'sm', { withIcon: true })}>
+          <Download size={16} strokeWidth={1.75} aria-hidden /> Download .zip
         </a>
         {at ? (
           <Button size="sm" variant="restore" onClick={() => openRestore({ scope: 'folder', path: stat.path, at })}>
@@ -146,13 +160,17 @@ function FolderSummary({ ws, stat, at }: { ws: string; stat: FileStat; at: strin
   );
 }
 
+/** Icon-only link styled as a 32 px icon button. */
+const iconLink =
+  'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-vx-text-2 transition-colors duration-[120ms] ease-vx hover:bg-vx-surface-3 hover:text-vx-text-1 active:bg-vx-pressed';
+
 /** The preview tab of the right-hand panel (`panel.kind === 'preview'`). */
 export default function PreviewPanel() {
   const panel = useVx((s) => s.panel);
   const ws = useVx((s) => s.workspaceId);
   const selection = useVx((s) => s.selection);
   const timeTravel = useVx((s) => s.timeTravel);
-  const { openPreview, openVersions, openShare, openRestore, closePanel, select, exitTimeTravel } = useVx.getState();
+  const { openPreview, openShare, openRestore, closePanel, select, exitTimeTravel } = useVx.getState();
 
   const path = panel?.kind === 'preview' ? panel.path : null;
   const at = panel?.at ?? null;
@@ -188,78 +206,69 @@ export default function PreviewPanel() {
   const selected = selection.length === 1 && selection[0] === path;
   const apiErr = error instanceof ApiError ? error : null;
 
+  const kind = stat ? (stat.type === 'dir' ? 'Folder' : kindLabel(stat.name, previewKind(stat.name))) : null;
   const header = (
-    <div className="border-b border-vx-hair px-4 pb-3 pt-3">
-      <div className="flex items-start gap-2">
+    <div className="pb-3 pl-5 pr-3 pt-4">
+      <div className="flex items-center gap-3">
+        <FileIcon name={name} type={stat?.type === 'dir' ? 'dir' : 'file'} size={32} />
         <h2 className="vx-title min-w-0 flex-1 truncate" title={path}>
-          {middleTruncate(name, 44)}
+          {middleTruncate(name, 40)}
         </h2>
-        {at ? (
-          <span
-            className="vx-label mt-0.5 inline-flex h-5 shrink-0 items-center border border-vx-past-edge bg-vx-past-wash px-1.5 text-[9.5px] text-vx-past"
-            title={asOf ? isoTitle(asOf) : at}
-          >
-            As of {asOf ? formatTimeTravelLabel(asOf) : '…'}
-          </span>
-        ) : null}
-        <div className="flex shrink-0 items-center">
-          <IconButton label="Previous file (←)" size="sm" disabled={!prev} onClick={() => go(prev)}>
-            <ChevronLeft size={14} />
-          </IconButton>
-          <IconButton label="Next file (→)" size="sm" disabled={!next} onClick={() => go(next)}>
-            <ChevronRight size={14} />
-          </IconButton>
-        </div>
-      </div>
-      <div className="vx-meta mt-1 text-vx-text-3">
         {stat ? (
-          stat.type === 'dir' ? (
+          <div className="flex shrink-0 items-center">
+            {stat.type !== 'dir' ? (
+              <Tooltip label="Download" kbd={selected ? 'D' : undefined}>
+                <a href={contentUrl(ws, path, { at, download: true })} className={iconLink} aria-label="Download">
+                  <Download size={18} strokeWidth={1.75} aria-hidden />
+                </a>
+              </Tooltip>
+            ) : null}
+            <Tooltip label="Share" kbd={selected ? 'S' : undefined}>
+              <IconButton label="Share" nativeTitle={false} size="sm" onClick={() => openShare(path)}>
+                <Share2 size={18} strokeWidth={1.75} aria-hidden />
+              </IconButton>
+            </Tooltip>
+            {/* HTML, SVG, XML and JS are always served as a download, so "Open" would only flash a tab. */}
+            {stat.type !== 'dir' && !isActiveContent(stat.name || basename(path)) ? (
+              <Tooltip label="Open in a new tab">
+                <a href={contentUrl(ws, path, { at })} target="_blank" rel="noopener noreferrer" aria-label="Open in a new tab" className={iconLink}>
+                  <ExternalLink size={18} strokeWidth={1.75} aria-hidden />
+                </a>
+              </Tooltip>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+      <div className="mt-2 flex min-h-7 items-center gap-2">
+        <div className="vx-meta flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-1 text-vx-text-3">
+          {stat ? (
             <>
-              FOLDER <span className="vx-unit">·</span> modified <span title={isoTitle(stat.mtime)}>{formatRelative(stat.mtime)}</span>
+              <span className="min-w-0 truncate">
+                {kind}
+                {stat.type === 'dir' ? null : <> · {formatBytes(stat.size)}</>} · edited{' '}
+                <span title={isoTitle(stat.mtime)}>{formatWhen(stat.mtime)}</span>
+              </span>
+              {at ? (
+                <Badge tone="past" icon={<Clock strokeWidth={2} aria-hidden />} title={asOf ? isoTitle(asOf) : at}>
+                  As of {asOf ? formatTimeTravelLabel(asOf) : '…'}
+                </Badge>
+              ) : null}
             </>
           ) : (
-            <>
-              {typeLabel(stat.name)} <span className="vx-unit">·</span> {formatBytes(stat.size)} <span className="vx-unit">·</span> modified{' '}
-              <span title={isoTitle(stat.mtime)}>{formatRelative(stat.mtime)}</span>
-            </>
-          )
-        ) : (
-          <span className="skeleton skel-line inline-block w-40" />
-        )}
+            <span className="skeleton skel-line inline-block w-40" />
+          )}
+        </div>
+        {siblings.length > 1 ? (
+          <div className="-mr-1 flex shrink-0 items-center">
+            <IconButton label="Previous file (←)" size="xs" disabled={!prev} onClick={() => go(prev)}>
+              <ChevronLeft size={16} strokeWidth={1.75} aria-hidden />
+            </IconButton>
+            <IconButton label="Next file (→)" size="xs" disabled={!next} onClick={() => go(next)}>
+              <ChevronRight size={16} strokeWidth={1.75} aria-hidden />
+            </IconButton>
+          </div>
+        ) : null}
       </div>
-      {stat && stat.type !== 'dir' ? (
-        <div className="mt-3 flex flex-nowrap items-center gap-1.5">
-          <a href={contentUrl(ws, path, { at, download: true })} className={linkBtn}>
-            <Download size={13} aria-hidden /> Download {selected ? <Kbd>D</Kbd> : null}
-          </a>
-          <Button size="sm" icon={<Link2 size={13} />} onClick={() => openShare(path)}>
-            Share {selected ? <Kbd>S</Kbd> : null}
-          </Button>
-          {/* Icon-only so the row fits the 440 px panel on one line. */}
-          <IconButton label="Versions" size="sm" onClick={() => openVersions(path)}>
-            <History size={14} />
-          </IconButton>
-          {/* HTML, SVG, XML and JS are always served as a download, so "Open" would only flash a tab. */}
-          {!isActiveContent(stat.name || basename(path)) ? (
-            <a
-              href={contentUrl(ws, path, { at })}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Open in a new tab"
-              title="Open in a new tab"
-              className="inline-flex h-7 w-7 items-center justify-center text-vx-text-3 transition-colors duration-[120ms] hover:bg-vx-surface-2 hover:text-vx-text-1"
-            >
-              <ExternalLink size={14} aria-hidden />
-            </a>
-          ) : null}
-        </div>
-      ) : stat ? (
-        <div className="mt-3 flex flex-wrap items-center gap-1.5">
-          <Button size="sm" icon={<Link2 size={13} />} onClick={() => openShare(path)}>
-            Share
-          </Button>
-        </div>
-      ) : null}
     </div>
   );
 
@@ -296,15 +305,16 @@ export default function PreviewPanel() {
     <div className="flex min-h-full flex-col">
       {header}
       {!stat || isLoading ? (
-        <PreviewSkeleton variant={['image', 'pdf', 'video', 'audio', 'none'].includes(rendererFor(name, 0)) ? 'block' : 'lines'} />
+        <div className="mx-3 mb-3 overflow-hidden rounded-vx-md bg-vx-surface-2">
+          <PreviewSkeleton variant={['image', 'pdf', 'video', 'audio', 'none'].includes(rendererFor(name, 0)) ? 'block' : 'lines'} />
+        </div>
       ) : stat.type === 'dir' ? (
         <FolderSummary ws={ws} stat={stat} at={at} />
       ) : (
         <>
           {at ? (
-            <div className="flex items-center justify-between gap-3 border-b border-vx-hair-soft bg-vx-past-wash px-4 py-2">
-              <span className="vx-micro text-vx-text-3">You are looking at an earlier version.</span>
-              <Button size="sm" variant="restore" onClick={() => openRestore({ scope: 'file', path, at })}>
+            <div className="px-3 pb-3">
+              <Button variant="restore" block onClick={() => openRestore({ scope: 'file', path, at })}>
                 Restore this version
               </Button>
             </div>
@@ -316,6 +326,7 @@ export default function PreviewPanel() {
             name={stat.name}
             size={stat.size}
             version={stat.version}
+            className="mx-3 mb-3 overflow-hidden rounded-vx-md bg-vx-surface-2"
           />
         </>
       )}

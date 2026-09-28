@@ -1,15 +1,17 @@
 'use client';
 
-// Virtualised grid view (by row of tiles). Folders first as 64 px compact
-// tiles under a FOLDERS label, then FILES on 4:3 mats. The layout comes from
-// lib/drive/layout (also used by the marquee hit-test in FileBrowser).
+// Virtualised grid view (by row of cards). An eyebrow `Folders` over 52 px folder cards,
+// then `Files` over thumbnail cards. The layout comes from lib/drive/layout (also used by
+// the marquee hit-test in FileBrowser).
 import { useEffect } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { GRID_GAP, GRID_PAD, type GridLayout } from '@/lib/drive/layout';
+import { cx } from '@/components/ui/cx';
+import { GRID_GAP, gridPad, type GridLayout } from '@/lib/drive/layout';
 import { useDriveCtx } from './drive-context';
 import { AddedLaterFooter } from './file-row';
 import { FileTile, FolderTile, GhostTile } from './file-tile';
 import { NewFolderEditor } from './new-folder-dialog';
+import s from './drive.module.css';
 
 export default function FileGrid({
   layout,
@@ -21,7 +23,8 @@ export default function FileGrid({
   focusRow: number;
 }) {
   const ctx = useDriveCtx();
-  const { rows, cols } = layout;
+  const pad = gridPad(ctx.density === 'phone');
+  const { rows } = layout;
   const v = useVirtualizer({
     count: rows.length,
     getScrollElement: () => scrollRef.current,
@@ -39,14 +42,14 @@ export default function FileGrid({
     if (focusRow >= 0) v.scrollToIndex(focusRow, { align: 'auto' });
   }, [focusRow, v]);
 
-  const total = rows.length ? rows[rows.length - 1].top + rows[rows.length - 1].height + GRID_PAD : 0;
+  const total = rows.length ? rows[rows.length - 1].top + rows[rows.length - 1].height + (ctx.density === 'phone' ? 160 : pad) : 0;
 
   return (
     <div
       role="listbox"
       aria-multiselectable
       aria-label="Files"
-      className="relative w-full"
+      className={cx('relative w-full', ctx.anySelected && s.anySelected)}
       style={{ height: Math.max(total, v.getTotalSize()) }}
     >
       {v.getVirtualItems().map((vi) => {
@@ -54,15 +57,15 @@ export default function FileGrid({
         const base: React.CSSProperties = { position: 'absolute', left: 0, width: '100%', top: 0, transform: `translateY(${r.top}px)` };
         if (r.kind === 'label') {
           return (
-            <div key={r.key} style={{ ...base, height: r.height, paddingLeft: GRID_PAD, paddingRight: GRID_PAD }} className="flex items-end pb-2">
-              <span className="vx-label">{r.text}</span>
+            <div key={r.key} style={{ ...base, height: r.height, paddingLeft: pad + 4, paddingRight: pad }} className="flex items-end pb-3">
+              <span className="vx-eyebrow">{r.text}</span>
             </div>
           );
         }
         if (r.kind === 'footer') {
           return (
-            <div key={r.key} style={{ ...base, height: r.height, paddingLeft: GRID_PAD, paddingRight: GRID_PAD }} className="flex items-center">
-              <AddedLaterFooter count={r.count} open={ctx.addedLaterOpen} onToggle={ctx.onToggleAddedLater} />
+            <div key={r.key} style={{ ...base, height: r.height, paddingLeft: pad, paddingRight: pad }} className="flex items-center">
+              <AddedLaterFooter count={r.count} names={r.names} open={ctx.addedLaterOpen} onToggle={ctx.onToggleAddedLater} />
             </div>
           );
         }
@@ -72,10 +75,10 @@ export default function FileGrid({
             style={{
               ...base,
               height: r.tileH,
-              paddingLeft: GRID_PAD,
-              paddingRight: GRID_PAD,
+              paddingLeft: pad,
+              paddingRight: pad,
               display: 'grid',
-              gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+              gridTemplateColumns: `repeat(${r.cols}, minmax(0, 1fr))`,
               columnGap: GRID_GAP,
             }}
           >

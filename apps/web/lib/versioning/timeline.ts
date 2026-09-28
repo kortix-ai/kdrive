@@ -1,4 +1,4 @@
-// Pure helpers for the Time Strip and Timeline Rail (DESIGN.md §6.4). No React.
+// Pure helpers for the history strip and the History rail (DESIGN-v2 §6.4). No React.
 
 import { format, isSameDay, isSameYear, subDays } from 'date-fns';
 import { formatBytes, type TimelineEntry, type TimelineEntryKind } from '@volumes/shared';
@@ -6,19 +6,12 @@ import { formatBytes, type TimelineEntry, type TimelineEntryKind } from '@volume
 const KiB = 1024;
 const MiB = 1024 * KiB;
 
-/** Tick height by |bytesDelta|: 0 → 4, < 64 KiB → 6, < 8 MiB → 10, < 256 MiB → 14, else 14 with a cap. */
-export function tickHeight(bytesDelta: number): { h: number; cap: boolean } {
+/** Strip dot diameter by |bytesDelta| (DESIGN-v2 §6.4): 0 or < 64 KiB → 6, < 8 MiB → 8, larger → 10. */
+export function dotSize(bytesDelta: number): 6 | 8 | 10 {
   const d = Math.abs(bytesDelta);
-  if (d === 0) return { h: 4, cap: false };
-  if (d < 64 * KiB) return { h: 6, cap: false };
-  if (d < 8 * MiB) return { h: 10, cap: false };
-  if (d < 256 * MiB) return { h: 14, cap: false };
-  return { h: 14, cap: true };
-}
-
-/** Grows up for additions, hangs below for removals, centred for no size change. */
-export function tickDirection(bytesDelta: number): 'up' | 'down' | 'center' {
-  return bytesDelta > 0 ? 'up' : bytesDelta < 0 ? 'down' : 'center';
+  if (d < 64 * KiB) return 6;
+  if (d < 8 * MiB) return 8;
+  return 10;
 }
 
 export const isRestoreKind = (k: TimelineEntryKind) => k === 'restore.file' || k === 'restore.folder' || k === 'restore.drive' || k === 'undo';
@@ -31,7 +24,7 @@ export const TIMELINE_FILTERS: { value: TimelineFilter; label: string }[] = [
   { value: 'edits', label: 'Edits' },
   { value: 'deletes', label: 'Deletes' },
   { value: 'restores', label: 'Restores' },
-  { value: 'checkpoints', label: '◆' },
+  { value: 'checkpoints', label: 'Checkpoints' },
 ];
 
 export function matchesFilter(e: Pick<TimelineEntry, 'kind' | 'checkpoints'>, f: TimelineFilter): boolean {
@@ -51,7 +44,7 @@ export function matchesFilter(e: Pick<TimelineEntry, 'kind' | 'checkpoints'>, f:
   }
 }
 
-/** Day band label: TODAY, YESTERDAY, 14 SEP (14 SEP 2025 in another year). */
+/** Day group label: Today, Yesterday, 14 Sep (14 Sep 2025 in another year). */
 export function dayBandLabel(d: Date | string, now: Date = new Date()): string {
   const date = typeof d === 'string' ? new Date(d) : d;
   if (isSameDay(date, now)) return 'Today';
@@ -71,16 +64,40 @@ export function groupByDay<T extends { createdAt: string }>(items: T[], now: Dat
   return out;
 }
 
-/** Axis label for a day divider: "MON 14". */
-export const axisDayLabel = (d: Date | string) => format(typeof d === 'string' ? new Date(d) : d, 'EEE d');
+/** Strip day label under a day tick: "Today", "Yesterday", "Sep 3" ("Sep 3 2025" in another year). */
+export function axisDayLabel(d: Date | string, now: Date = new Date()): string {
+  const date = typeof d === 'string' ? new Date(d) : d;
+  if (isSameDay(date, now)) return 'Today';
+  if (isSameDay(date, subDays(now, 1))) return 'Yesterday';
+  return isSameYear(date, now) ? format(date, 'MMM d') : format(date, 'MMM d yyyy');
+}
 
-/** Time Strip timecode: "28 SEP 2026 · 10:41" (upper-cased by CSS). */
-export const timecode = (d: Date | string) => format(typeof d === 'string' ? new Date(d) : d, 'd MMM yyyy · HH:mm');
-/** Phones: "28 SEP 10:41", so the time survives a 132 px block. */
-export const shortTimecode = (d: Date | string) => format(typeof d === 'string' ? new Date(d) : d, 'd MMM HH:mm');
+/** Strip readout date: "28 Sep 2026, 10:41". */
+export const timecode = (d: Date | string) => format(typeof d === 'string' ? new Date(d) : d, 'd MMM yyyy, HH:mm');
+/** Phones: "28 Sep, 10:41". */
+export const shortTimecode = (d: Date | string) => format(typeof d === 'string' ? new Date(d) : d, 'd MMM, HH:mm');
 
-/** Tooltip time: "16:40 · 14 SEP". */
-export const tooltipTime = (d: Date | string) => format(typeof d === 'string' ? new Date(d) : d, 'HH:mm · d MMM');
+/** Tooltip card time: "12 Sep · 14:22". */
+export const tooltipTime = (d: Date | string) => format(typeof d === 'string' ? new Date(d) : d, 'd MMM · HH:mm');
+
+/**
+ * Friendly time (DESIGN-v2 §3): "Just now", "4 min ago", "2 hours ago", "Today 09:12",
+ * "Yesterday, 18:02", "Tue 16:40", then "14 Sep, 16:40" ("14 Sep 2025, 16:40" in another year).
+ */
+export function friendlyWhen(d: Date | string, now: Date = new Date()): string {
+  const date = typeof d === 'string' ? new Date(d) : d;
+  const diff = now.getTime() - date.getTime();
+  if (diff < 60_000 && diff > -60_000) return 'Just now';
+  if (diff > 0 && diff < 60 * 60_000) return `${Math.round(diff / 60_000)} min ago`;
+  if (diff > 0 && diff < 6 * 60 * 60_000) {
+    const h = Math.round(diff / 3_600_000);
+    return `${h} ${h === 1 ? 'hour' : 'hours'} ago`;
+  }
+  if (isSameDay(date, now)) return `Today ${format(date, 'HH:mm')}`;
+  if (isSameDay(date, subDays(now, 1))) return `Yesterday, ${format(date, 'HH:mm')}`;
+  if (diff > 0 && diff < 7 * 24 * 60 * 60_000) return format(date, 'EEE HH:mm');
+  return isSameYear(date, now) ? format(date, 'd MMM, HH:mm') : format(date, 'd MMM yyyy, HH:mm');
+}
 
 export type Target = { commitId: string; createdAt: string } | 'now' | null;
 
@@ -114,10 +131,10 @@ export function jumpCheckpoint(entries: TimelineEntry[], current: string | null,
   return null;
 }
 
-/** Slot width on the ordinal strip: clamp(8, trackWidth / n, 24). */
+/** Slot width on the ordinal strip: clamp(12, trackWidth / n, 28), so 10 px dots never touch. */
 export function slotWidth(trackWidth: number, n: number): number {
-  if (n <= 0) return 24;
-  return Math.max(8, Math.min(24, trackWidth / n));
+  if (n <= 0) return 28;
+  return Math.max(12, Math.min(28, trackWidth / n));
 }
 
 /** Index (in `xs`, ascending) of the tick nearest to `x`, or -1 when none is within `magnet` px. */
@@ -157,13 +174,13 @@ export function orderPair<T extends { createdAt: string }>(x: T, y: T): [T, T] {
   return new Date(x.createdAt).getTime() <= new Date(y.createdAt).getTime() ? [x, y] : [y, x];
 }
 
-/** "+18.2 MiB", "−1.2 MiB", "±0 B". */
+/** "+18.2 MB", "−1.2 MB", "±0 B". */
 export function formatDelta(n: number): string {
   if (n === 0) return '±0 B';
   return n > 0 ? `+${formatBytes(n)}` : formatBytes(n);
 }
 
-/** Splits "4.2 MiB" into value and unit so units can render dimmer. */
+/** Splits "4.2 MB" into value and unit. */
 export function splitUnit(s: string): { value: string; unit: string } {
   const i = s.lastIndexOf(' ');
   return i < 0 ? { value: s, unit: '' } : { value: s.slice(0, i), unit: s.slice(i + 1) };

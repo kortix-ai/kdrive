@@ -26,27 +26,29 @@ export function parseCsv(text: string, limit = CSV_PREVIEW_ROWS): CsvTable {
   return { header, rows, totalRows: body.length, columns };
 }
 
-/** CSV as a sticky-header table (first 1,000 rows), `.vx-code` cells. */
+/** CSV as a sticky-header table (first 1,000 rows); mono cells, a sans header. */
 export function CsvView({ src }: { src: string }) {
   const { data, error, isLoading, mutate } = useTextContent(src);
   const table = useMemo(() => (data === undefined ? null : parseCsv(data)), [data]);
   if (error) return <PreviewError status={error.status} code={error.code} onRetry={() => void mutate()} />;
   if (isLoading || !table) return <PreviewSkeleton />;
-  if (table.columns === 0) return <p className="vx-meta px-4 py-6 text-vx-text-4">This file is empty.</p>;
+  if (table.columns === 0) return <p className="vx-body px-4 py-6 text-vx-text-3">This file is empty.</p>;
   const cols = Array.from({ length: table.columns }, (_, i) => i);
   return (
     <div className="flex min-w-0 flex-col">
-      <div className="vx-meta flex h-8 items-center gap-2 border-b border-vx-hair-soft px-4 text-vx-text-3">
-        {table.totalRows.toLocaleString('en-US')} <span className="vx-unit">rows</span> · {table.columns} <span className="vx-unit">columns</span>
-        {table.totalRows > table.rows.length ? <span className="text-vx-text-4">· showing the first {CSV_PREVIEW_ROWS.toLocaleString('en-US')}</span> : null}
+      <div className="vx-meta flex min-h-11 flex-wrap items-center gap-x-1 px-4 py-2 text-vx-text-3">
+        <span>
+          {table.totalRows.toLocaleString('en-US')} rows · {table.columns} columns
+        </span>
+        {table.totalRows > table.rows.length ? <span>· showing the first {CSV_PREVIEW_ROWS.toLocaleString('en-US')}</span> : null}
       </div>
-      <div className="max-h-[70vh] overflow-auto">
-        <table className="vx-code w-max min-w-full border-collapse">
+      <div className="mx-3 mb-3 max-h-[70vh] overflow-auto rounded-vx-sm border border-vx-hair bg-vx-surface">
+        <table className="w-max min-w-full border-collapse text-[13px] leading-5">
           <thead>
             <tr>
-              <th className="sticky top-0 z-10 w-10 border-b border-r border-vx-hair bg-vx-surface-2 px-2 py-1 text-right font-normal text-vx-text-4">#</th>
+              <th className="sticky top-0 z-10 w-10 border-b border-r border-vx-hair bg-vx-surface-2 px-2 py-1.5 text-right font-medium text-vx-text-4">#</th>
               {cols.map((c) => (
-                <th key={c} className="sticky top-0 z-10 border-b border-r border-vx-hair bg-vx-surface-2 px-2 py-1 text-left font-medium text-vx-text-1">
+                <th key={c} className="sticky top-0 z-10 border-b border-r border-vx-hair bg-vx-surface-2 px-3 py-1.5 text-left font-semibold text-vx-text-1 last:border-r-0">
                   {table.header[c] ?? ''}
                 </th>
               ))}
@@ -54,10 +56,10 @@ export function CsvView({ src }: { src: string }) {
           </thead>
           <tbody>
             {table.rows.map((r, i) => (
-              <tr key={i} className="hover:bg-vx-surface-2">
-                <td className="border-b border-r border-vx-hair-soft px-2 py-0.5 text-right text-vx-text-4">{i + 1}</td>
+              <tr key={i} className="hover:bg-vx-hover">
+                <td className="border-b border-r border-vx-hair-soft px-2 py-1 text-right tabular-nums text-vx-text-4">{i + 1}</td>
                 {cols.map((c) => (
-                  <td key={c} className="max-w-[320px] truncate border-b border-r border-vx-hair-soft px-2 py-0.5 text-vx-text-2" title={r[c]}>
+                  <td key={c} className="max-w-[320px] truncate border-b border-r border-vx-hair-soft px-3 py-1 font-mono text-[12.5px] text-vx-text-2 last:border-r-0" title={r[c]}>
                     {r[c] ?? ''}
                   </td>
                 ))}

@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { mutate } from 'swr';
 import { formatBytes, type WorkspaceSummary } from '@volumes/shared';
-import { Badge } from '@/components/share/badge';
+import { Layers, Plus } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Input } from '@/components/ui/input';
@@ -13,7 +14,7 @@ import { api } from '@/lib/api/endpoints';
 import { useWorkspaces } from '@/lib/api/hooks';
 import { formatDate, isoTitle } from '@/lib/format';
 import { useVx } from '@/lib/store';
-import { Section } from './section';
+import { Section, SectionError } from './section';
 
 async function refreshWorkspaces() {
   await Promise.all([mutate('workspaces'), mutate('me'), mutate('usage')]);
@@ -49,19 +50,23 @@ function WorkspaceRow({ ws, current, onDelete }: { ws: WorkspaceSummary; current
   };
 
   return (
-    <li className="border-b border-vx-hair-soft py-3 last:border-b-0">
-      <div className="flex items-center gap-3">
-        <div className="min-w-0 flex-1">
+    <li className="-mx-2 rounded-vx-sm px-2 py-2.5 transition-colors duration-[120ms] hover:bg-vx-hover">
+      <div className="flex items-center gap-3 max-[520px]:flex-wrap">
+        <span aria-hidden className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-vx-surface-3 text-vx-text-2">
+          <Layers size={18} strokeWidth={1.75} />
+        </span>
+        <div className="min-w-0 flex-[1_1_200px]">
           {editing ? (
             <form
               onSubmit={(e) => {
                 e.preventDefault();
                 void save();
               }}
-              className="flex items-center gap-2"
+              className="flex flex-wrap items-start gap-2"
             >
               <Input
                 autoFocus
+                size="sm"
                 aria-label="Workspace name"
                 value={name}
                 maxLength={80}
@@ -75,45 +80,50 @@ function WorkspaceRow({ ws, current, onDelete }: { ws: WorkspaceSummary; current
                   }
                 }}
                 invalid={invalid}
-                className="max-w-[280px]"
+                className="min-w-0 max-w-[280px] flex-1"
               />
-              <Button size="sm" variant="primary" type="submit" loading={busy} disabled={!!invalid}>
-                Save
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={busy}
-                onClick={() => {
-                  setName(ws.name);
-                  setEditing(false);
-                }}
-              >
-                Cancel
-              </Button>
+              <div className="flex items-center gap-1">
+                <Button
+                  size="sm"
+                  variant="text"
+                  disabled={busy}
+                  onClick={() => {
+                    setName(ws.name);
+                    setEditing(false);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button size="sm" variant="primary" type="submit" loading={busy} disabled={!!invalid}>
+                  Save
+                </Button>
+              </div>
             </form>
           ) : (
-            <div className="flex items-center gap-2">
-              <span className="vx-name truncate text-vx-text-1">{ws.name}</span>
-              {ws.isDefault ? <Badge tone="dim">Default</Badge> : null}
-              {current ? <Badge>Current</Badge> : null}
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="truncate text-[14px] font-medium leading-5 text-vx-text-1">{ws.name}</span>
+              {current ? <Badge tone="current">Current</Badge> : null}
+              {ws.isDefault ? <Badge>Default</Badge> : null}
             </div>
           )}
-          <div className="vx-meta mt-1 text-vx-text-3">
-            {formatBytes(ws.usageBytes)} <span className="vx-unit">·</span> created <span title={isoTitle(ws.createdAt)}>{formatDate(ws.createdAt)}</span>
-            {origin ? <span className="text-vx-text-4"> · {origin}</span> : null}
+          <div className="vx-meta mt-0.5 truncate text-vx-text-3" title={origin ?? undefined}>
+            {formatBytes(ws.usageBytes)} · created <span title={isoTitle(ws.createdAt)}>{formatDate(ws.createdAt)}</span>
+            {origin ? <> · {origin}</> : null}
           </div>
-          {error ? <p className="mt-1 border-l-2 border-vx-danger pl-2 text-[12px] text-vx-danger">{error}</p> : null}
+          {error ? (
+            <div className="mt-2">
+              <SectionError>{error}</SectionError>
+            </div>
+          ) : null}
         </div>
         {!editing ? (
-          <div className="flex shrink-0 items-center gap-1">
-            <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
+          <div className="-mr-1 flex shrink-0 items-center max-[520px]:-ml-3 max-[520px]:w-full max-[520px]:pl-12">
+            <Button size="sm" variant="text" onClick={() => setEditing(true)}>
               Rename
             </Button>
             <Button
               size="sm"
-              variant="ghost"
-              className="hover:text-vx-danger"
+              variant="danger-text"
               disabled={ws.isDefault}
               title={ws.isDefault ? 'Your default workspace cannot be deleted.' : undefined}
               onClick={() => onDelete(ws)}
@@ -127,7 +137,7 @@ function WorkspaceRow({ ws, current, onDelete }: { ws: WorkspaceSummary; current
   );
 }
 
-/** WORKSPACES: rows (name, size, created, provenance), inline Rename, Delete (typed confirmation, not the default). */
+/** Workspaces: rows (name, size, created, provenance), inline Rename, Delete (typed confirmation, not the default). */
 export function WorkspacesSection() {
   const me = useVx((s) => s.me);
   const current = useVx((s) => s.workspaceId);
@@ -150,16 +160,17 @@ export function WorkspacesSection() {
     <Section
       id="workspaces"
       label="Workspaces"
+      description="Separate drives, each with its own history and checkpoints."
       aside={
-        <Button size="sm" variant="secondary" onClick={() => setCreating(true)}>
-          + New workspace
+        <Button size="sm" variant="outline" icon={<Plus size={16} strokeWidth={1.75} aria-hidden />} onClick={() => setCreating(true)}>
+          New workspace
         </Button>
       }
     >
       {error && !list ? (
         <div className="flex items-center gap-2">
-          <span className="text-[12px] text-vx-danger">Couldn&apos;t load workspaces.</span>
-          <Button size="sm" variant="ghost" onClick={() => void reload()}>
+          <span className="text-[13px] text-vx-del-fg">Couldn&apos;t load workspaces.</span>
+          <Button size="sm" variant="text" onClick={() => void reload()}>
             Retry
           </Button>
         </div>
@@ -172,7 +183,7 @@ export function WorkspacesSection() {
           ))}
         </ul>
       )}
-      <p className="vx-micro mt-3 text-vx-text-4">Deleting a workspace removes its files, history, checkpoints and share links. It cannot be undone.</p>
+      <p className="vx-meta mt-3 text-vx-text-3">Deleting a workspace removes its files, history, checkpoints and share links. It cannot be undone.</p>
       <ConfirmDialog
         open={!!deleting}
         onClose={() => setDeleting(null)}
@@ -184,7 +195,7 @@ export function WorkspacesSection() {
         body={
           deleting ? (
             <>
-              <strong className="font-medium text-vx-text-1">{deleting.name}</strong> and everything in it goes: {formatBytes(deleting.usageBytes)} of files, every
+              <strong className="font-semibold text-vx-text-1">{deleting.name}</strong> and everything in it goes: {formatBytes(deleting.usageBytes)} of files, every
               version, its checkpoints and its share links. This cannot be undone.
             </>
           ) : null

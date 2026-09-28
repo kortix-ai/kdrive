@@ -1,16 +1,16 @@
 'use client';
 
-// The drive (architecture §9.4, DESIGN §6.2–6.3, 6.12–6.14): top bar, column
-// header / selection bar, virtualised list or grid, marquee, drag-and-drop
-// moves, context menus, inline rename and new folder, keyboard map, search.
+// The drive (architecture §9.4, DESIGN-v2 §6.2–6.3, 6.13–6.15, §7): the sheet head
+// (crumbs, view, details), column header / selection bar, virtualised list or grid,
+// marquee, drag-and-drop moves, context menus, inline rename and new folder, keyboard
+// map, search palette.
 // In the past (store.timeTravel) every read passes `at`, writes are disabled
 // with the reason, and rows say how they differ from now.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Clock, Copy, Download, FolderInput, Share2, Trash, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, CircleAlert } from 'lucide-react';
 import { basename, dirname, type FileEntry } from '@volumes/shared';
-import { Button } from '@/components/ui/button';
-import { Tooltip } from '@/components/ui/tooltip';
+import { fileKind, fileKindColor } from '@/components/ui/file-icon';
 import { cx } from '@/components/ui/cx';
 import { isApiError } from '@/lib/api/client';
 import { useListing, useNowListing } from '@/lib/api/hooks';
@@ -33,41 +33,76 @@ import {
 import { DEFAULT_SORT, loadSort, nextSort, saveSort, sortEntries, type SortKey, type SortSpec } from '@/lib/drive/sort';
 import { formatTimeTravelLabel } from '@/lib/format';
 import { isTypingTarget, useHotkeys } from '@/lib/keys';
+import { useShellIntents } from '@/lib/shell-intents';
 import { useVx } from '@/lib/store';
 import { compareHref, driveHref } from '@/lib/urls';
 import { useUploadPrompts } from '@/lib/upload/prompts';
 import { startUpload } from '@/lib/upload/uploads';
 import { pickUploadSources } from '@/lib/upload/walk';
-import DriveContextMenu, { buildDriveMenu, type DriveCommands } from './context-menu';
+import DriveContextMenu, { buildDriveMenu, buildFolderMenu, type DriveCommands } from './context-menu';
 import { DriveCtx, READ_ONLY_REASON, type DriveCtxValue } from './drive-context';
 import EmptyDrive, { type EmptyKind } from './empty-drive';
 import FileGrid from './file-grid';
-import FileList, { type ListRow } from './file-list';
-import { Bytes, Check, LIST_COLS, ROW_H } from './file-row';
+import FileList, { LIST_TOP, type ListRow } from './file-list';
+import { LIST_INSET, PHONE_ROW_H, ROW_H, RowCheck, listCols } from './file-row';
 import MoveCopyDialog, { type MoveCopyRequest } from './move-copy-dialog';
 import { SearchPalette } from './search-box';
 import type { PaletteItem } from './search-results';
+import SelectionBar from './selection-bar';
 import SelectionRect from './selection-rect';
 import Toolbar from './toolbar';
 import s from './drive.module.css';
 
-type MenuState = { x: number; y: number; targets: FileEntry[] } | null;
+type MenuState = { x: number; y: number; flipY?: number; align?: 'start' | 'end'; targets: FileEntry[] } | null;
 
+/** Column header button (DESIGN-v2 §5): 13/500 text-3; the sort column is text-1 with a 16 px arrow. */
 function SortHead({ label, k, sort, onSort, align = 'left' }: { label: string; k: SortKey; sort: SortSpec; onSort: (k: SortKey) => void; align?: 'left' | 'right' }) {
   const on = sort.key === k;
+  const Arrow = sort.dir === 'asc' ? ArrowUp : ArrowDown;
   return (
     <button
       type="button"
       onClick={() => onSort(k)}
       aria-sort={on ? (sort.dir === 'asc' ? 'ascending' : 'descending') : undefined}
-      className={cx('vx-label inline-flex items-center gap-1 hover:text-vx-text-1', on && 'text-vx-text-2', align === 'right' && 'justify-end')}
+      className={cx(
+        'inline-flex h-8 items-center gap-1 rounded-vx-sm text-[13px] font-medium leading-5 transition-colors duration-[120ms] hover:text-vx-text-1',
+        on ? 'text-vx-text-1' : 'text-vx-text-3',
+        align === 'right' && 'flex-row-reverse',
+      )}
     >
       {label}
-      <span aria-hidden className={cx('w-2', on ? 'opacity-100' : 'opacity-0')}>
-        {sort.dir === 'asc' ? '▲' : '▼'}
-      </span>
+      <Arrow size={16} strokeWidth={1.75} aria-hidden className={cx('shrink-0', on ? 'opacity-100' : 'opacity-0')} />
     </button>
   );
+}
+
+function useMedia(query: string): boolean {
+  const [match, setMatch] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia(query);
+    const on = () => setMatch(mq.matches);
+    on();
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, [query]);
+  return match;
+}
+
+/** The drag ghost (DESIGN-v2 §6.2): a float pill with the icon + name or "2 items". */
+function dragGhost(paths: string[], first: FileEntry | undefined): HTMLElement {
+  const chip = document.createElement('div');
+  chip.style.cssText =
+    'position:fixed;top:-200px;left:-200px;display:flex;align-items:center;gap:8px;height:36px;padding:0 14px 0 10px;border-radius:999px;border:1px solid var(--vx-hair);background:var(--vx-float);color:var(--vx-text-1);box-shadow:var(--vx-shadow-3);font:500 13px/20px var(--vx-font-sans);white-space:nowrap';
+  const kind = first ? fileKind(first.name, first.type) : 'other';
+  const icon = document.createElement('span');
+  icon.style.cssText =
+    kind === 'folder'
+      ? 'width:16px;height:13px;border:1.75px solid var(--vx-ft-folder);border-radius:3px;box-sizing:border-box'
+      : `width:14px;height:16px;border-radius:3px;background:${fileKindColor(kind)}`;
+  const label = document.createElement('span');
+  label.textContent = paths.length === 1 ? basename(paths[0]) : `${paths.length} items`;
+  chip.append(icon, label);
+  return chip;
 }
 
 export default function FileBrowser({ path }: { path: string }) {
@@ -79,6 +114,7 @@ export default function FileBrowser({ path }: { path: string }) {
   const selectionArr = useVx((st) => st.selection);
   const anchor = useVx((st) => st.anchor);
   const panel = useVx((st) => st.panel);
+  const timelineOpen = useVx((st) => st.timelineOpen);
   const storeDialogOpen = useVx((st) => !!(st.share || st.restore || st.checkpoint || st.duplicate));
   const promptOpen = useUploadPrompts((st) => !!(st.conflict || st.quota));
   const { pending, removing, dragging, reveal } = useDriveRows();
@@ -110,6 +146,11 @@ export default function FileBrowser({ path }: { path: string }) {
   const [marquee, setMarquee] = useState<Rect | null>(null);
   const [width, setWidth] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const phone = useMedia('(max-width: 720px)');
+  // Compact columns when a panel or the rail takes room, or the sheet is narrow; the row
+  // actions then overlay the date instead of taking a column.
+  const density: DriveCtxValue['density'] = phone ? 'phone' : panel || timelineOpen || (width > 0 && width < 760) ? 'compact' : 'wide';
+  const rowH = phone ? PHONE_ROW_H : ROW_H;
 
   // Reset per-folder UI when the folder or the viewed version changes.
   useEffect(() => {
@@ -176,7 +217,7 @@ export default function FileBrowser({ path }: { path: string }) {
     if (creating) rows.push({ kind: 'new' });
     for (const e of entries) rows.push({ kind: 'entry', entry: e });
     if (addedLater.length) {
-      rows.push({ kind: 'footer', count: addedLater.length });
+      rows.push({ kind: 'footer', count: addedLater.length, names: addedLater.map((e) => e.name) });
       if (addedLaterOpen) for (const e of addedLater) rows.push({ kind: 'ghost', entry: e });
     }
     return rows;
@@ -192,19 +233,21 @@ export default function FileBrowser({ path }: { path: string }) {
             creating,
             ghosts: addedLaterOpen ? addedLater : [],
             addedLaterCount: addedLater.length,
+            addedLaterNames: addedLater.map((e) => e.name),
+            phone,
           })
         : null,
-    [view, width, entries, creating, addedLater, addedLaterOpen],
+    [view, width, entries, creating, addedLater, addedLaterOpen, phone],
   );
 
   const itemRects: ItemRect[] = useMemo(() => {
     if (gridLayout) return gridLayout.itemRects;
     const out: ItemRect[] = [];
     listRows.forEach((r, i) => {
-      if (r.kind === 'entry') out.push({ path: r.entry.path, rect: { x: 0, y: i * ROW_H, w: width || 1000, h: ROW_H } });
+      if (r.kind === 'entry') out.push({ path: r.entry.path, rect: { x: LIST_INSET, y: LIST_TOP + i * rowH, w: Math.max(0, (width || 1000) - LIST_INSET * 2), h: rowH } });
     });
     return out;
-  }, [gridLayout, listRows, width]);
+  }, [gridLayout, listRows, width, rowH]);
 
   const focusIndex = focus ? listRows.findIndex((r) => r.kind === 'entry' && r.entry.path === focus) : -1;
   const focusRow = focus && gridLayout ? (gridLayout.rowOf.get(focus) ?? -1) : -1;
@@ -331,7 +374,11 @@ export default function FileBrowser({ path }: { path: string }) {
     }
     setFocus(next);
   };
-  const vStep = gridLayout ? gridLayout.cols : 1;
+  // Up/down in the grid steps a whole row of the section the focus is in.
+  const vStep = gridLayout ? (focus && byPath.get(focus)?.type === 'dir' ? gridLayout.folderCols : gridLayout.cols) : 1;
+
+  // The shell's search pill and "+ New › New folder" land here.
+  useShellIntents({ search: () => setPaletteOpen(true), 'new-folder': newFolder });
 
   useHotkeys(
     {
@@ -514,6 +561,9 @@ export default function FileBrowser({ path }: { path: string }) {
     renaming,
     siblings: entries,
     addedLaterOpen,
+    density,
+    anySelected: selectionArr.length > 0,
+    cmd,
     onItemMouseDown: (e, entry) => {
       if (e.button !== 0) return;
       setFocus(entry.path);
@@ -553,7 +603,7 @@ export default function FileBrowser({ path }: { path: string }) {
         vx().select([entry.path], 'replace');
         t = [entry];
       }
-      setMenu({ x: r.right - 220, y: r.bottom + 4, targets: t });
+      setMenu({ x: r.right, y: r.bottom + 4, flipY: r.top - 4, align: 'end', targets: t });
     },
     onCheck: (entry) => vx().select([entry.path], 'toggle'),
     onDragStart: (e, entry) => {
@@ -566,10 +616,7 @@ export default function FileBrowser({ path }: { path: string }) {
       e.dataTransfer.setData(DRAG_MIME, JSON.stringify(paths));
       e.dataTransfer.setData('text/plain', paths.map((p) => basename(p)).join('\n'));
       e.dataTransfer.effectAllowed = 'copyMove';
-      const chip = document.createElement('div');
-      chip.textContent = paths.length === 1 ? basename(paths[0]) : `${paths.length} items`;
-      chip.style.cssText =
-        'position:fixed;top:-100px;left:-100px;padding:4px 8px;font:500 12px var(--vx-font-mono);color:var(--vx-text-1);background:var(--vx-float);border:1px solid var(--vx-hair-strong);white-space:nowrap';
+      const chip = dragGhost(paths, byPath.get(paths[0]) ?? entry);
       document.body.appendChild(chip);
       e.dataTransfer.setDragImage(chip, -8, -8);
       setTimeout(() => chip.remove(), 0);
@@ -636,16 +683,25 @@ export default function FileBrowser({ path }: { path: string }) {
   }
   const loadingFirst = !data && !err;
   const fetching = !!data && (listing.isValidating || stale);
-  const selSize = selectedEntries.reduce((n, e) => n + (e.type === 'file' ? e.size : 0), 0);
-  const one = selectedEntries.length === 1 ? selectedEntries[0] : null;
-
+  const countLabel = data && !hardError ? `${entries.length.toLocaleString()} ${entries.length === 1 ? 'item' : 'items'}` : '';
   const menuItems = menu ? buildDriveMenu({ targets: menu.targets, past, drift: drift?.byPath ?? null, cmd }) : [];
+  const folderMenu = buildFolderMenu({
+    past,
+    cmd,
+    share: () => vx().openShare(path),
+    history: () => vx().toggleTimeline(true),
+    downloadZip: () => ws && downloadEntries(ws, [{ path, name: path === '/' ? rootName : basename(path), type: 'dir', size: 0, mtime: 0 }], at),
+  });
+  const detailsOpen = panel?.kind === 'preview' && panel.path === path;
+  const allSelected = selectedEntries.length > 0 && selectedEntries.length === entries.length;
+  const listView = view === 'list' && !phone;
 
   if (!ws) return null;
 
   return (
     <DriveCtx.Provider value={ctx}>
       <div className="relative flex h-full min-h-0 flex-col">
+        {fetching ? <span className={cx(s.loadLine, past && s.past)} aria-hidden /> : null}
         <Toolbar
           path={path}
           rootName={rootName}
@@ -655,113 +711,74 @@ export default function FileBrowser({ path }: { path: string }) {
           onNavigate={(p) => router.push(driveHref(p))}
           onDropItems={(dest) => void dropInto(dest, false)}
           canDropInto={canDropInto}
-          onOpenSearch={() => setPaletteOpen(true)}
-          onNewFolder={newFolder}
-          onUploadFiles={() => uploadFiles(false)}
-          onUploadFolder={() => uploadFiles(true)}
+          folderMenu={folderMenu}
+          detailsOpen={detailsOpen}
+          onDetails={() => (detailsOpen ? vx().closePanel() : vx().openPreview(path))}
+          phone={phone}
         />
 
-        <div className="relative">{fetching ? <span className={past ? s.pastLine : s.nowLine} aria-hidden /> : null}</div>
-
-        {selectedEntries.length > 0 ? (
-          <div key="sel" className={cx(s.selIn, 'flex h-8 shrink-0 items-center gap-1 border-b border-vx-hair bg-vx-surface-2 pl-3 pr-2')} role="toolbar" aria-label="Selection">
-            <span className="flex w-7 items-center">
-              <Check
-                on
-                visible
-                label={selectedEntries.length === entries.length ? 'Clear selection' : 'Select all'}
-                onToggle={() => (selectedEntries.length === entries.length ? vx().clearSelection() : vx().select(order, 'replace'))}
-              />
-            </span>
-            <span className="vx-meta mr-2 whitespace-nowrap text-vx-text-1">
-              {selectedEntries.length} selected
-              {selSize ? (
-                <span className="text-vx-text-3">
-                  {' '}
-                  · <Bytes n={selSize} />
-                </span>
-              ) : null}
-            </span>
-            <Button size="sm" variant="ghost" icon={<Download size={13} aria-hidden />} kbd="D" onClick={() => cmd.download(selectedEntries)}>
-              {one?.type === 'file' ? 'Download' : 'Download .zip'}
-            </Button>
-            {past ? (
-              <>
-                {one ? (
-                  <Button size="sm" variant="restore" kbd="R" onClick={() => cmd.restore(one)}>
-                    Restore
-                  </Button>
-                ) : null}
-              </>
-            ) : (
-              <>
-                <Button size="sm" variant="ghost" icon={<FolderInput size={13} aria-hidden />} kbd="M" onClick={() => cmd.moveTo(selectedEntries)} className="max-[1000px]:[&>kbd]:hidden">
-                  Move
-                </Button>
-                <Button size="sm" variant="ghost" icon={<Copy size={13} aria-hidden />} kbd="⇧M" onClick={() => cmd.copyTo(selectedEntries)} className="max-[1000px]:[&>kbd]:hidden">
-                  Copy
-                </Button>
-              </>
-            )}
-            {one ? (
-              <Button size="sm" variant="ghost" icon={<Share2 size={13} aria-hidden />} kbd="S" onClick={() => cmd.share(one)} className="max-[1100px]:hidden">
-                Share
-              </Button>
-            ) : null}
-            {one?.type === 'file' ? (
-              <Button size="sm" variant="ghost" icon={<Clock size={13} aria-hidden />} kbd="⇧H" onClick={() => cmd.versions(one)} className="max-[1200px]:hidden">
-                Versions
-              </Button>
-            ) : null}
-            {past ? (
-              <Tooltip label={READ_ONLY_REASON}>
-                <Button size="sm" variant="ghost" icon={<Trash size={13} aria-hidden />} disabled>
-                  Delete
-                </Button>
-              </Tooltip>
-            ) : (
-              <Button size="sm" variant="ghost" icon={<Trash size={13} aria-hidden />} kbd="⌫" onClick={() => cmd.remove(selectedEntries)} className="text-vx-danger hover:text-vx-danger">
-                Delete
-              </Button>
-            )}
-            <span className="flex-1" />
-            <Button size="sm" variant="ghost" icon={<X size={13} aria-hidden />} kbd="Esc" onClick={() => vx().clearSelection()} aria-label="Clear selection" />
-          </div>
-        ) : (
-          <div
-            key="head"
-            className={cx('h-8 shrink-0 items-center border-b border-vx-hair bg-vx-surface-2 px-3', view === 'grid' ? 'flex gap-4' : 'grid')}
-            style={view === 'list' ? { gridTemplateColumns: LIST_COLS } : undefined}
-          >
-            <span className="flex items-center">
-              <Check on={false} visible={false} label="Select all" onToggle={() => vx().select(order, 'replace')} />
-            </span>
-            {view === 'list' ? <span /> : null}
-            <span className="flex min-w-0 items-center justify-between pr-3">
+        {/* Column header ⇄ selection bar: same 52 px slot, so the list never jumps. */}
+        <div className="flex h-[52px] shrink-0 flex-col justify-end px-2 pt-2">
+          {selectedEntries.length > 0 ? (
+            <SelectionBar
+              key="sel"
+              entries={selectedEntries}
+              total={entries.length}
+              past={past}
+              cmd={cmd}
+              phone={phone}
+              onClear={() => vx().clearSelection()}
+              onSelectAll={() => vx().select(order, 'replace')}
+              onMore={(e) => {
+                const r = e.currentTarget.getBoundingClientRect();
+                setMenu({ x: r.right, y: r.bottom + 4, flipY: r.top - 4, align: 'end', targets: selectedEntries });
+              }}
+            />
+          ) : listView ? (
+            <div
+              key="head"
+              className={cx(s.item, s.selIn, 'grid h-11 items-center border-b border-vx-hair', density === 'wide' ? 'pr-1' : 'pr-2')}
+              style={{ gridTemplateColumns: listCols(density) }}
+            >
+              <span className="flex items-center justify-center">
+                <RowCheck
+                  on={allSelected}
+                  onToggle={() => (allSelected ? vx().clearSelection() : vx().select(order, 'replace'))}
+                  label="Select all"
+                  className={cx(!allSelected && s.reveal)}
+                />
+              </span>
+              {/* compact columns have no actions column for the count, and beside Modified it reads as a label: leave it out */}
+              <span className="flex min-w-0 items-center pr-4">
+                <SortHead label="Name" k="name" sort={sort} onSort={onSort} />
+              </span>
+              <span className="vx-col-mtime min-w-0 pr-3">
+                <SortHead label="Modified" k="mtime" sort={sort} onSort={onSort} />
+              </span>
+              <span className="flex min-w-0 justify-end pr-2">
+                <SortHead label="Size" k="size" sort={sort} onSort={onSort} align="right" />
+              </span>
+              {density === 'wide' ? <span className="vx-meta truncate pr-3 text-right text-vx-text-3">{countLabel}</span> : null}
+            </div>
+          ) : (
+            <div key="head" className={cx(s.selIn, 'flex h-11 items-center gap-4 border-b border-vx-hair', phone ? 'px-2' : 'pl-3 pr-3')}>
               <SortHead label="Name" k="name" sort={sort} onSort={onSort} />
-              {view === 'list' ? (
-                <span className="vx-meta text-vx-text-4">
-                  {data && !hardError ? `${entries.length.toLocaleString()} ${entries.length === 1 ? 'item' : 'items'}` : ''}
-                </span>
-              ) : null}
-            </span>
-            <span className={cx('vx-col-mtime', view === 'list' && 'text-right')}>
-              <SortHead label="Modified" k="mtime" sort={sort} onSort={onSort} align={view === 'list' ? 'right' : 'left'} />
-            </span>
-            <span className={cx(view === 'list' && 'text-right')}>
-              <SortHead label="Size" k="size" sort={sort} onSort={onSort} align={view === 'list' ? 'right' : 'left'} />
-            </span>
-            {view === 'grid' ? (
-              <span className="vx-meta ml-auto text-vx-text-4">{data && !hardError ? `${entries.length.toLocaleString()} items` : ''}</span>
-            ) : (
-              <span />
-            )}
-          </div>
-        )}
+              <span className="vx-col-mtime">
+                <SortHead label="Modified" k="mtime" sort={sort} onSort={onSort} />
+              </span>
+              <SortHead label="Size" k="size" sort={sort} onSort={onSort} />
+              <span className="vx-meta ml-auto truncate text-vx-text-3">{countLabel}</span>
+            </div>
+          )}
+        </div>
 
         {err && data && !hardError ? (
-          <div className="vx-meta flex h-7 shrink-0 items-center gap-2 border-b border-vx-hair px-3 text-vx-danger" role="alert">
-            Couldn't refresh this folder. <button type="button" className="vx-ui text-vx-text-2 hover:text-vx-text-1" onClick={() => void listing.mutate()}>Retry</button>
+          <div className="mx-4 mt-2 flex shrink-0 items-center gap-2 rounded-vx-sm bg-vx-danger-wash px-3 py-2 text-[13px] leading-5 text-vx-del-fg" role="alert">
+            <CircleAlert size={16} strokeWidth={1.75} className="shrink-0" aria-hidden />
+            <span className="min-w-0 flex-1">Couldn't refresh this folder.</span>
+            <button type="button" className="shrink-0 rounded-vx-sm px-2 font-medium text-vx-accent hover:bg-vx-hover" onClick={() => void listing.mutate()}>
+              Retry
+            </button>
           </div>
         ) : null}
 
@@ -774,18 +791,32 @@ export default function FileBrowser({ path }: { path: string }) {
             if ((e.target as HTMLElement).closest('[role="option"]')) return;
             ctx.onContextMenu(e, null);
           }}
-          className={cx('relative min-h-0 flex-1 overflow-auto outline-none', stale && 'opacity-60 transition-opacity duration-[120ms]')}
+          className={cx('vx-inset-focus relative min-h-0 flex-1 overflow-auto rounded-b-vx-lg outline-none', stale && 'opacity-60 transition-opacity duration-[120ms]')}
         >
           {loadingFirst ? (
-            <div aria-busy className="px-3 pt-2">
+            <div aria-busy className="px-2 pt-1">
               {Array.from({ length: 12 }, (_, i) => (
-                <div key={i} className="grid h-8 items-center" style={{ gridTemplateColumns: LIST_COLS }}>
-                  <span />
-                  <span className="skeleton h-3.5 w-3.5" />
-                  <span className="skeleton skel-line" style={{ width: `${30 + ((i * 37) % 40)}%` }} />
-                  <span className="vx-col-mtime skeleton skel-line ml-auto w-12" />
-                  <span className="skeleton skel-line ml-auto w-10" />
-                  <span />
+                <div key={i} className="grid items-center" style={{ height: rowH, gridTemplateColumns: phone ? '40px minmax(0,1fr)' : listCols(density) }}>
+                  {phone ? null : <span />}
+                  <span className="flex min-w-0 items-center gap-3 pl-0.5 pr-4">
+                    <span className="skeleton h-5 w-5 shrink-0" />
+                    {phone ? null : <span className="skeleton skel-line" style={{ width: `${30 + ((i * 37) % 40)}%` }} />}
+                  </span>
+                  {phone ? (
+                    <span className="flex flex-col gap-2">
+                      <span className="skeleton skel-line" style={{ width: `${40 + ((i * 37) % 40)}%` }} />
+                      <span className="skeleton h-2.5 w-28" />
+                    </span>
+                  ) : (
+                    <>
+                      <span className="vx-col-mtime pr-3">
+                        <span className="skeleton skel-line w-20" />
+                      </span>
+                      <span className="flex justify-end pr-2">
+                        <span className="skeleton skel-line w-12" />
+                      </span>
+                    </>
+                  )}
                 </div>
               ))}
             </div>
@@ -801,16 +832,15 @@ export default function FileBrowser({ path }: { path: string }) {
           ) : gridLayout ? (
             <FileGrid layout={gridLayout} scrollRef={scrollRef} focusRow={focusRow} />
           ) : (
-            <FileList rows={listRows} scrollRef={scrollRef} focusIndex={focusIndex} />
+            <FileList rows={listRows} rowH={rowH} scrollRef={scrollRef} focusIndex={focusIndex} />
           )}
           <SelectionRect rect={marquee} />
         </div>
       </div>
 
-      <DriveContextMenu at={menu ? { x: menu.x, y: menu.y } : null} items={menuItems} onClose={() => setMenu(null)} />
+      <DriveContextMenu at={menu ? { x: menu.x, y: menu.y, flipY: menu.flipY } : null} align={menu?.align} items={menuItems} onClose={() => setMenu(null)} />
       <MoveCopyDialog ws={ws} rootName={rootName} req={moveReq} onClose={() => setMoveReq(null)} />
       <SearchPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} onPick={onPalettePick} rootName={rootName} />
     </DriveCtx.Provider>
   );
 }
-

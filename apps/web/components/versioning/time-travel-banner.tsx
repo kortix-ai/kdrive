@@ -2,21 +2,25 @@
 
 import { useEffect, useRef } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { Clock, Copy, Link2 } from 'lucide-react';
+import { format } from 'date-fns';
+import { ArrowLeftRight, Bookmark, Clock, Copy, Ellipsis, Link2, RotateCcw } from 'lucide-react';
 import useSWR from 'swr';
+import type { TimelineEntry } from '@volumes/shared';
 import { Button } from '@/components/ui/button';
-import { Menu } from '@/components/ui/menu';
+import { IconButton } from '@/components/ui/icon-button';
+import { Menu, type MenuItem } from '@/components/ui/menu';
 import { isTypingTarget } from '@/lib/keys';
 import { actionText, formatTimeTravelLabel } from '@/lib/format';
 import { useVx, type TimeTravel } from '@/lib/store';
 import { driveCompareHref } from '@/lib/urls';
 import { useCommit, useTimelineEntries } from '@/lib/versioning/hooks';
 import { jumpCheckpoint, stepEntry, type Target } from '@/lib/versioning/timeline';
+import { CheckpointBadge } from './checkpoint-badge';
 import { CommitId } from './readout';
 import './versioning.css';
 
 /**
- * Amber "you are viewing the past" banner at the top of main, plus the time keys
+ * Amber "you are viewing the past" card at the top of the drive sheet (DESIGN-v2 §6.3), plus the time keys
  * (`,` `.` step, `⇧,` `⇧.` checkpoints, `p` checkpoint, `c` compare with now, `Esc` back to now).
  */
 export default function TimeTravelBanner() {
@@ -24,11 +28,13 @@ export default function TimeTravelBanner() {
   const timeline = useTimelineEntries();
   useTimeKeys(timeline);
   if (!tt) return null;
-  const entry = timeline.entries.find((e) => e.commitId === tt.commitId);
-  return <Banner tt={tt} headCommitId={timeline.headCommitId} summary={entry ? actionText(entry.summary, entry.restoredTo) : null} />;
+  const idx = timeline.entries.findIndex((e) => e.commitId === tt.commitId);
+  const entry = idx >= 0 ? timeline.entries[idx] : null;
+  const version = idx >= 0 ? `v${timeline.entries.length - idx}` : null;
+  return <Banner tt={tt} entry={entry} version={version} />;
 }
 
-function Banner({ tt, headCommitId, summary }: { tt: NonNullable<TimeTravel>; headCommitId: string | null; summary: string | null }) {
+function Banner({ tt, entry, version }: { tt: NonNullable<TimeTravel>; entry: TimelineEntry | null; version: string | null }) {
   const router = useRouter();
   const pathname = usePathname() ?? '';
   const exit = useVx((s) => s.exitTimeTravel);
@@ -37,67 +43,93 @@ function Banner({ tt, headCommitId, summary }: { tt: NonNullable<TimeTravel>; he
   const openDuplicate = useVx((s) => s.openDuplicate);
   const openShare = useVx((s) => s.openShare);
   const drivePath = useVx((s) => s.path);
+  const { headCommitId } = useTimelineEntries();
+  const summary = entry ? actionText(entry.summary, entry.restoredTo) : null;
   const commit = useCommit(summary ? null : tt.commitId);
   const action = commit.data?.action;
-  const text = summary ?? (action ? actionText(action.summary, action.restoredTo) : null) ?? (commit.isLoading ? '…' : null);
+  const text = summary ?? (action ? actionText(action.summary, action.restoredTo) : null);
   const onDrive = pathname === '/drive' || pathname.startsWith('/drive/');
   // The drive listing for this frame (same swr key as useListing, read-only here): while it loads,
-  // a 1 px amber progress line runs along the banner's edge; the previous frame stays on screen.
+  // a 2 px amber bar runs along the sheet's top edge; the previous frame stays on screen.
   const ws = useVx((s) => s.workspaceId);
   const frame = useSWR(onDrive && ws ? ['ls', ws, drivePath, tt.commitId] : null, null);
   const loadingFrame = onDrive && frame.isValidating;
 
   const compare = () => router.push(driveCompareHref(tt.commitId, headCommitId ?? 'head'));
   const restore = () => openRestore({ scope: 'drive', at: tt.commitId });
-  const label = formatTimeTravelLabel(tt.createdAt);
+  const full = format(new Date(tt.createdAt), 'd MMM yyyy, HH:mm');
+  const short = formatTimeTravelLabel(tt.createdAt);
+  const checkpoints = entry?.checkpoints ?? [];
+
+  const more: MenuItem[] = [
+    { id: 'cmp', label: 'Compare with now', icon: <ArrowLeftRight size={18} strokeWidth={1.75} />, kbd: 'C', onSelect: compare },
+    { id: 'rst', label: 'Restore drive…', icon: <RotateCcw size={18} strokeWidth={1.75} />, tone: 'past', onSelect: restore },
+    { id: 'sep', type: 'separator' },
+    { id: 'cp', label: 'Checkpoint this version…', icon: <Bookmark size={18} strokeWidth={1.75} />, kbd: 'P', onSelect: () => openCheckpoint(tt.commitId) },
+    { id: 'dup', label: 'Duplicate as new workspace…', icon: <Copy size={18} strokeWidth={1.75} />, onSelect: () => openDuplicate(tt.commitId) },
+    { id: 'link', label: 'Copy pinned link to drive…', icon: <Link2 size={18} strokeWidth={1.75} />, onSelect: () => openShare('/') },
+  ];
 
   return (
-    <div
-      role="status"
-      aria-live="polite"
-      className="vxv-banner relative flex h-10 shrink-0 items-center gap-3 border-b border-vx-past-edge bg-vx-past-wash pl-4 pr-2"
-    >
-      <Clock size={14} strokeWidth={1.75} className="shrink-0 text-vx-past" aria-hidden />
-      <span className="vx-label shrink-0 text-vx-past">Viewing</span>
-      <span className="vx-ui shrink-0 tabular-nums text-vx-past" title={new Date(tt.createdAt).toISOString()}>
-        {label}
-      </span>
-      <CommitId id={tt.commitId} className="vx-meta shrink-0 text-vx-past max-[1024px]:hidden" />
-      {text ? <span className="vx-name min-w-0 flex-1 truncate text-vx-text-2 max-[1024px]:hidden">· {text}</span> : <span className="flex-1" />}
-      <span className="flex-1 min-[1025px]:hidden" />
-      <div className="flex shrink-0 items-center gap-1.5">
-        <Button variant="ghost" size="sm" kbd="C" onClick={compare} className="max-[1024px]:hidden">
-          Compare with now
-        </Button>
-        <Button variant="restore" size="sm" onClick={restore} className="max-[1024px]:hidden">
-          Restore drive…
-        </Button>
-        <Menu
-          align="end"
-          items={[
-            { id: 'cmp', label: 'Compare with now', kbd: 'C', onSelect: compare },
-            { id: 'rst', label: 'Restore drive…', icon: <span className="text-vx-past">↺</span>, onSelect: restore },
-            { id: 'sep', type: 'separator' },
-            { id: 'cp', label: 'Checkpoint this version…', icon: <span className="text-vx-accent">◆</span>, kbd: 'P', onSelect: () => openCheckpoint(tt.commitId) },
-            { id: 'dup', label: 'Duplicate as new workspace…', icon: <Copy size={14} />, onSelect: () => openDuplicate(tt.commitId) },
-            { id: 'link', label: 'Copy pinned link to drive…', icon: <Link2 size={14} />, onSelect: () => openShare('/') },
-          ]}
-          trigger={(p) => (
-            <button
-              type="button"
-              {...p}
-              aria-label="More actions for this version"
-              className="inline-flex h-7 w-7 items-center justify-center font-mono text-[12px] text-vx-past hover:bg-vx-past-wash"
-            >
-              ⋯
-            </button>
-          )}
-        />
-        <Button variant="primary" size="sm" kbd="Esc" onClick={exit}>
-          Back to now
-        </Button>
-      </div>
+    <div className="relative shrink-0 px-3 pt-3">
       {loadingFrame ? <span className="vxv-progress" aria-hidden /> : null}
+      <div
+        role="status"
+        aria-live="polite"
+        className="vxv-banner flex flex-wrap items-center gap-x-3.5 gap-y-2.5 rounded-vx-md bg-vx-past-wash py-3 pl-4 pr-3 shadow-[inset_0_0_0_1px_var(--vx-past-edge)] max-[720px]:flex-nowrap max-[720px]:py-2 max-[720px]:pl-3 max-[720px]:pr-2"
+      >
+        <span
+          aria-hidden
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-vx-surface text-vx-past shadow-[inset_0_0_0_1px_var(--vx-past-edge)] max-[720px]:h-8 max-[720px]:w-8"
+        >
+          <Clock size={18} strokeWidth={1.75} />
+        </span>
+        <div className="min-w-0 flex-[1_1_360px] max-[720px]:flex-1">
+          <p className="text-[15px] font-semibold leading-5 tracking-[-0.005em] text-vx-past-strong" title={new Date(tt.createdAt).toString()}>
+            <span className="max-[720px]:hidden">Viewing your drive as it was on </span>
+            <span className="hidden max-[720px]:inline">Viewing </span>
+            <span className="tabular-nums max-[720px]:hidden">{full}</span>
+            <span className="hidden tabular-nums max-[720px]:inline">{short}</span>
+          </p>
+          <p className="vx-meta mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1.5 text-vx-past max-[720px]:hidden">
+            {version ? <span className="tabular-nums">{version}</span> : null}
+            {version ? <span aria-hidden>·</span> : null}
+            <CommitId id={tt.commitId} />
+            {text ? (
+              <>
+                <span aria-hidden>·</span>
+                <span className="min-w-0 max-w-[320px] truncate" title={text}>
+                  {text}
+                </span>
+              </>
+            ) : null}
+            {checkpoints.map((c) => (
+              <CheckpointBadge key={c.id} name={c.name} className="max-w-[180px]" />
+            ))}
+          </p>
+          <p className="vx-meta text-vx-past max-[720px]:hidden">Read-only. Restore, or go back to now to make changes.</p>
+        </div>
+        <div className="ml-auto flex shrink-0 items-center gap-1.5">
+          <Button variant="outline" size="sm" kbd="C" onClick={compare} className="max-[720px]:hidden">
+            Compare with now
+          </Button>
+          <Button variant="restore" size="sm" onClick={restore} className="max-[720px]:hidden">
+            Restore drive…
+          </Button>
+          <Menu
+            align="end"
+            items={more}
+            trigger={(p) => (
+              <IconButton {...p} size="sm" label="More actions for this version" className="!text-vx-past hover:!bg-vx-surface">
+                <Ellipsis size={18} strokeWidth={1.75} aria-hidden />
+              </IconButton>
+            )}
+          />
+          <Button variant="primary" size="sm" kbd="Esc" onClick={exit}>
+            Back to now
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

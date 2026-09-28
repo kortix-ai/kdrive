@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import { extname, type FileSide } from '@volumes/shared';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cx } from '@/components/ui/cx';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -32,7 +33,7 @@ export function CompareCsv({ a, b, path, changesOnly }: { a: FileSide | null; b:
     return (
       <div className="flex h-full min-h-0 flex-col" aria-busy>
         <SummaryBar>Comparing…</SummaryBar>
-        <div className="p-4">
+        <div className="p-5">
           {Array.from({ length: 10 }, (_, i) => (
             <span key={i} className="skeleton skel-line w-full" />
           ))}
@@ -46,8 +47,10 @@ export function CompareCsv({ a, b, path, changesOnly }: { a: FileSide | null; b:
         className="flex-1"
         title="Couldn't load these versions."
         body={errorText(err)}
+        tone="past"
         actions={
           <Button
+            variant="tonal"
             onClick={() => {
               void ta.mutate();
               void tb.mutate();
@@ -64,7 +67,7 @@ export function CompareCsv({ a, b, path, changesOnly }: { a: FileSide | null; b:
   const cols = diff.columns;
   const shown = rows.slice(0, MAX_ROWS);
   const note = (
-    <span className="vx-micro text-vx-text-4">
+    <span className="vx-micro text-vx-text-3">
       {diff.keyedBy === 'first-column' ? `Rows matched by ${cols[0] ? `"${cols[0]}"` : 'the first column'}` : 'Rows matched by position'}
       {diff.headerChanged ? ' · header changed' : ''}
     </span>
@@ -72,7 +75,17 @@ export function CompareCsv({ a, b, path, changesOnly }: { a: FileSide | null; b:
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <SummaryBar right={note}>{csvSummary(diff)}</SummaryBar>
+      <SummaryBar right={note}>
+        {diff.addedRows ? <Badge tone="add">+{diff.addedRows.toLocaleString('en-US')} {diff.addedRows === 1 ? 'row' : 'rows'}</Badge> : null}
+        {diff.removedRows ? <Badge tone="del">−{diff.removedRows.toLocaleString('en-US')} {diff.removedRows === 1 ? 'row' : 'rows'}</Badge> : null}
+        <span className="truncate">
+          {diff.changedCells
+            ? `${diff.changedCells.toLocaleString('en-US')} ${diff.changedCells === 1 ? 'cell' : 'cells'} changed · CSV compared by row`
+            : diff.addedRows || diff.removedRows
+              ? 'CSV compared by row'
+              : csvSummary(diff)}
+        </span>
+      </SummaryBar>
       {!shown.length ? (
         <EmptyState
           className="flex-1"
@@ -81,12 +94,15 @@ export function CompareCsv({ a, b, path, changesOnly }: { a: FileSide | null; b:
         />
       ) : (
         <div className="min-h-0 flex-1 overflow-auto">
-          <table className="vx-code w-max min-w-full border-collapse">
-            <thead className="sticky top-0 z-[1] bg-vx-surface-2">
+          <table className="w-max min-w-full border-separate border-spacing-0 font-mono text-[13px] leading-[22px]">
+            <thead className="sticky top-0 z-[1]">
               <tr>
-                <th className="w-7 border-b border-r border-vx-hair" aria-label="Change" />
+                <th className="w-7 border-b border-r border-vx-hair bg-vx-surface-2" aria-label="Change" />
                 {cols.map((c, i) => (
-                  <th key={i} className="vx-meta whitespace-nowrap border-b border-r border-vx-hair px-3 py-1.5 text-left font-medium text-vx-text-2">
+                  <th
+                    key={i}
+                    className="whitespace-nowrap border-b border-r border-vx-hair bg-vx-surface-2 px-3 py-2 text-left font-sans text-[13px] font-semibold leading-5 text-vx-text-2 last:border-r-0"
+                  >
                     {c}
                   </th>
                 ))}
@@ -96,13 +112,14 @@ export function CompareCsv({ a, b, path, changesOnly }: { a: FileSide | null; b:
               {shown.map((r) => (
                 <tr
                   key={`${r.status}-${r.key}-${r.aIndex}-${r.bIndex}`}
-                  className={cx('border-b border-vx-hair-soft', r.status === 'add' && 'bg-vx-add-bg', r.status === 'del' && 'bg-vx-del-bg')}
+                  className={cx(r.status === 'add' && 'bg-vx-add-bg', r.status === 'del' && 'bg-vx-del-bg')}
                 >
                   <td
                     className={cx(
-                      'w-7 border-r border-vx-hair-soft text-center',
-                      r.status === 'add' ? 'text-vx-ok' : r.status === 'del' ? 'text-vx-danger' : 'text-vx-text-3',
+                      'w-7 border-b border-r border-vx-hair-soft text-center font-sans font-semibold',
+                      r.status === 'add' ? 'text-vx-add-fg shadow-[inset_3px_0_0_var(--vx-add-fg)]' : r.status === 'del' ? 'text-vx-del-fg shadow-[inset_3px_0_0_var(--vx-del-fg)]' : 'text-vx-text-3',
                     )}
+                    aria-label={r.status === 'add' ? 'Added' : r.status === 'del' ? 'Removed' : r.status === 'mod' ? 'Changed' : undefined}
                   >
                     {MARK[r.status]}
                   </td>
@@ -110,16 +127,18 @@ export function CompareCsv({ a, b, path, changesOnly }: { a: FileSide | null; b:
                     <td
                       key={i}
                       className={cx(
-                        'max-w-[420px] border-r border-vx-hair-soft px-3 py-1 align-top',
+                        'max-w-[420px] border-b border-r border-vx-hair-soft px-3 py-1 align-top last:border-r-0',
                         c.changed && 'bg-vx-mod-bg',
-                        r.status === 'del' ? 'text-vx-text-3 line-through decoration-vx-text-4' : r.status === 'same' ? 'text-vx-text-2' : 'text-vx-text-1',
+                        r.status === 'del' ? 'text-vx-del-fg line-through decoration-1' : r.status === 'same' ? 'text-vx-text-2' : 'text-vx-text-1',
                       )}
                     >
                       {c.changed ? (
                         <span className="whitespace-pre-wrap [overflow-wrap:anywhere]">
-                          <span className="text-vx-text-3 line-through decoration-vx-text-4">{c.a ?? ''}</span>
-                          <span className="px-1 text-vx-text-4">→</span>
-                          <span>{c.b ?? ''}</span>
+                          <span className="text-vx-text-3 line-through decoration-1">{c.a ?? ''}</span>
+                          <span className="px-1.5 text-vx-text-4" aria-label="changed to">
+                            →
+                          </span>
+                          <span className="text-vx-text-1">{c.b ?? ''}</span>
                         </span>
                       ) : (
                         <span className="whitespace-pre-wrap [overflow-wrap:anywhere]">{(r.status === 'del' ? c.a : c.b) ?? ''}</span>
@@ -131,7 +150,7 @@ export function CompareCsv({ a, b, path, changesOnly }: { a: FileSide | null; b:
             </tbody>
           </table>
           {rows.length > MAX_ROWS ? (
-            <p className="vx-micro px-4 py-3 text-vx-text-4">Showing the first {MAX_ROWS.toLocaleString('en-US')} of {rows.length.toLocaleString('en-US')} rows.</p>
+            <p className="vx-micro px-4 py-3 text-vx-text-3">Showing the first {MAX_ROWS.toLocaleString('en-US')} of {rows.length.toLocaleString('en-US')} rows.</p>
           ) : null}
         </div>
       )}

@@ -201,21 +201,21 @@ export function blockSources(files: PlannedFile[], blockSize = 1_048_576): Map<s
 export function fileStatusLabel(f: UploadFileState, fmt: (n: number) => string): string {
   switch (f.status) {
     case 'queued':
-      return 'waiting for a free upload slot';
+      return 'Waiting for a free slot';
     case 'hashing':
-      return `hashing ${f.size ? Math.floor((f.hashed / f.size) * 100) : 100} %`;
+      return `Hashing ${f.size ? Math.floor((f.hashed / f.size) * 100) : 100}%`;
     case 'planning':
-      return 'checking';
+      return 'Checking';
     case 'uploading':
       return `${fmt(f.sent)} / ${fmt(f.size)}`;
     case 'committing':
-      return 'saving version';
+      return 'Saving version';
     case 'done':
-      return f.sent === 0 && f.size > 0 ? 'already stored' : '✓';
+      return f.sent === 0 && f.size > 0 ? 'Already stored' : '✓';
     case 'conflict':
-      return 'already exists';
+      return 'Already exists';
     case 'error':
-      return f.error ?? 'failed';
+      return f.error ?? 'Failed';
   }
 }
 

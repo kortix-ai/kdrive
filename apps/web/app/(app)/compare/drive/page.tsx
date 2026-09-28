@@ -1,33 +1,23 @@
 'use client';
 
-// /compare/drive?a=&b= — what changed in the whole drive between two versions (DESIGN.md §6.7).
+// /compare/drive?a=&b= — what changed in the whole drive between two versions (DESIGN-v2 §6.7).
 import { Suspense, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { ArrowLeft, ArrowRight } from 'lucide-react';
+import type { DriveChange } from '@volumes/shared';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { cx } from '@/components/ui/cx';
 import { EmptyState } from '@/components/ui/empty-state';
+import { IconButton } from '@/components/ui/icon-button';
+import { Tooltip } from '@/components/ui/tooltip';
+import { SidePill } from '@/components/versioning/compare-header';
 import { DriveCompareList } from '@/components/versioning/drive-compare-list';
-import { CommitId } from '@/components/versioning/readout';
 import { RetentionNote } from '@/components/versioning/retention-note';
-import { formatTimeTravelLabel } from '@/lib/format';
 import { useHotkeys } from '@/lib/keys';
 import { useVx } from '@/lib/store';
 import { errorText, isGone, useDriveCompare, useTimelineEntries } from '@/lib/versioning/hooks';
 
-function Point({ which, commitId, createdAt, isNow }: { which: 'A' | 'B'; commitId: string; createdAt: string | null; isNow: boolean }) {
-  return (
-    <span
-      className={cx(
-        'inline-flex h-7 items-center gap-1.5 border px-2 font-mono text-[11.5px] tabular-nums',
-        isNow ? 'border-vx-hair text-vx-text-1' : 'border-vx-past-edge text-vx-past',
-      )}
-    >
-      <span className="text-vx-text-4">{which}</span>
-      <CommitId id={commitId} />
-      <span className="opacity-70">· {isNow ? 'now' : createdAt ? formatTimeTravelLabel(createdAt) : '…'}</span>
-    </span>
-  );
-}
+const OP_LABEL: Record<DriveChange['op'], string> = { added: 'Added', changed: 'Changed', moved: 'Moved', removed: 'Removed' };
 
 function CompareDrive() {
   const sp = useSearchParams();
@@ -47,7 +37,7 @@ function CompareDrive() {
   useHotkeys({ escape: back });
 
   if (!a || !b) {
-    return <EmptyState className="h-full" title="Pick two versions to compare." body="Shift-click two points on the timeline, or use Compare with now while viewing the past." />;
+    return <EmptyState className="h-full" title="Pick two versions to compare." body="Shift-click two dots on the history strip, or use Compare with now while viewing the past." />;
   }
 
   const counts = data
@@ -58,50 +48,73 @@ function CompareDrive() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <header className="flex h-12 shrink-0 items-center gap-3 border-b border-vx-hair px-3">
-        <button
-          type="button"
-          onClick={back}
-          aria-label="Close compare (Esc)"
-          title="Close (Esc)"
-          className="inline-flex h-7 w-7 shrink-0 items-center justify-center font-mono text-[12px] text-vx-text-3 hover:bg-vx-surface-2 hover:text-vx-text-1"
-        >
-          ✕
-        </button>
-        <span className="vx-title">Compare drive</span>
+      <header className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-vx-hair py-3 pl-2 pr-4 min-[721px]:h-16 min-[721px]:flex-nowrap min-[721px]:py-0">
+        <Tooltip label="Back" kbd="Esc" side="bottom">
+          <IconButton label="Close compare (Esc)" nativeTitle={false} onClick={back}>
+            <ArrowLeft size={20} strokeWidth={1.75} aria-hidden />
+          </IconButton>
+        </Tooltip>
+        <span className="min-w-0 flex-1 truncate text-[20px] font-semibold leading-[26px] tracking-[-0.015em] text-vx-text-1 min-[721px]:flex-none">Compare drive</span>
         {data ? (
-          <div className="flex items-center gap-1.5">
-            <Point which="A" commitId={data.a.commitId} createdAt={data.a.createdAt} isNow={aNow} />
-            <span className="font-mono text-[12px] text-vx-text-4">→</span>
-            <Point which="B" commitId={data.b.commitId} createdAt={data.b.createdAt} isNow={bNow} />
+          <div className="flex shrink-0 items-center gap-1.5 max-[720px]:w-full max-[720px]:flex-col max-[720px]:items-stretch">
+            <SidePill which="A" commitId={data.a.commitId} createdAt={data.a.createdAt} isNow={aNow} />
+            <ArrowRight size={16} strokeWidth={1.75} aria-hidden className="shrink-0 text-vx-text-4 max-[720px]:rotate-90 max-[720px]:self-center" />
+            <SidePill which="B" commitId={data.b.commitId} createdAt={data.b.createdAt} isNow={bNow} />
           </div>
         ) : null}
       </header>
-      <div className="vx-meta flex h-7 shrink-0 items-center gap-3 border-b border-vx-hair bg-vx-surface px-4 text-vx-text-3">
-        <span className="min-w-0 flex-1 truncate">
-          {isLoading
-            ? 'Comparing…'
-            : data
-              ? counts.length
-                ? counts.map((c) => `${c.n.toLocaleString('en-US')} ${c.op}`).join(' · ')
-                : 'No differences'
-              : ''}
+      <div className="flex min-h-12 shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-vx-hair px-5 py-2 text-[13px] leading-5 text-vx-text-3 max-[720px]:px-4">
+        <span className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+          {isLoading ? (
+            'Comparing…'
+          ) : data ? (
+            counts.length ? (
+              counts.map((c) => (
+                <Badge key={c.op} tone={c.op === 'added' ? 'add' : c.op === 'removed' ? 'del' : 'neutral'}>
+                  {OP_LABEL[c.op]} {c.n.toLocaleString('en-US')}
+                </Badge>
+              ))
+            ) : (
+              'No differences'
+            )
+          ) : null}
         </span>
-        {data?.source === 'tree' ? <span className="vx-micro text-vx-text-4">Worked out by listing both versions (some changes happened outside the app)</span> : null}
+        {data?.source === 'tree' ? <span className="vx-micro text-vx-text-3">Worked out by listing both versions (some changes happened outside the app)</span> : null}
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto">
         {isLoading ? (
-          <div className="px-6 py-4" aria-busy>
+          <div className="px-5 py-5" aria-busy>
             {Array.from({ length: 10 }, (_, i) => (
-              <span key={i} className="skeleton skel-line" style={{ width: `${35 + ((i * 31) % 55)}%` }} />
+              <div key={i} className="flex h-10 items-center gap-3">
+                <span className="skeleton h-5 w-5 shrink-0" />
+                <span className="skeleton skel-line" style={{ width: `${35 + ((i * 31) % 55)}%` }} />
+              </div>
             ))}
           </div>
         ) : error ? (
           isGone(error) ? (
-            <EmptyState title="This version is no longer kept." body={<RetentionNote as="span" className="!text-[14px]" />} actions={<Button onClick={back}>Back</Button>} />
+            <EmptyState
+              tone="past"
+              title="This version is no longer kept."
+              body={<RetentionNote as="span" className="!text-[16px] !leading-6" />}
+              actions={
+                <Button variant="primary" onClick={back}>
+                  Back
+                </Button>
+              }
+            />
           ) : (
-            <EmptyState title="Couldn't compare these versions." body={errorText(error)} actions={<Button onClick={() => void mutate()}>Retry</Button>} />
+            <EmptyState
+              tone="past"
+              title="Couldn't compare these versions."
+              body={errorText(error)}
+              actions={
+                <Button variant="tonal" onClick={() => void mutate()}>
+                  Retry
+                </Button>
+              }
+            />
           )
         ) : data && !data.changes.length ? (
           <EmptyState title="These versions are identical." body="Nothing was added, removed, changed or moved between them." />
@@ -110,8 +123,8 @@ function CompareDrive() {
         ) : null}
       </div>
       {data && data.changes.length ? (
-        <div className="flex h-12 shrink-0 items-center justify-between border-t border-vx-hair px-6">
-          <RetentionNote as="span" />
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-vx-hair px-5 py-3 max-[720px]:px-4">
+          <RetentionNote as="span" className="min-w-0 flex-1" />
           <Button
             variant="restore"
             disabled={aNow}

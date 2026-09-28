@@ -86,10 +86,10 @@ describe('splitIntoPlans', () => {
   test('status labels and progress', () => {
     const base = { id: 'x', path: '/a', size: 100, hashed: 0, sent: 0 };
     const fmt = (v: number) => `${v} B`;
-    expect(fileStatusLabel({ ...base, status: 'queued' }, fmt)).toBe('waiting for a free upload slot');
-    expect(fileStatusLabel({ ...base, status: 'hashing', hashed: 34 }, fmt)).toBe('hashing 34 %');
+    expect(fileStatusLabel({ ...base, status: 'queued' }, fmt)).toBe('Waiting for a free slot');
+    expect(fileStatusLabel({ ...base, status: 'hashing', hashed: 34 }, fmt)).toBe('Hashing 34%');
     expect(fileStatusLabel({ ...base, status: 'uploading', sent: 50 }, fmt)).toBe('50 B / 100 B');
-    expect(fileStatusLabel({ ...base, status: 'done' }, fmt)).toBe('already stored');
+    expect(fileStatusLabel({ ...base, status: 'done' }, fmt)).toBe('Already stored');
     expect(fileStatusLabel({ ...base, status: 'done', sent: 100 }, fmt)).toBe('✓');
     expect(fileProgress({ ...base, status: 'uploading', hashed: 100, sent: 50 })).toBe(0.75);
   });

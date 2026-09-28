@@ -1,13 +1,13 @@
 'use client';
 
-// New folder, inline (`N` or "+ Folder"): an editable row at the top of the
-// list, or a folder tile at the start of the grid. ↵ creates (optimistic row
-// with a pending hairline), Esc cancels.
-import { Folder } from 'lucide-react';
+// New folder, inline (`N`, or "+ New › New folder"): an editable row at the top of the
+// list, or a folder card at the start of the grid, on the selection tint. ↵ creates
+// (optimistic row with a pending bar), Esc cancels.
 import { nextFreeName } from '@volumes/shared';
 import { cx } from '@/components/ui/cx';
+import { FileIcon } from '@/components/ui/file-icon';
 import { useDriveCtx } from './drive-context';
-import { LIST_COLS } from './file-row';
+import { listCols } from './file-row';
 import { NameInput, nameError } from './rename-dialog';
 
 export function defaultFolderName(siblings: readonly { name: string }[]): string {
@@ -29,22 +29,30 @@ export function NewFolderEditor({ variant, style }: { variant: 'row' | 'tile'; s
   );
   if (variant === 'tile') {
     return (
-      <div style={style} className="flex h-16 items-center gap-3 border border-vx-accent-edge bg-vx-accent-wash px-3">
-        <Folder size={20} strokeWidth={1.5} className="shrink-0 text-vx-text-2" aria-hidden />
+      <div style={style} className="flex h-[52px] items-center gap-3 rounded-vx-md bg-vx-selection pl-4 pr-2 shadow-[inset_0_0_0_2px_var(--vx-accent-edge)]">
+        <FileIcon name="" type="dir" size={24} />
         {input}
       </div>
     );
   }
+  const phone = ctx.density === 'phone';
   return (
     <div
-      style={{ ...style, gridTemplateColumns: LIST_COLS }}
-      className={cx('grid h-8 items-center bg-vx-accent-wash px-3 shadow-[inset_2px_0_0_var(--vx-accent-edge)]')}
+      style={{ ...style, gridTemplateColumns: phone ? '40px minmax(0,1fr) 44px' : listCols(ctx.density) }}
+      className={cx('grid items-center rounded-vx-sm bg-vx-selection text-vx-on-selection', phone ? 'pl-2' : 'pr-2')}
     >
-      <span />
-      <Folder size={16} strokeWidth={1.5} className="text-vx-text-2" aria-hidden />
-      <span className="flex min-w-0 pr-3">{input}</span>
-      <span className="vx-col-mtime vx-meta text-right text-vx-text-4">now</span>
-      <span className="vx-meta text-right text-vx-text-4">—</span>
+      {phone ? null : <span />}
+      {phone ? <FileIcon name="" type="dir" size={28} /> : null}
+      <span className={cx('flex min-w-0 items-center gap-3', !phone && 'pr-4')}>
+        {phone ? null : <FileIcon name="" type="dir" size={24} />}
+        {input}
+      </span>
+      {phone ? null : (
+        <>
+          <span className="vx-col-mtime vx-meta-row pr-3">Now</span>
+          <span className="vx-meta-row pr-2 text-right">—</span>
+        </>
+      )}
       <span />
     </div>
   );

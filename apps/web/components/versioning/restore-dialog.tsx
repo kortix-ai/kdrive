@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { CornerUpLeft, Minus, Plus, RotateCcw } from 'lucide-react';
 import { basename, type QuotaDetails } from '@volumes/shared';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
@@ -10,11 +11,11 @@ import { api } from '@/lib/api/endpoints';
 import { formatBytes, formatTimeTravelLabel } from '@/lib/format';
 import { useVx, type RestoreTarget } from '@/lib/store';
 import { errorText, useCommit, useDriveCompare, useTimelineEntries } from '@/lib/versioning/hooks';
-import { restoreEffects } from '@/lib/versioning/restore-effects';
+import { restoreEffects, type EffectLine } from '@/lib/versioning/restore-effects';
 import { CommitId } from './readout';
 import './versioning.css';
 
-/** "Restore … to 14 Sep, 16:40?": shows what will change, explains it is undoable, then restores. */
+/** "Restore … to 14 Sep, 16:40?" (DESIGN-v2 §6.8): shows what will change, explains it is undoable, then restores. */
 export default function RestoreDialog() {
   const target = useVx((s) => s.restore);
   if (!target) return null;
@@ -77,6 +78,11 @@ function Restore({ target }: { target: NonNullable<RestoreTarget> }) {
     }
   };
 
+  const effectRows =
+    target.scope === 'file'
+      ? [{ mark: '~' as const, text: `${name} goes back to its version from ${when}` }]
+      : (effects ?? []).map((l) => ({ mark: l.mark, text: l.text }));
+
   return (
     <Dialog
       open
@@ -85,69 +91,72 @@ function Restore({ target }: { target: NonNullable<RestoreTarget> }) {
       busy={busy}
       error={error}
       onSubmit={() => void run()}
-      title={target.scope === 'drive' ? 'Restore drive' : target.scope === 'folder' ? 'Restore folder' : 'Restore file'}
+      title={
+        <>
+          Restore {target.scope === 'drive' ? 'the whole drive' : <span className="break-all">{what}</span>} to <span className="whitespace-nowrap tabular-nums">{when}</span>?
+        </>
+      }
+      description={
+        <>
+          Version <CommitId id={target.at} />
+        </>
+      }
       footer={
         <>
-          <Button variant="secondary" onClick={close} disabled={busy}>
+          <Button variant="text" onClick={close} disabled={busy}>
             Cancel
           </Button>
-          <Button variant="restore" onClick={() => void run()} loading={busy} disabled={!ws}>
+          <Button variant="past-primary" onClick={() => void run()} loading={busy} disabled={!ws} icon={<RotateCcw size={18} strokeWidth={1.75} aria-hidden />}>
             Restore
           </Button>
         </>
       }
     >
-      <h2 className="vx-title">
-        Restore {target.scope === 'drive' ? 'the whole drive' : <span className="break-all">{what}</span>} to{' '}
-        <span className="tabular-nums text-vx-past">{when}</span>?
-      </h2>
-      <p className="vx-meta mt-1 text-vx-text-4">
-        Version <CommitId id={target.at} />
-      </p>
-
-      <div className="mt-4">
-        {target.scope === 'file' ? (
-          <p className="vx-meta text-vx-text-2">
-            <span className="mr-2 inline-block w-3 text-center text-vx-text-3">~</span>
-            {name} goes back to its version from {when}.
-          </p>
-        ) : isHead ? (
-          <p className="vx-meta text-vx-text-3">This is already the current version. Nothing changes.</p>
-        ) : cmp.isLoading ? (
+      <div className="rounded-vx-md bg-vx-surface-2 px-3 py-1.5">
+        {target.scope !== 'file' && isHead ? (
+          <p className="vx-body flex h-9 items-center text-vx-text-3">This is already the current version. Nothing changes.</p>
+        ) : target.scope !== 'file' && cmp.isLoading ? (
           <div aria-busy aria-label="Working out what changes">
-            <span className="skeleton skel-line w-3/4" />
-            <span className="skeleton skel-line w-1/2" />
-            <span className="skeleton skel-line w-2/3" />
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="flex h-9 items-center gap-3">
+                <span className="skeleton h-6 w-6 shrink-0 !rounded-full" />
+                <span className="skeleton skel-line" style={{ width: `${70 - i * 12}%` }} />
+              </div>
+            ))}
           </div>
-        ) : cmp.error ? (
-          <p className="vx-meta text-vx-text-3">Couldn&apos;t work out the changes ahead of time ({errorText(cmp.error)}). You can still restore.</p>
-        ) : effects && effects.length ? (
-          <ul className="flex flex-col gap-1">
-            {effects.map((l) => (
-              <li key={l.mark} className="vx-meta flex text-vx-text-2">
-                <span
-                  className={cx(
-                    'mr-2 inline-block w-3 shrink-0 text-center',
-                    l.mark === '+' ? 'text-vx-ok' : l.mark === '−' ? 'text-vx-danger' : 'text-vx-text-3',
-                  )}
-                  aria-hidden
-                >
-                  {l.mark}
-                </span>
-                {l.text}
+        ) : target.scope !== 'file' && cmp.error ? (
+          <p className="vx-body py-2 text-vx-text-3">Couldn&apos;t work out the changes ahead of time ({errorText(cmp.error)}). You can still restore.</p>
+        ) : effectRows.length ? (
+          <ul className="flex flex-col">
+            {effectRows.map((l) => (
+              <li key={l.mark} className="flex min-h-9 items-center gap-3 py-1 text-[14px] leading-5 text-vx-text-1">
+                <EffectDisc mark={l.mark} />
+                <span className="min-w-0 break-words">{l.text}</span>
               </li>
             ))}
           </ul>
         ) : (
-          <p className="vx-meta text-vx-text-3">
+          <p className="vx-body py-2 text-vx-text-3">
             Nothing {target.scope === 'folder' ? 'in this folder ' : ''}differs from now. Restoring creates a version identical to the current one.
           </p>
         )}
-        {cmp.data?.source === 'tree' ? <p className="vx-micro mt-2 text-vx-text-4">Worked out by listing both versions.</p> : null}
       </div>
+      {cmp.data?.source === 'tree' ? <p className="vx-micro mt-2 text-vx-text-3">Worked out by listing both versions.</p> : null}
 
-      <p className="vx-body mt-5 text-vx-text-2">This restore becomes a new version. You can undo it.</p>
-      {target.scope === 'drive' ? <p className="vx-body mt-1 text-vx-text-3">The current drive is saved first as a checkpoint.</p> : null}
+      <p className="vx-body mt-4 text-vx-text-2">This restore becomes a new version. You can undo it.</p>
+      {target.scope === 'drive' ? <p className="vx-meta mt-1 text-vx-text-3">A checkpoint of the current state is saved first.</p> : null}
     </Dialog>
+  );
+}
+
+/** 24 px icon disc for an effect line: ~ goes back (past), + comes back (add), − removed (del), → moves back. */
+function EffectDisc({ mark }: { mark: EffectLine['mark'] }) {
+  const tone =
+    mark === '+' ? 'bg-vx-add-bg text-vx-add-fg' : mark === '−' ? 'bg-vx-del-bg text-vx-del-fg' : 'bg-vx-surface-3 text-vx-past';
+  const Icon = mark === '+' ? Plus : mark === '−' ? Minus : mark === '→' ? CornerUpLeft : RotateCcw;
+  return (
+    <span aria-hidden className={cx('inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full', tone)}>
+      <Icon size={14} strokeWidth={2} />
+    </span>
   );
 }

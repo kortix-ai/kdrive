@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import type { FileEntry, ListResponse } from '@volumes/shared';
 import { computeDrift } from './drift';
 import { goToMatches, parseWhen } from './goto';
-import { computeGridLayout } from './layout';
+import { GRID_GAP, GRID_MIN, GRID_PAD, computeGridLayout } from './layout';
 import { withAdded, withRenamed, withoutPaths } from './optimistic';
 import {
   clickSelection,
@@ -137,16 +137,23 @@ describe('go to', () => {
 describe('grid layout', () => {
   const mk = (n: number, type: 'file' | 'dir') => Array.from({ length: n }, (_, i) => e(`/${type}${i}`, type, 10, 1));
   test('folders then files, rows of `cols`, rects for the marquee', () => {
-    const width = 16 * 2 + 184 * 3 + 12 * 2;
+    // Files: 3 columns of ≥ 200 px; folders: ≥ 220 px, so only 2 fit.
+    const width = GRID_PAD * 2 + GRID_MIN * 3 + GRID_GAP * 2;
     const l = computeGridLayout({ width, folders: mk(4, 'dir'), files: mk(5, 'file'), creating: true, ghosts: [], addedLaterCount: 2 });
     expect(l.cols).toBe(3);
-    expect(l.rows.map((r) => r.kind)).toEqual(['label', 'folders', 'folders', 'label', 'files', 'files', 'footer']);
-    // "new" cell + 4 folders → 2 rows; the new cell is not hit-testable
+    expect(l.folderCols).toBe(2);
+    expect(l.rows.map((r) => r.kind)).toEqual(['label', 'folders', 'folders', 'folders', 'label', 'files', 'files', 'footer']);
+    // "new" cell + 4 folders → 3 rows; the new cell is not hit-testable
     expect(l.itemRects).toHaveLength(9);
-    expect(l.rowOf.get('/file4')).toBe(5);
+    expect(l.rowOf.get('/file4')).toBe(6);
     expect(new Set(l.rows.map((r) => r.key)).size).toBe(l.rows.length);
     const tops = l.rows.map((r) => r.top);
     expect(tops).toEqual([...tops].sort((a, b) => a - b));
+  });
+  test('phones get two file columns and one folder column', () => {
+    const l = computeGridLayout({ width: 390, folders: mk(2, 'dir'), files: mk(3, 'file'), creating: false, ghosts: [], addedLaterCount: 0, phone: true });
+    expect(l.cols).toBe(2);
+    expect(l.folderCols).toBe(1);
   });
   test('1,000 items lay out in one pass', () => {
     const t0 = performance.now();

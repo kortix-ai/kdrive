@@ -6,6 +6,7 @@ describe('highlight', () => {
     expect(colorToVar('#A78BFA')).toBe('var(--sh-str)');
     expect(colorToVar('#f4f4f7ff')).toBe('var(--sh-kw)');
     expect(colorToVar('#86868D')).toBe('var(--sh-dim)');
+    expect(colorToVar('#B4530A')).toBe('var(--sh-num)');
     expect(colorToVar('#123456')).toBe('var(--sh-fg)');
     expect(colorToVar(undefined)).toBe('var(--sh-fg)');
   });

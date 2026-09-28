@@ -30,9 +30,9 @@ export function VideoView({ src, name }: { src: string; name: string }) {
     );
   }
   return (
-    <div className="flex min-w-0 flex-col">
-      <div className="relative flex min-h-[200px] items-center justify-center bg-vx-mat">
-        {state === 'loading' ? <span aria-hidden className="skeleton absolute inset-0" /> : null}
+    <div className="flex min-w-0 flex-col p-3">
+      <div className="relative flex min-h-[200px] items-center justify-center overflow-hidden rounded-vx-sm bg-vx-mat">
+        {state === 'loading' ? <span aria-hidden className="skeleton absolute inset-0 rounded-none" /> : null}
         <video
           key={nonce}
           src={src}
@@ -49,20 +49,16 @@ export function VideoView({ src, name }: { src: string; name: string }) {
           className="relative block max-h-[70vh] w-full"
         />
       </div>
-      <div className="vx-meta flex h-9 items-center gap-3 border-t border-vx-hair-soft px-3 text-vx-text-3">
+      <div className="vx-meta flex min-h-9 flex-wrap items-end gap-x-3 gap-y-1 pt-2 text-vx-text-3">
         {meta ? (
           <>
             <span>{formatDuration(meta.d)}</span>
-            {meta.w ? (
-              <span>
-                {meta.w} <span className="vx-unit">×</span> {meta.h} <span className="vx-unit">px</span>
-              </span>
-            ) : null}
+            {meta.w ? <span>{`${meta.w} × ${meta.h} px`}</span> : null}
           </>
         ) : (
-          <span className="text-vx-text-4">loading…</span>
+          <span>Loading…</span>
         )}
-        <span className="ml-auto text-vx-text-4">seek freely · streamed in ranges</span>
+        <span className="ml-auto text-vx-text-4">Seek freely. It streams as you go.</span>
       </div>
     </div>
   );

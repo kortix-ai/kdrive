@@ -3,15 +3,15 @@
 import { useMemo, useState } from 'react';
 import { ArrowDown, ArrowUp } from 'lucide-react';
 import { formatBytes, meterLevel, type AdminUser } from '@volumes/shared';
-import { Avatar } from '@/components/settings/section';
-import { Badge } from '@/components/share/badge';
+import { formatWhen } from '@/components/preview/names';
+import { Avatar } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { Meter } from '@/components/ui/meter';
 import { cx } from '@/components/ui/cx';
-import { formatDate, formatRelative, isoTitle } from '@/lib/format';
+import { isoTitle } from '@/lib/format';
 import { QuotaEditor } from './quota-editor';
 
 export type UserSortKey = 'email' | 'workspaces' | 'used' | 'quota' | 'lastSignIn' | 'created';
-
-const LEVEL_COLOR = { ok: 'var(--pt-300)', amber: 'var(--vx-past)', red: 'var(--vx-danger)' } as const;
 
 export function sortUsers(users: AdminUser[], key: UserSortKey, dir: 1 | -1): AdminUser[] {
   const v = (u: AdminUser): number | string => {
@@ -40,10 +40,10 @@ export function sortUsers(users: AdminUser[], key: UserSortKey, dir: 1 | -1): Ad
 /** 64 px inline usage meter. */
 function InlineMeter({ used, quota }: { used: number; quota: number }) {
   const level = meterLevel(used, quota);
-  const pct = quota > 0 ? Math.min(100, (used / quota) * 100) : 100;
+  const ratio = quota > 0 ? used / quota : 1;
   return (
-    <span className="inline-block h-1 w-16 bg-vx-hair align-middle" title={`${Math.round(pct)} %`}>
-      <span className="block h-full" style={{ width: `${pct}%`, background: LEVEL_COLOR[level] }} />
+    <span className="inline-block w-16 align-middle" title={`${Math.round(Math.min(1, ratio) * 100)}%`}>
+      <Meter value={ratio} level={level} height={6} />
     </span>
   );
 }
@@ -57,29 +57,32 @@ export function UsersTable({ users, capBytes, onUpdated }: { users: AdminUser[];
   const head = (k: UserSortKey, label: string, right?: boolean) => {
     const active = sort.key === k;
     return (
-      <th key={k} className={cx('h-8 px-3 font-medium', right && 'text-right')} aria-sort={active ? (sort.dir === 1 ? 'ascending' : 'descending') : 'none'}>
+      <th key={k} className={cx('h-10 px-3 font-medium', right && 'text-right')} aria-sort={active ? (sort.dir === 1 ? 'ascending' : 'descending') : 'none'}>
         <button
           type="button"
           onClick={() => setSort((s) => ({ key: k, dir: s.key === k ? ((-s.dir) as 1 | -1) : k === 'email' ? 1 : -1 }))}
-          className={cx('vx-label inline-flex items-center gap-1 hover:text-vx-text-1', active && 'text-vx-text-1')}
+          className={cx(
+            'inline-flex items-center gap-1 rounded-vx-xs text-[13px] font-medium leading-5 transition-colors duration-[120ms] hover:text-vx-text-1',
+            active ? 'text-vx-text-1' : 'text-vx-text-3',
+          )}
         >
           {label}
-          {active ? sort.dir === 1 ? <ArrowUp size={10} /> : <ArrowDown size={10} /> : null}
+          {active ? sort.dir === 1 ? <ArrowUp size={16} strokeWidth={1.75} aria-hidden /> : <ArrowDown size={16} strokeWidth={1.75} aria-hidden /> : null}
         </button>
       </th>
     );
   };
 
   return (
-    <div className="overflow-x-auto border border-vx-hair">
-      <table className="w-full min-w-[860px] border-collapse text-left">
-        <thead className="bg-vx-surface-2">
-          <tr className="border-b border-vx-hair">
+    <div className="-mx-2 overflow-x-auto px-2">
+      <table className="w-full min-w-[880px] border-separate border-spacing-0 text-left">
+        <thead>
+          <tr className="[&>th]:bg-vx-surface-2 [&>th:first-child]:rounded-l-vx-sm [&>th:last-child]:rounded-r-vx-sm">
             {head('email', 'User')}
             {head('workspaces', 'Workspaces', true)}
             {head('used', 'Used', true)}
             {head('quota', 'Quota', true)}
-            <th className="h-8 px-3" aria-label="Usage" />
+            <th className="h-10 px-3" aria-label="Usage" />
             {head('lastSignIn', 'Last sign-in', true)}
             {head('created', 'Created', true)}
           </tr>
@@ -88,24 +91,27 @@ export function UsersTable({ users, capBytes, onUpdated }: { users: AdminUser[];
           {rows.map((u) => {
             const level = meterLevel(u.usedBytes, u.quotaBytes);
             return (
-              <tr key={u.id} className="border-b border-vx-hair-soft align-middle last:border-b-0 hover:bg-vx-surface-2">
-                <td className="h-9 px-3 py-1.5">
-                  <div className="flex min-w-0 items-center gap-2.5">
-                    <Avatar name={u.name || u.email} size={24} />
+              <tr
+                key={u.id}
+                className="align-middle transition-colors duration-[120ms] hover:bg-vx-hover [&>td:first-child]:rounded-l-vx-sm [&>td:last-child]:rounded-r-vx-sm [&>td]:border-b [&>td]:border-vx-hair-soft"
+              >
+                <td className="h-[52px] px-3 py-2">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <Avatar name={u.name || u.email} size={32} ring={false} />
                     <div className="min-w-0">
-                      <div className="vx-name truncate text-vx-text-1" title={u.email}>
+                      <div className="truncate text-[14px] font-medium leading-5 text-vx-text-1" title={u.email}>
                         {u.email}
                       </div>
-                      {u.name ? <div className="vx-micro truncate text-vx-text-4">{u.name}</div> : null}
+                      {u.name ? <div className="vx-meta truncate text-vx-text-3">{u.name}</div> : null}
                     </div>
                     {u.isAdmin ? <Badge tone="accent">Admin</Badge> : null}
                   </div>
                 </td>
-                <td className="vx-meta px-3 text-right text-vx-text-2">{u.workspaceCount}</td>
-                <td className="vx-meta px-3 text-right" style={{ color: level === 'ok' ? 'var(--vx-text-2)' : LEVEL_COLOR[level] }}>
+                <td className="vx-meta-row px-3 text-right text-vx-text-2">{u.workspaceCount}</td>
+                <td className={cx('vx-meta-row px-3 text-right', level === 'red' ? 'font-semibold text-vx-del-fg' : level === 'amber' ? 'font-semibold text-vx-text-1' : 'text-vx-text-2')}>
                   {formatBytes(u.usedBytes)}
                 </td>
-                <td className="px-3 py-1.5 text-right">
+                <td className="px-3 py-2 text-right">
                   {editing === u.id ? (
                     <div className="flex justify-end">
                       <QuotaEditor
@@ -122,7 +128,7 @@ export function UsersTable({ users, capBytes, onUpdated }: { users: AdminUser[];
                       type="button"
                       onClick={() => setEditing(u.id)}
                       title="Change quota"
-                      className="vx-meta border border-transparent px-1.5 py-0.5 text-vx-text-1 hover:border-vx-hair-strong"
+                      className="vx-meta-row rounded-vx-sm px-2 py-1 text-vx-text-1 underline decoration-vx-hair-strong decoration-dashed underline-offset-4 transition-colors duration-[120ms] hover:bg-vx-surface-3 hover:decoration-vx-text-3"
                     >
                       {formatBytes(u.quotaBytes)}
                     </button>
@@ -131,11 +137,11 @@ export function UsersTable({ users, capBytes, onUpdated }: { users: AdminUser[];
                 <td className="px-3">
                   <InlineMeter used={u.usedBytes} quota={u.quotaBytes} />
                 </td>
-                <td className="vx-meta px-3 text-right text-vx-text-3" title={u.lastSignInAt ? isoTitle(u.lastSignInAt) : undefined}>
-                  {u.lastSignInAt ? formatRelative(u.lastSignInAt) : '—'}
+                <td className="vx-meta-row whitespace-nowrap px-3 text-right text-vx-text-3" title={u.lastSignInAt ? isoTitle(u.lastSignInAt) : undefined}>
+                  {u.lastSignInAt ? formatWhen(u.lastSignInAt) : '—'}
                 </td>
-                <td className="vx-meta px-3 text-right text-vx-text-3" title={isoTitle(u.createdAt)}>
-                  {formatDate(u.createdAt)}
+                <td className="vx-meta-row whitespace-nowrap px-3 text-right text-vx-text-3" title={isoTitle(u.createdAt)}>
+                  {formatWhen(u.createdAt)}
                 </td>
               </tr>
             );

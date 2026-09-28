@@ -1,32 +1,55 @@
 import { cx } from '@/components/ui/cx';
 
-/** A `.pt-band` settings section: label + hairline, then the content. */
-export function Section({ id, label, aside, children, className }: { id: string; label: string; aside?: React.ReactNode; children: React.ReactNode; className?: string }) {
+/**
+ * A settings card (DESIGN-v2 §6.17): surface, 1 px hair, shadow-sheet, r16, padding 20 24;
+ * a 16/600 title with an optional text-3 description and a right-aligned `aside`.
+ * `danger` draws the danger-zone card (danger-edge border, del-fg title).
+ */
+export function Section({
+  id,
+  label,
+  description,
+  aside,
+  children,
+  className,
+  danger,
+}: {
+  id: string;
+  label: string;
+  description?: React.ReactNode;
+  aside?: React.ReactNode;
+  children?: React.ReactNode;
+  className?: string;
+  danger?: boolean;
+}) {
   return (
-    <section aria-labelledby={`s-${id}`} className={cx('py-6', className)}>
-      <div className="pt-band mb-4">
-        <h2 id={`s-${id}`} className="vx-label">
-          {label}
-        </h2>
-        {aside ? <span className="order-last pl-3">{aside}</span> : null}
+    <section
+      aria-labelledby={`s-${id}`}
+      className={cx(
+        'rounded-vx-lg border bg-vx-surface px-6 py-5 shadow-vx-sheet max-[720px]:px-4 max-[720px]:py-4',
+        danger ? 'border-vx-danger-edge' : 'border-vx-hair',
+        className,
+      )}
+    >
+      <div className={cx('flex flex-wrap items-center justify-between gap-x-4 gap-y-3', children ? 'mb-4' : null)}>
+        <div className="min-w-0 flex-[1_1_260px]">
+          <h2 id={`s-${id}`} className={cx('text-[16px] font-semibold leading-6 tracking-[-0.01em]', danger ? 'text-vx-del-fg' : 'text-vx-text-1')}>
+            {label}
+          </h2>
+          {description ? <p className="vx-body mt-0.5 text-vx-text-3">{description}</p> : null}
+        </div>
+        {aside ? <div className="flex shrink-0 items-center gap-2">{aside}</div> : null}
       </div>
       {children}
     </section>
   );
 }
 
-/** Square avatar (24 / 32 px) with a 1 px frame and an initials fallback. */
-export function Avatar({ name, image, size = 32 }: { name: string; image?: string | null; size?: 24 | 32 }) {
-  const initials = name
-    .split(/[\s@.]+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((s) => s[0]?.toUpperCase())
-    .join('');
-  const box = size === 32 ? 'h-8 w-8 text-[11px]' : 'h-6 w-6 text-[10px]';
-  if (image) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={image} alt="" width={size} height={size} referrerPolicy="no-referrer" className={cx('shrink-0 border border-vx-hair object-cover', box)} />;
-  }
-  return <span className={cx('inline-flex shrink-0 items-center justify-center border border-vx-hair font-mono text-vx-text-2', box)}>{initials || '·'}</span>;
+/** Inline error line inside a settings card. */
+export function SectionError({ children }: { children: React.ReactNode }) {
+  return (
+    <p role="alert" className="rounded-vx-sm bg-vx-danger-wash px-3 py-2 text-[13px] leading-5 text-vx-del-fg">
+      {children}
+    </p>
+  );
 }

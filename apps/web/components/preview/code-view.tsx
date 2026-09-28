@@ -8,7 +8,7 @@ import { useTextContent } from './content';
 import { PreviewError, PreviewSkeleton, ShownAsTextChip } from './states';
 
 /**
- * Line-numbered source: a gutter (text-4) and the code, both `.vx-code`.
+ * Line-numbered source: a text-4 gutter and the code, both mono 13/20.
  * `tokens` (from Shiki) colour the lines; without them the text is plain.
  */
 export function SourceLines({ text, tokens, className }: { text: string; tokens?: HlLine[] | null; className?: string }) {
@@ -19,12 +19,12 @@ export function SourceLines({ text, tokens, className }: { text: string; tokens?
     <div className={cx('flex min-w-0', className)} style={{ color: 'var(--sh-fg)' }}>
       <pre
         aria-hidden
-        className="vx-code shrink-0 select-none border-r border-vx-hair-soft py-3 pl-3 pr-2 text-right text-vx-text-4"
+        className="shrink-0 select-none py-3 pl-4 pr-3 text-right font-mono text-[13px] leading-5 text-vx-text-4"
         style={{ minWidth: `calc(${width}ch + 20px)` }}
       >
         {gutter}
       </pre>
-      <pre className="vx-code min-w-0 flex-1 overflow-x-auto whitespace-pre py-3 pl-3 pr-4">
+      <pre className="min-w-0 flex-1 overflow-x-auto whitespace-pre py-3 pl-1 pr-4 font-mono text-[13px] leading-5">
         <code>
           {tokens
             ? tokens.map((line, i) => (
@@ -69,12 +69,12 @@ export function CodeView({ src, name }: { src: string; name: string }) {
   return (
     <div className="flex min-w-0 flex-col">
       {active ? (
-        <div className="flex items-center gap-2 border-b border-vx-hair-soft px-4 py-2">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-4 pb-1 pt-3">
           <ShownAsTextChip />
-          <span className="vx-micro text-vx-text-4">Never rendered: open or download to use it.</span>
+          <span className="vx-meta text-vx-text-3">Never rendered here. Download it to use it.</span>
         </div>
       ) : null}
-      {data.length === 0 ? <p className="vx-meta px-4 py-6 text-vx-text-4">This file is empty.</p> : <HighlightedSource text={data} lang={codeLanguage(name)} />}
+      {data.length === 0 ? <p className="vx-body px-4 py-6 text-vx-text-3">This file is empty.</p> : <HighlightedSource text={data} lang={codeLanguage(name)} />}
     </div>
   );
 }

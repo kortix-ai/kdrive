@@ -1,7 +1,10 @@
 import { describe, expect, test } from 'bun:test';
 import type { TimelineEntry } from '@volumes/shared';
 import {
+  axisDayLabel,
   dayBandLabel,
+  dotSize,
+  friendlyWhen,
   formatDelta,
   groupByDay,
   jumpCheckpoint,
@@ -13,8 +16,6 @@ import {
   slotWidth,
   splitUnit,
   stepEntry,
-  tickDirection,
-  tickHeight,
 } from './timeline';
 
 const entry = (i: number, over: Partial<TimelineEntry> = {}): TimelineEntry => ({
@@ -36,15 +37,23 @@ const entry = (i: number, over: Partial<TimelineEntry> = {}): TimelineEntry => (
 });
 
 describe('timeline helpers', () => {
-  test('tick height buckets', () => {
-    expect(tickHeight(0)).toEqual({ h: 4, cap: false });
-    expect(tickHeight(1000)).toEqual({ h: 6, cap: false });
-    expect(tickHeight(-2 * 1024 * 1024)).toEqual({ h: 10, cap: false });
-    expect(tickHeight(100 * 1024 * 1024)).toEqual({ h: 14, cap: false });
-    expect(tickHeight(1024 * 1024 * 1024)).toEqual({ h: 14, cap: true });
-    expect(tickDirection(5)).toBe('up');
-    expect(tickDirection(-5)).toBe('down');
-    expect(tickDirection(0)).toBe('center');
+  test('dot size buckets', () => {
+    expect(dotSize(0)).toBe(6);
+    expect(dotSize(1000)).toBe(6);
+    expect(dotSize(-2 * 1024 * 1024)).toBe(8);
+    expect(dotSize(100 * 1024 * 1024)).toBe(10);
+  });
+
+  test('friendly times', () => {
+    const now = new Date(2026, 8, 28, 12, 0);
+    expect(friendlyWhen(new Date(2026, 8, 28, 11, 59, 40), now)).toBe('Just now');
+    expect(friendlyWhen(new Date(2026, 8, 28, 11, 56), now)).toBe('4 min ago');
+    expect(friendlyWhen(new Date(2026, 8, 28, 10, 0), now)).toBe('2 hours ago');
+    expect(friendlyWhen(new Date(2026, 8, 28, 1, 12), now)).toBe('Today 01:12');
+    expect(friendlyWhen(new Date(2026, 8, 27, 18, 2), now)).toBe('Yesterday, 18:02');
+    expect(friendlyWhen(new Date(2026, 8, 14, 16, 40), now)).toBe('14 Sep, 16:40');
+    expect(axisDayLabel(new Date(2026, 8, 28, 1), now)).toBe('Today');
+    expect(axisDayLabel(new Date(2026, 8, 3, 1), now)).toBe('Sep 3');
   });
 
   test('filters', () => {
@@ -95,8 +104,8 @@ describe('timeline helpers', () => {
   });
 
   test('slot width and snapping', () => {
-    expect(slotWidth(1000, 10)).toBe(24);
-    expect(slotWidth(1000, 500)).toBe(8);
+    expect(slotWidth(1000, 10)).toBe(28);
+    expect(slotWidth(1000, 500)).toBe(12);
     expect(slotWidth(1000, 80)).toBe(12.5);
     const xs = [10, 30, 50];
     expect(nearestTick(xs, 33, 8)).toBe(1);

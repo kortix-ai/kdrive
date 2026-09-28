@@ -1,16 +1,19 @@
 'use client';
 
-// Grid tiles (DESIGN §6.2): files on a 4:3 mat with a 44 px caption; folders as
-// 64 px compact tiles. Same states as rows; past mode filters thumbnails.
+// Grid cards (DESIGN-v2 §5, §6.2). File card: r12 on `--vx-surface-2` with a 6 px inset,
+// a 44 px head (type icon that swaps to the checkbox on hover, name, ⋮), a 4:3 mat and a
+// `size · modified` caption. Folder card: 52 px, r12, outline folder + name + ⋮. Same
+// states as rows; past mode filters thumbnails.
 import { memo } from 'react';
-import { Folder, MoreHorizontal } from 'lucide-react';
+import { MoreVertical } from 'lucide-react';
 import { formatBytes, type FileEntry } from '@volumes/shared';
 import { FileIcon } from '@/components/ui/file-icon';
+import { IconButton } from '@/components/ui/icon-button';
 import { cx } from '@/components/ui/cx';
-import { CAPTION_H, FOLDER_TILE_H } from '@/lib/drive/layout';
+import { CAPTION_H, FOLDER_TILE_H, HEAD_H } from '@/lib/drive/layout';
 import { formatRelative, isoTitle } from '@/lib/format';
 import { useDriveCtx } from './drive-context';
-import { Check, DriftChip, MiddleName } from './file-row';
+import { DriftChip, GoneRestore, MiddleName, RowCheck, itemTone } from './file-row';
 import { RenameInput } from './rename-dialog';
 import Thumbnail from './thumbnail';
 import s from './drive.module.css';
@@ -32,11 +35,12 @@ function useItemState(entry: FileEntry) {
   };
 }
 
-function itemProps(ctx: ReturnType<typeof useDriveCtx>, entry: FileEntry, renaming: boolean, pending: unknown) {
+function itemProps(ctx: ReturnType<typeof useDriveCtx>, entry: FileEntry, renaming: boolean, pending: unknown, focused: boolean) {
   const isDir = entry.type === 'dir';
   return {
     role: 'option' as const,
     'data-path': entry.path,
+    'data-focused': focused || undefined,
     'data-vx-drop-dir': isDir && !ctx.past ? entry.path : undefined,
     draggable: !ctx.past && !renaming && !pending,
     onMouseDown: (e: React.MouseEvent) => ctx.onItemMouseDown(e, entry),
@@ -51,78 +55,88 @@ function itemProps(ctx: ReturnType<typeof useDriveCtx>, entry: FileEntry, renami
   };
 }
 
+function cardTone(st: ReturnType<typeof useItemState>) {
+  const { selected, focused, dropTarget, dragging, removing } = st;
+  return cx(
+    s.item,
+    'group relative cursor-default select-none rounded-vx-md transition-[background-color,box-shadow] duration-[120ms] ease-vx',
+    !selected && !dropTarget && 'bg-vx-surface-2',
+    itemTone({ selected, focused, dropTarget, dragging }),
+    !selected && !dropTarget && 'hover:shadow-vx-1',
+    removing && s.removing,
+  );
+}
+
 function MenuDots({ entry }: { entry: FileEntry }) {
   const ctx = useDriveCtx();
   return (
-    <button
-      type="button"
-      aria-label={`Actions for ${entry.name}`}
+    <IconButton
+      size="sm"
+      label={`Actions for ${entry.name}`}
       tabIndex={-1}
       onMouseDown={(e) => e.stopPropagation()}
+      onDoubleClick={(e) => e.stopPropagation()}
       onClick={(e) => {
         e.stopPropagation();
         ctx.onMenuButton(e, entry);
       }}
-      className="inline-flex h-6 w-6 shrink-0 items-center justify-center text-vx-text-3 opacity-0 transition-opacity duration-[120ms] hover:bg-vx-surface-3 hover:text-vx-text-1 group-hover:opacity-100"
+      className={cx(s.reveal, 'group-aria-selected:text-vx-on-selection')}
     >
-      <MoreHorizontal size={14} aria-hidden />
-    </button>
+      <MoreVertical size={18} strokeWidth={1.75} aria-hidden />
+    </IconButton>
+  );
+}
+
+/** Type icon that becomes the checkbox on hover, focus or selection. */
+function IconOrCheck({ entry, selected, size = 24 }: { entry: FileEntry; selected: boolean; size?: number }) {
+  const ctx = useDriveCtx();
+  return (
+    <span className="relative inline-flex shrink-0 items-center justify-center" style={{ width: size, height: size }}>
+      <span className={s.swapIcon}>
+        <FileIcon name={entry.name} type={entry.type} size={size} />
+      </span>
+      <RowCheck
+        on={selected}
+        onToggle={() => ctx.onCheck(entry)}
+        label={`Select ${entry.name}`}
+        className={cx('absolute inset-0 items-center justify-center', !selected && s.reveal, s.revealCheck)}
+      />
+    </span>
   );
 }
 
 function FileTileImpl({ entry, style }: { entry: FileEntry; style?: React.CSSProperties }) {
   const st = useItemState(entry);
-  const { ctx, selected, focused, drift, pending, removing, dragging, dropTarget, renaming } = st;
+  const { ctx, selected, focused, drift, pending, renaming } = st;
   return (
-    <div
-      {...itemProps(ctx, entry, renaming, pending)}
-      aria-selected={selected}
-      style={style}
-      className={cx(
-        'group relative flex cursor-default select-none flex-col border bg-vx-bg transition-colors duration-[120ms]',
-        selected ? 'border-vx-accent-edge shadow-[inset_0_0_0_1px_var(--vx-accent-edge)]' : 'border-vx-hair hover:border-vx-hair-strong',
-        focused && !dropTarget && 'outline outline-1 outline-offset-1 outline-[var(--vx-accent-edge)]',
-        dropTarget && 'outline-dashed outline-1 outline-offset-1 outline-[var(--vx-accent-edge)]',
-        dragging && 'opacity-40',
-        removing && s.removing,
-      )}
-    >
-      <div className="relative">
-        <Thumbnail ws={ctx.ws} entry={entry} at={ctx.at} past={ctx.past} />
-        <span className="absolute left-2 top-2">
-          <Check on={selected} visible={selected} onToggle={() => ctx.onCheck(entry)} label={`Select ${entry.name}`} />
-        </span>
-        {drift ? (
-          <span className="absolute right-2 top-2 bg-vx-float">
-            <DriftChip drift={drift} />
-          </span>
-        ) : null}
-        {drift === 'gone' ? (
-          <button
-            type="button"
-            onMouseDown={(e) => e.stopPropagation()}
-            onClick={(e) => {
-              e.stopPropagation();
-              ctx.onRestore(entry);
-            }}
-            className="vx-ui absolute bottom-2 right-2 inline-flex h-6 items-center gap-1 border border-vx-past bg-vx-float px-2 text-vx-past opacity-0 transition-opacity duration-[120ms] hover:bg-vx-past-wash focus-visible:opacity-100 group-hover:opacity-100"
-          >
-            <span aria-hidden>↺</span> Restore
-          </button>
-        ) : null}
-      </div>
-      <div className={cx('flex items-center gap-1 border-t border-vx-hair px-2.5', selected && 'bg-vx-accent-wash')} style={{ height: CAPTION_H }}>
-        <div className="flex min-w-0 flex-1 flex-col justify-center">
+    <div {...itemProps(ctx, entry, renaming, pending, focused)} aria-selected={selected} style={style} className={cx(cardTone(st), 'flex flex-col px-1.5')}>
+      <div className="flex shrink-0 items-center gap-3 pl-2.5" style={{ height: HEAD_H }}>
+        <IconOrCheck entry={entry} selected={selected} />
+        <span className="flex min-w-0 flex-1 items-center">
           {renaming ? (
             <RenameInput entry={entry} siblings={ctx.siblings} onSubmit={(n) => ctx.onRenameSubmit(entry, n)} onCancel={ctx.onRenameCancel} />
           ) : (
-            <MiddleName name={entry.name} className="vx-name text-vx-text-1" />
+            <MiddleName name={entry.name} className={cx('text-[14px] font-medium leading-5', selected ? 'text-vx-on-selection' : 'text-vx-text-1')} />
           )}
-          <span className="vx-meta truncate text-vx-text-3" title={isoTitle(entry.mtime)}>
-            {formatBytes(entry.size)} <span className="vx-unit">·</span> {entry.mtime ? formatRelative(entry.mtime) : '—'}
-          </span>
-        </div>
+        </span>
         <MenuDots entry={entry} />
+      </div>
+      <Thumbnail ws={ctx.ws} entry={entry} at={ctx.at} past={ctx.past}>
+        {drift ? (
+          <span className="absolute left-2 top-2">
+            <DriftChip drift={drift} className={drift === 'changed' ? 'bg-vx-float shadow-vx-1' : 'shadow-vx-1'} />
+          </span>
+        ) : null}
+        {drift === 'gone' ? <GoneRestore entry={entry} className="absolute bottom-2 right-2 shadow-vx-1" /> : null}
+      </Thumbnail>
+      <div
+        className={cx('flex shrink-0 items-center gap-1 px-1.5 text-[12px] leading-4 tabular-nums', selected ? 'text-vx-on-selection' : 'text-vx-text-3')}
+        style={{ height: CAPTION_H }}
+        title={isoTitle(entry.mtime)}
+      >
+        <span className="shrink-0">{formatBytes(entry.size)}</span>
+        <span aria-hidden>·</span>
+        <span className="min-w-0 truncate">{entry.mtime ? formatRelative(entry.mtime) : '—'}</span>
       </div>
       {pending && pending !== 'delete' ? <span className={s.pendingLine} aria-hidden /> : null}
     </div>
@@ -131,57 +145,35 @@ function FileTileImpl({ entry, style }: { entry: FileEntry; style?: React.CSSPro
 
 function FolderTileImpl({ entry, style }: { entry: FileEntry; style?: React.CSSProperties }) {
   const st = useItemState(entry);
-  const { ctx, selected, focused, drift, pending, removing, dragging, dropTarget, renaming } = st;
+  const { ctx, selected, focused, drift, pending, dropTarget, renaming } = st;
+  const moving = ctx.dragging.size;
   return (
     <div
-      {...itemProps(ctx, entry, renaming, pending)}
+      {...itemProps(ctx, entry, renaming, pending, focused)}
       aria-selected={selected}
       style={{ ...style, height: FOLDER_TILE_H }}
-      className={cx(
-        'group relative flex cursor-default select-none items-center gap-3 border px-3 transition-colors duration-[120ms]',
-        selected ? 'border-vx-accent-edge bg-vx-accent-wash' : 'border-vx-hair bg-vx-bg hover:border-vx-hair-strong hover:bg-vx-surface-2',
-        focused && !dropTarget && 'outline outline-1 outline-offset-1 outline-[var(--vx-accent-edge)]',
-        dropTarget && 'outline-dashed outline-1 outline-offset-1 outline-[var(--vx-accent-edge)]',
-        dragging && 'opacity-40',
-        removing && s.removing,
-      )}
+      className={cx(cardTone(st), 'flex items-center gap-3 pl-4 pr-1.5')}
+      title={isoTitle(entry.mtime)}
     >
-      <span className="relative shrink-0">
-        <Folder size={20} strokeWidth={1.5} className="text-vx-text-2" aria-hidden />
-        {selected ? (
-          <span className="absolute -left-1 -top-1">
-            <Check on visible label={`Deselect ${entry.name}`} onToggle={() => ctx.onCheck(entry)} />
-          </span>
-        ) : null}
-      </span>
-      <div className="flex min-w-0 flex-1 flex-col">
+      <IconOrCheck entry={entry} selected={selected} />
+      <div className="flex min-w-0 flex-1 items-center gap-2">
         {renaming ? (
           <RenameInput entry={entry} siblings={ctx.siblings} onSubmit={(n) => ctx.onRenameSubmit(entry, n)} onCancel={ctx.onRenameCancel} />
         ) : (
-          <MiddleName name={entry.name} className="vx-name text-vx-text-1" />
+          <MiddleName name={entry.name} className={cx('text-[14px] font-medium leading-5', selected ? 'text-vx-on-selection' : 'text-vx-text-1')} />
         )}
-        <span className="flex items-center gap-2">
-          <span className="vx-meta truncate text-vx-text-3" title={isoTitle(entry.mtime)}>
-            {entry.mtime ? formatRelative(entry.mtime) : 'folder'}
-          </span>
-          {drift ? <DriftChip drift={drift} /> : null}
-        </span>
+        {drift && !renaming ? <DriftChip drift={drift} /> : null}
       </div>
-      {drift === 'gone' ? (
-        <button
-          type="button"
-          aria-label={`Restore ${entry.name}`}
-          onMouseDown={(e) => e.stopPropagation()}
-          onClick={(e) => {
-            e.stopPropagation();
-            ctx.onRestore(entry);
-          }}
-          className="vx-ui inline-flex h-6 items-center px-1.5 text-vx-past opacity-0 hover:bg-vx-past-wash focus-visible:opacity-100 group-hover:opacity-100"
-        >
-          ↺
-        </button>
-      ) : null}
+      {drift === 'gone' ? <GoneRestore entry={entry} className="shrink-0" /> : null}
       <MenuDots entry={entry} />
+      {dropTarget && moving ? (
+        <span
+          role="status"
+          className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 whitespace-nowrap rounded-vx-xs bg-vx-inverse px-2.5 py-1.5 text-[12px] leading-4 text-vx-on-inverse shadow-vx-3"
+        >
+          Drop to move {moving === 1 ? '1 item' : `${moving} items`} into {entry.name}
+        </span>
+      ) : null}
       {pending && pending !== 'delete' ? <span className={s.pendingLine} aria-hidden /> : null}
     </div>
   );
@@ -190,22 +182,28 @@ function FolderTileImpl({ entry, style }: { entry: FileEntry; style?: React.CSSP
 export function GhostTile({ entry, style }: { entry: FileEntry; style?: React.CSSProperties }) {
   const isDir = entry.type === 'dir';
   return (
-    <div style={{ ...style, ...(isDir ? { height: FOLDER_TILE_H } : {}) }} className={cx('flex flex-col text-vx-text-4', s.ghost)} aria-disabled>
+    <div
+      style={{ ...style, ...(isDir ? { height: FOLDER_TILE_H } : {}) }}
+      className="flex flex-col rounded-vx-md border border-dashed border-vx-hair-dash px-1.5 text-vx-text-4"
+      aria-disabled
+    >
       {isDir ? (
-        <div className="flex h-full items-center gap-3 px-3">
-          <FileIcon name={entry.name} type="dir" size={20} className="text-vx-text-4" />
-          <MiddleName name={entry.name} className="vx-name" />
+        <div className="flex h-full items-center gap-3 pl-2.5">
+          <FileIcon name={entry.name} type="dir" size={24} muted />
+          <MiddleName name={entry.name} className="min-w-0 flex-1 text-[14px] font-medium leading-5" />
+          <DriftChip drift="ghost" className="mr-1" />
         </div>
       ) : (
         <>
-          <div className={s.mat} style={{ background: 'transparent' }}>
-            <div className={cx(s.matInner, 'flex items-center justify-center')}>
-              <FileIcon name={entry.name} type={entry.type} size={32} className="text-vx-text-4" />
-            </div>
+          <div className="flex shrink-0 items-center gap-3 pl-2.5" style={{ height: HEAD_H }}>
+            <FileIcon name={entry.name} type={entry.type} size={24} muted />
+            <MiddleName name={entry.name} className="min-w-0 flex-1 text-[14px] font-medium leading-5" />
           </div>
-          <div className="flex flex-col justify-center gap-0.5 px-2.5" style={{ height: CAPTION_H }}>
-            <MiddleName name={entry.name} className="vx-name" />
-            <DriftChip drift="ghost" className="self-start" />
+          <div className="relative flex min-h-0 flex-1 items-center justify-center rounded-vx-sm">
+            <FileIcon name={entry.name} type={entry.type} size={48} muted />
+          </div>
+          <div className="flex shrink-0 items-center px-1.5" style={{ height: CAPTION_H }}>
+            <DriftChip drift="ghost" />
           </div>
         </>
       )}

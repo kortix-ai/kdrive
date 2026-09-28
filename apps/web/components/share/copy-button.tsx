@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { Check, Copy } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { cx } from '@/components/ui/cx';
 
 /** Writes `text` to the clipboard (async API, with a hidden-textarea fallback). Resolves false when both fail. */
@@ -29,7 +31,7 @@ export async function copyText(text: string): Promise<boolean> {
   }
 }
 
-/** Platinum copy button: the label flips to "Copied ✓" for 1.2 s (no toast). */
+/** Copy state: flips to "Copied" for 1.2 s (no toast). */
 export function useCopied(): [boolean | 'failed', (text: string) => Promise<void>, () => void] {
   const [state, setState] = useState<boolean | 'failed'>(false);
   const t = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -50,16 +52,19 @@ export function useCopied(): [boolean | 'failed', (text: string) => Promise<void
   return [state, copy, flash];
 }
 
+/** Copy button: `outline` (the created-link field) or `text` (link rows); flips to an `ok` "Copied" for 1.2 s. */
 export function CopyButton({
   text,
   className,
+  variant = 'outline',
   size = 'sm',
   flashOnMount,
 }: {
   text: string;
   className?: string;
-  size?: 'sm' | 'md';
-  /** show "Copied ✓" right away (the text was already copied, e.g. on create) */
+  variant?: 'outline' | 'text';
+  size?: 'xs' | 'sm';
+  /** show "Copied" right away (the text was already copied, e.g. on create) */
   flashOnMount?: boolean;
 }) {
   const [copied, copy, flash] = useCopied();
@@ -67,20 +72,18 @@ export function CopyButton({
     if (flashOnMount) flash();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  const iconSize = 16;
   return (
-    <button
-      type="button"
+    <Button
+      size={size}
+      variant={copied === true ? 'ok' : copied === 'failed' ? 'danger-text' : variant}
       onClick={() => void copy(text)}
       aria-live="polite"
-      className={cx(
-        'inline-flex shrink-0 items-center justify-center border px-2.5 font-mono text-[12px] font-medium transition-colors duration-[120ms]',
-        size === 'sm' ? 'h-7 min-w-[84px]' : 'h-8 min-w-[92px]',
-        copied === true ? 'border-vx-hair-strong text-vx-text-1' : copied === 'failed' ? 'border-vx-danger-edge text-vx-danger' : 'border-vx-hair text-vx-text-2 hover:border-vx-hair-strong hover:text-vx-text-1',
-        className,
-      )}
+      icon={copied === true ? <Check size={iconSize} strokeWidth={2} aria-hidden /> : variant === 'outline' ? <Copy size={iconSize} strokeWidth={1.75} aria-hidden /> : undefined}
+      className={cx('min-w-[88px]', className)}
     >
-      {copied === true ? 'Copied ✓' : copied === 'failed' ? 'Copy failed' : 'Copy'}
-    </button>
+      {copied === true ? 'Copied' : copied === 'failed' ? 'Copy failed' : 'Copy'}
+    </Button>
   );
 }
 

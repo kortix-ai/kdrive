@@ -2,48 +2,96 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import useSWR from 'swr';
-import { TAG_BUDGET, basename, shortId, type ShareLink } from '@volumes/shared';
+import { Bookmark, CircleAlert, Link2, Lock } from 'lucide-react';
+import { TAG_BUDGET, basename, formatBytes, previewKind, shortId, type ShareLink } from '@volumes/shared';
+import { kindLabel } from '@/components/preview/names';
 import { Button } from '@/components/ui/button';
+import { Chip } from '@/components/ui/chip';
+import { cx } from '@/components/ui/cx';
 import { Dialog } from '@/components/ui/dialog';
+import { EmptyArt } from '@/components/ui/empty-state';
+import { FileIcon } from '@/components/ui/file-icon';
 import { Input } from '@/components/ui/input';
-import { Segmented } from '@/components/ui/segmented';
 import { ApiError } from '@/lib/api/client';
 import { api } from '@/lib/api/endpoints';
 import { useStat } from '@/lib/api/hooks';
 import { formatTimeTravelLabel, isoTitle } from '@/lib/format';
 import { useVx } from '@/lib/store';
-import { CopyButton, copyText } from './copy-button';
+import { copyText, CopyButton } from './copy-button';
 import { expiryToIso, linkStatus, sortLinks, toLocalInput, type ExpiryChoice } from './expiry';
 import { LinkRow } from './link-row';
 
 const noRetry = { revalidateOnFocus: false, shouldRetryOnError: false } as const;
 
-function BudgetFull({ used, max }: { used: number; max: number }) {
+/** A danger row inside the dialog body (budget full, create errors). */
+function ErrorRow({ children }: { children: React.ReactNode }) {
   return (
-    <p role="alert" className="border-l-2 border-vx-danger pl-2 text-[12px] text-vx-danger">
-      All {max} checkpoint slots are used ({used} of {max}). Remove a checkpoint or a pinned link first.
-    </p>
+    <div role="alert" className="flex items-start gap-2 rounded-vx-sm bg-vx-danger-wash px-3 py-2 text-[13px] leading-5 text-vx-del-fg">
+      <CircleAlert size={16} strokeWidth={1.75} className="mt-0.5 shrink-0" aria-hidden />
+      <span className="min-w-0">{children}</span>
+    </div>
   );
 }
 
-/** Two blocks joined by a connector: the share-links empty state art. */
-function LinksArt() {
+/** Option card (r12): a 36 px icon disc, a title and one line; `on` gets a 2 px accent border and the selection tint. */
+function OptionCard({
+  on,
+  disabled,
+  icon,
+  title,
+  body,
+  onSelect,
+}: {
+  on: boolean;
+  disabled?: boolean;
+  icon: React.ReactNode;
+  title: string;
+  body: string;
+  onSelect: () => void;
+}) {
   return (
-    <svg width="72" height="36" viewBox="0 0 72 36" aria-hidden className="mb-3">
-      <path d="M4 12 L16 6 L28 12 L16 18 Z" fill="var(--ea-top)" stroke="var(--ea-line)" />
-      <path d="M4 12 L16 18 L16 26 L4 20 Z" fill="var(--ea-left)" stroke="var(--ea-line)" />
-      <path d="M16 18 L28 12 L28 20 L16 26 Z" fill="var(--ea-mid)" stroke="var(--ea-line)" />
-      <path d="M28 16 L44 16" stroke="var(--ea-line)" strokeDasharray="2 2" />
-      <path d="M44 12 L56 6 L68 12 L56 18 Z" fill="none" stroke="var(--ea-line)" strokeDasharray="3 2" />
-      <path d="M44 12 L56 18 L56 26 L44 20 Z" fill="none" stroke="var(--ea-line-dim)" strokeDasharray="3 2" />
-      <rect x="34" y="13" width="4" height="4" fill="var(--ea-accent)" transform="rotate(45 36 15)" />
-    </svg>
+    <button
+      type="button"
+      role="radio"
+      aria-checked={on}
+      disabled={disabled}
+      onClick={onSelect}
+      className={cx(
+        'vx-inset-focus flex min-w-0 items-center gap-3 rounded-vx-md px-4 py-3.5 text-left transition-colors duration-[120ms] ease-vx disabled:cursor-not-allowed disabled:opacity-[.38]',
+        on
+          ? 'bg-vx-selection shadow-[inset_0_0_0_2px_var(--vx-accent)]'
+          : 'shadow-[inset_0_0_0_1px_var(--vx-hair-strong)] enabled:hover:bg-vx-hover',
+      )}
+    >
+      <span
+        aria-hidden
+        className={cx(
+          'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full',
+          on ? 'bg-vx-accent text-vx-on-accent' : 'bg-vx-surface-3 text-vx-text-2',
+        )}
+      >
+        {icon}
+      </span>
+      <span className="min-w-0">
+        <span className={cx('block text-[14px] font-semibold leading-5', on ? 'text-vx-on-selection' : 'text-vx-text-1')}>{title}</span>
+        <span className="vx-meta block text-vx-text-3">{body}</span>
+      </span>
+    </button>
   );
 }
+
+const EXPIRY: { value: ExpiryChoice; label: string }[] = [
+  { value: 'never', label: 'Never' },
+  { value: '1d', label: '1 day' },
+  { value: '7d', label: '7 days' },
+  { value: '30d', label: '30 days' },
+  { value: 'custom', label: 'Custom…' },
+];
 
 function ShareBody({ ws, path, onClose }: { ws: string; path: string; onClose: () => void }) {
   const timeTravel = useVx((s) => s.timeTravel);
   const past = !!timeTravel;
+  const at = timeTravel?.commitId ?? null;
   const [mode, setMode] = useState<'live' | 'pinned'>(past ? 'pinned' : 'live');
   const [expiry, setExpiry] = useState<ExpiryChoice>('never');
   const [custom, setCustom] = useState(() => toLocalInput(new Date(Date.now() + 7 * 24 * 3600_000)));
@@ -56,7 +104,14 @@ function ShareBody({ ws, path, onClose }: { ws: string; path: string; onClose: (
     if (past) setMode('pinned');
   }, [past]);
 
-  const { data: stat } = useStat(path, timeTravel?.commitId ?? null);
+  const { data: stat } = useStat(path, at);
+  const isDir = stat?.type === 'dir';
+  // Same key as the drive listing (key-derived fetcher), so an open folder costs nothing.
+  const listing = useSWR(
+    isDir ? (['ls', ws, path, at] as [string, string, string, string | null]) : null,
+    ([, w, p, a]: [string, string, string, string | null]) => api.files.list(w, { path: p, at: a }),
+    { ...noRetry, keepPreviousData: true },
+  );
   const links = useSWR(['links', ws, path], () => api.links.list(ws, { path }), noRetry);
   const budget = useSWR(['checkpoints', ws], () => api.checkpoints.list(ws), noRetry);
   const head = useSWR(mode === 'pinned' && !past ? ['commit', ws, 'head'] : null, () => api.versioning.commit(ws, 'head'), noRetry);
@@ -66,11 +121,22 @@ function ShareBody({ ws, path, onClose }: { ws: string; path: string; onClose: (
   const full = mode === 'pinned' && !!b && b.used >= b.max;
   const sorted = useMemo(() => sortLinks(links.data?.links ?? []), [links.data]);
   const activeCount = sorted.filter((l) => linkStatus(l) === 'active').length;
-  const isDir = stat?.type === 'dir';
   const name = basename(path) || 'My Drive';
 
   const pinnedAt = past ? timeTravel!.createdAt : head.data?.createdAt;
   const pinnedCommit = past ? timeTravel!.commitId : head.data?.id;
+
+  const description = !stat
+    ? '…'
+    : isDir
+      ? [
+          'Folder',
+          listing.data ? `${listing.data.entries.length} ${listing.data.entries.length === 1 ? 'item' : 'items'}` : null,
+          stat.size ? formatBytes(stat.size) : null,
+        ]
+          .filter(Boolean)
+          .join(' · ')
+      : `${kindLabel(stat.name, previewKind(stat.name))} · ${formatBytes(stat.size)}`;
 
   const create = async () => {
     if (busy) return;
@@ -111,7 +177,7 @@ function ShareBody({ ws, path, onClose }: { ws: string; path: string; onClose: (
     await Promise.all([links.mutate(), link.mode === 'pinned' ? budget.mutate() : null]);
   };
 
-  const label = 'w-[72px] shrink-0 pt-1.5 vx-label';
+  const label = 'mb-2 block text-[13px] font-semibold leading-5 text-vx-text-2';
 
   return (
     <Dialog
@@ -119,115 +185,143 @@ function ShareBody({ ws, path, onClose }: { ws: string; path: string; onClose: (
       onClose={onClose}
       width={560}
       busy={busy}
+      icon={<FileIcon name={name} type={isDir ? 'dir' : 'file'} size={32} />}
       title={
-        <span className="flex items-center gap-3">
-          Share
-          <span className="max-w-[380px] truncate font-mono text-[12px] normal-case tracking-normal text-vx-text-1" title={path}>
-            {name}
-            {isDir ? '/' : ''}
-          </span>
+        <span className="block truncate" title={path}>
+          Share &ldquo;{name}&rdquo;
         </span>
       }
-    >
-      <div className="flex flex-col gap-4">
-        <div className="flex gap-3">
-          <div className={label}>Mode</div>
-          <div className="min-w-0 flex-1">
-            <Segmented
-              label="Link mode"
-              value={mode}
-              onChange={(m) => {
-                setMode(m);
-                setError(null);
-              }}
-              options={[
-                { value: 'live', label: 'Live — always latest', disabled: past },
-                { value: 'pinned', label: 'Pinned — this version' },
-              ]}
-            />
-            <p className="vx-meta mt-2 text-vx-text-3">
-              {mode === 'live' ? (
-                past ? null : (
-                  <>Follows every change: visitors always see the latest {isDir ? 'contents' : 'version'}.</>
-                )
-              ) : (
-                <>
-                  Pinned to{' '}
-                  <span className={past ? 'text-vx-past' : 'text-vx-text-2'} title={pinnedAt ? isoTitle(pinnedAt) : undefined}>
-                    {pinnedAt ? formatTimeTravelLabel(pinnedAt) : past ? '…' : 'the current version'}
-                  </span>
-                  {pinnedCommit ? <> · {shortId(pinnedCommit)}</> : null} · uses 1 of {max} checkpoint slots
-                  {b ? <span className="text-vx-text-4"> ({b.used} used)</span> : null}
-                </>
-              )}
-            </p>
-            {past ? (
-              <p className="vx-micro mt-1 text-vx-text-4">You are viewing the past, so the link is pinned to this version. Live links are made from now.</p>
-            ) : null}
-          </div>
-        </div>
-
-        <div className="flex gap-3">
-          <div className={label}>Expires</div>
-          <div className="min-w-0 flex-1">
-            <Segmented
-              label="Expiry"
-              value={expiry}
-              onChange={(v) => {
-                setExpiry(v);
-                setError(null);
-              }}
-              options={[
-                { value: 'never', label: 'Never' },
-                { value: '1d', label: '1 day' },
-                { value: '7d', label: '7 days' },
-                { value: '30d', label: '30 days' },
-                { value: 'custom', label: 'Custom' },
-              ]}
-            />
-            {expiry === 'custom' ? (
-              <div className="mt-2 w-[240px]">
-                <Input
-                  type="datetime-local"
-                  mono
-                  aria-label="Expires at"
-                  value={custom}
-                  min={toLocalInput(new Date())}
-                  onChange={(e) => setCustom(e.target.value)}
-                />
-              </div>
-            ) : null}
-          </div>
-        </div>
-
-        {full || error?.code === 'tag_budget_exceeded' ? <BudgetFull used={b?.used ?? max} max={max} /> : null}
-        {error && error.code !== 'tag_budget_exceeded' ? (
-          <p role="alert" className="border-l-2 border-vx-danger pl-2 text-[12px] text-vx-danger">
-            {error.message}
-          </p>
-        ) : null}
-
-        <div>
+      description={description}
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose} disabled={busy}>
+            Done
+          </Button>
           <Button variant="primary" onClick={() => void create()} loading={busy} disabled={full}>
             Create link
           </Button>
+        </>
+      }
+      note={
+        <>
+          <Lock size={16} strokeWidth={1.75} className="shrink-0" aria-hidden />
+          <span>Anyone with a link can view and download without signing in. Nobody can change your files through it.</span>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-5 pb-2">
+        <div>
+          <span className={label} id="share-type">
+            Link type
+          </span>
+          <div role="radiogroup" aria-labelledby="share-type" className="grid grid-cols-2 gap-3 max-[520px]:grid-cols-1">
+            <OptionCard
+              on={mode === 'live'}
+              disabled={past}
+              icon={<Link2 size={18} strokeWidth={1.75} />}
+              title="Live link"
+              body="Always shows the latest version"
+              onSelect={() => {
+                setMode('live');
+                setError(null);
+              }}
+            />
+            <OptionCard
+              on={mode === 'pinned'}
+              icon={<Bookmark size={18} strokeWidth={1.75} />}
+              title="Pinned link"
+              body="Frozen at this version"
+              onSelect={() => {
+                setMode('pinned');
+                setError(null);
+              }}
+            />
+          </div>
+          <p className="vx-meta mt-2 text-vx-text-3">
+            {mode === 'live' ? (
+              <>Follows every change: visitors always see the latest {isDir ? 'contents' : 'version'}.</>
+            ) : (
+              <>
+                Pinned to{' '}
+                <span className={past ? 'font-medium text-vx-past' : 'text-vx-text-2'} title={pinnedAt ? isoTitle(pinnedAt) : undefined}>
+                  {pinnedAt ? formatTimeTravelLabel(pinnedAt) : past ? '…' : 'the current version'}
+                </span>
+                {pinnedCommit ? (
+                  <>
+                    {' · '}
+                    <span className="font-mono">{shortId(pinnedCommit)}</span>
+                  </>
+                ) : null}{' '}
+                · uses 1 of {max} checkpoint slots
+                {b ? <span className="text-vx-text-4"> ({b.used} used)</span> : null}
+              </>
+            )}
+          </p>
+          {past ? <p className="vx-meta mt-1 text-vx-text-3">In the past, links are pinned to the version you are viewing.</p> : null}
         </div>
 
+        <div>
+          <span className={label} id="share-expiry">
+            Expires
+          </span>
+          <div role="group" aria-labelledby="share-expiry" className="flex flex-wrap gap-2">
+            {EXPIRY.map((o) => (
+              <Chip
+                key={o.value}
+                on={expiry === o.value}
+                onClick={() => {
+                  setExpiry(o.value);
+                  setError(null);
+                }}
+              >
+                {o.label}
+              </Chip>
+            ))}
+          </div>
+          {expiry === 'custom' ? (
+            <div className="mt-3 w-full max-w-[260px]">
+              <Input
+                type="datetime-local"
+                size="sm"
+                aria-label="Expires at"
+                value={custom}
+                min={toLocalInput(new Date())}
+                onChange={(e) => setCustom(e.target.value)}
+              />
+            </div>
+          ) : null}
+        </div>
+
+        {full || error?.code === 'tag_budget_exceeded' ? (
+          <ErrorRow>
+            All {max} checkpoint slots are used ({b?.used ?? max} of {max}). Remove a checkpoint or a pinned link first.
+          </ErrorRow>
+        ) : null}
+        {error && error.code !== 'tag_budget_exceeded' ? <ErrorRow>{error.message}</ErrorRow> : null}
+
         {created ? (
-          <div className="flex items-center gap-2 border-t border-vx-hair pt-4">
-            <Input readOnly mono value={created.url} aria-label="Share link" onFocus={(e) => e.currentTarget.select()} className="min-w-0 flex-1" />
-            <CopyButton key={created.id} text={created.url} size="md" flashOnMount={autoCopied} />
+          <div className="flex h-12 items-center gap-2 rounded-vx-sm bg-vx-surface-2 pl-3 pr-2">
+            <Link2 size={18} strokeWidth={1.75} className="shrink-0 text-vx-text-3" aria-hidden />
+            <input
+              readOnly
+              value={created.url}
+              aria-label="Share link"
+              onFocus={(e) => e.currentTarget.select()}
+              className="vx-inset-focus min-w-0 flex-1 truncate rounded-vx-xs bg-transparent px-1 py-1 font-mono text-[13px] text-vx-text-1 outline-none"
+            />
+            <CopyButton key={created.id} text={created.url} flashOnMount={autoCopied} />
           </div>
         ) : null}
 
-        <section className="border-t border-vx-hair pt-3">
-          <div className="pt-band vx-label mb-1">
-            Active links <span className="text-vx-text-4">{activeCount}</span>
+        <section className="border-t border-vx-hair-soft pt-4">
+          <div className="mb-1 flex items-center justify-between">
+            <h3 className="text-[13px] font-semibold leading-5 text-vx-text-2">Active links</h3>
+            <span className="vx-meta text-vx-text-3">{links.data ? activeCount : ''}</span>
           </div>
           {links.error ? (
             <div className="flex items-center gap-2 py-3">
-              <span className="text-[12px] text-vx-danger">Couldn&apos;t load the links.</span>
-              <Button size="sm" variant="ghost" onClick={() => void links.mutate()}>
+              <span className="text-[13px] text-vx-del-fg">Couldn&apos;t load the links.</span>
+              <Button size="sm" variant="text" onClick={() => void links.mutate()}>
                 Retry
               </Button>
             </div>
@@ -238,8 +332,8 @@ function ShareBody({ ws, path, onClose }: { ws: string; path: string; onClose: (
             </div>
           ) : sorted.length === 0 ? (
             <div className="flex flex-col items-center py-6 text-center">
-              <LinksArt />
-              <div className="vx-title">No links yet.</div>
+              <EmptyArt size={72} float={false} className="mb-3" />
+              <div className="text-[15px] font-semibold leading-6 text-vx-text-1">No links yet.</div>
               <p className="vx-body mt-1 text-vx-text-3">Live links follow changes. Pinned links freeze a version.</p>
             </div>
           ) : (
@@ -249,7 +343,6 @@ function ShareBody({ ws, path, onClose }: { ws: string; path: string; onClose: (
               ))}
             </ul>
           )}
-          <p className="vx-micro mt-2 text-vx-text-4">Anyone with a link can view and download, without signing in. Nobody can change your files through it.</p>
         </section>
       </div>
     </Dialog>

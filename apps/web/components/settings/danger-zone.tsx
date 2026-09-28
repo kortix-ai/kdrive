@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { api } from '@/lib/api/endpoints';
 import { useVx } from '@/lib/store';
+import { Section } from './section';
 
 /** Counts the active share links across the user's workspaces (for the "what goes" list). */
 function useLinkCount(me: MeResponse, enabled: boolean) {
@@ -27,22 +28,22 @@ function WhatGoes({ me, open }: { me: MeResponse; open: boolean }) {
   return (
     <div>
       <p>This permanently deletes your account and everything in it:</p>
-      <ul className="vx-meta mt-3 flex flex-col gap-1 border-l border-vx-danger-edge pl-3 text-vx-text-2">
+      <ul className="mt-3 flex list-disc flex-col gap-1 rounded-vx-md bg-vx-surface-2 py-3 pl-8 pr-4 text-[13px] leading-5 text-vx-text-1 marker:text-vx-text-4">
         <li>
           {n} {n === 1 ? 'workspace' : 'workspaces'} · {formatBytes(me.usage.usedBytes)} of files
         </li>
-        <li>every version, checkpoint and restore point</li>
+        <li>Every version, checkpoint and restore point</li>
         <li>
           {links.data === undefined ? '…' : links.data} share {links.data === 1 ? 'link' : 'links'} (they stop working)
         </li>
-        <li>your sign-in and connected accounts</li>
+        <li>Your sign-in and connected accounts</li>
       </ul>
-      <p className="mt-3 text-vx-text-3">There is no undo. Download anything you want to keep first.</p>
+      <p className="mt-3 text-vx-text-2">There is no undo. Download anything you want to keep first.</p>
     </div>
   );
 }
 
-/** DANGER ZONE: delete the account (dialog lists what goes; typing the email enables the button). */
+/** Danger zone: delete the account (dialog lists what goes; typing the email enables the button). */
 export function DangerZone({ me }: { me: MeResponse }) {
   const router = useRouter();
   const setMe = useVx((s) => s.setMe);
@@ -61,16 +62,13 @@ export function DangerZone({ me }: { me: MeResponse }) {
   };
 
   return (
-    <section aria-labelledby="s-danger" className="mt-6 border border-vx-danger-edge p-5">
-      <h2 id="s-danger" className="vx-label text-vx-danger">
-        Danger zone
-      </h2>
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-4">
-        <div className="min-w-0">
-          <div className="vx-name text-vx-text-1">Delete account</div>
-          <p className="vx-body mt-1 text-vx-text-3">Deletes your workspaces, their history and your share links. You are signed out.</p>
+    <Section id="danger" label="Danger zone" danger>
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <div className="min-w-0 flex-1">
+          <div className="text-[14px] font-medium leading-5 text-vx-text-1">Delete account</div>
+          <p className="vx-body mt-0.5 text-vx-text-3">Deletes your workspaces, their history and your share links. You are signed out.</p>
         </div>
-        <Button variant="danger" onClick={() => setOpen(true)}>
+        <Button variant="danger-text" onClick={() => setOpen(true)}>
           Delete account…
         </Button>
       </div>
@@ -84,7 +82,7 @@ export function DangerZone({ me }: { me: MeResponse }) {
         onConfirm={remove}
         body={<WhatGoes me={me} open={open} />}
       />
-    </section>
+    </Section>
   );
 }
 

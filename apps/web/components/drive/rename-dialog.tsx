@@ -1,9 +1,10 @@
 'use client';
 
-// Inline rename (DESIGN §7 FileRow "renaming"): Inter input in place of the
-// name, base name preselected (extension excluded). ↵ saves, Esc cancels,
+// Inline rename (DESIGN-v2 §5 File row "renaming"): a 32 px r8 text field in place of
+// the name, base name preselected (extension excluded). ↵ saves, Esc cancels,
 // blur saves when the name changed and is valid.
 import { useLayoutEffect, useRef, useState } from 'react';
+import { CircleAlert } from 'lucide-react';
 import { validateName, type FileEntry } from '@volumes/shared';
 import { cx } from '@/components/ui/cx';
 
@@ -99,12 +100,18 @@ export function NameInput({
           else submit();
         }}
         className={cx(
-          'vx-name h-6 w-full min-w-0 border bg-vx-surface-2 px-1.5 text-vx-text-1 outline-none',
-          error ? 'border-vx-danger' : 'border-vx-hair-strong',
+          'h-8 w-full min-w-0 rounded-vx-sm border bg-vx-surface px-2.5 text-[14px] font-medium leading-5 text-vx-text-1 outline-none transition-[border-color,box-shadow] duration-[120ms]',
+          error
+            ? 'border-vx-danger shadow-[inset_0_0_0_1px_var(--vx-danger)]'
+            : 'border-vx-outline focus:border-vx-accent-edge focus:shadow-[inset_0_0_0_1px_var(--vx-accent-edge)]',
         )}
       />
       {error ? (
-        <span role="alert" className="vx-meta absolute left-0 top-full z-20 mt-1 whitespace-nowrap border border-vx-hair-strong bg-vx-float px-2 py-1 text-vx-danger shadow-[0_12px_32px_-12px_rgba(0,0,0,.6)]">
+        <span
+          role="alert"
+          className="absolute left-0 top-full z-20 mt-1.5 flex items-center gap-1.5 whitespace-nowrap rounded-vx-sm border border-vx-hair bg-vx-float px-2.5 py-1.5 text-[13px] leading-5 text-vx-del-fg shadow-vx-3"
+        >
+          <CircleAlert size={16} strokeWidth={1.75} className="shrink-0" aria-hidden />
           {error}
         </span>
       ) : null}

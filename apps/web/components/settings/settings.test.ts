@@ -37,9 +37,10 @@ describe('settings helpers', () => {
   });
 
   test('provider labels', () => {
-    expect(providerLabel('github')).toBe('GitHub');
-    expect(providerLabel('google')).toBe('Google');
-    expect(providerLabel('okta')).toBe('Okta');
+    expect(providerLabel('corp')).toBe('Corp');
+    expect(providerLabel('single-sign-on')).toBe('Single sign on');
+    expect(providerLabel('credential')).toBe('Password');
+    expect(providerLabel('dev-login')).toBe('Dev account');
   });
 });
 

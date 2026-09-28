@@ -1,16 +1,18 @@
 'use client';
 
-// /checkpoints — named versions kept until removed (DESIGN.md §6.9).
+// /checkpoints — named versions kept until removed (DESIGN-v2 §6.9).
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeftRight, Copy, Eye, Pencil, RotateCcw, StickyNote, Trash } from 'lucide-react';
+import { ArrowLeftRight, Bookmark, Copy, Ellipsis, Eye, Pencil, Plus, RotateCcw, StickyNote, Trash } from 'lucide-react';
 import type { Checkpoint, TagBudget } from '@volumes/shared';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { cx } from '@/components/ui/cx';
 import { EmptyState } from '@/components/ui/empty-state';
+import { IconButton } from '@/components/ui/icon-button';
 import { ContextMenu, type MenuItem } from '@/components/ui/menu';
-import { Badge } from '@/components/versioning/checkpoint-badge';
+import { Tooltip } from '@/components/ui/tooltip';
 import { CheckpointEditDialog } from '@/components/versioning/checkpoint-dialog';
 import { Bytes, When } from '@/components/versioning/readout';
 import { RetentionNote } from '@/components/versioning/retention-note';
@@ -18,29 +20,32 @@ import { api } from '@/lib/api/endpoints';
 import { useVx } from '@/lib/store';
 import { driveCompareHref } from '@/lib/urls';
 import { errorText, useCheckpoints, useCommit, useTimelineEntries } from '@/lib/versioning/hooks';
+import { plural } from '@/lib/versioning/timeline';
 
-/** 100 cells: checkpoints (text-2), pinned links (text-4), free (hairline). */
-function BudgetBar({ budget }: { budget: TagBudget }) {
+const CP_GRID =
+  'grid grid-cols-[40px_minmax(0,1.3fr)_minmax(0,1fr)_132px_88px_64px] items-center gap-x-3 pr-3 max-[900px]:grid-cols-[40px_minmax(0,1fr)_132px_88px_64px] max-[720px]:grid-cols-[40px_minmax(0,1fr)_32px] max-[720px]:pr-1';
+
+/** 6 px pill meter split in two: checkpoints (accent) then pinned links (accent-wash). */
+function BudgetMeter({ budget }: { budget: TagBudget }) {
   const max = Math.max(1, budget.max);
+  const cp = Math.min(100, (budget.checkpoints / max) * 100);
+  const links = Math.min(100 - cp, (budget.pinnedLinks / max) * 100);
   return (
-    <div className="flex h-[3px] w-full max-w-[400px] gap-px" role="img" aria-label={`${budget.used} of ${budget.max} slots used`}>
-      {Array.from({ length: max }, (_, i) => (
-        <span
-          key={i}
-          className={cx(
-            'h-full flex-1',
-            i < budget.checkpoints ? 'bg-vx-text-2' : i < budget.checkpoints + budget.pinnedLinks ? 'bg-vx-text-4' : 'bg-vx-hair',
-          )}
-        />
-      ))}
-    </div>
+    <span
+      role="img"
+      aria-label={`${budget.used} of ${budget.max} slots used`}
+      className="flex h-1.5 w-full overflow-hidden rounded-full bg-vx-meter-track"
+    >
+      <span className="h-full bg-vx-accent" style={{ width: `${cp}%` }} />
+      <span className="h-full bg-vx-accent-wash-2" style={{ width: `${links}%` }} />
+    </span>
   );
 }
 
-function VersionDate({ cp, known }: { cp: Checkpoint; known: string | undefined }) {
+function VersionDate({ cp, known, className }: { cp: Checkpoint; known: string | undefined; className?: string }) {
   const commit = useCommit(known ? null : cp.commitId);
   const at = known ?? commit.data?.createdAt;
-  return at ? <When at={at} absolute className="vx-meta text-vx-text-3" /> : <span className="vx-meta text-vx-text-4">…</span>;
+  return at ? <When at={at} absolute className={className} /> : <span className={className}>…</span>;
 }
 
 export default function CheckpointsPage() {
@@ -72,11 +77,11 @@ export default function CheckpointsPage() {
   };
 
   const items = (cp: Checkpoint): MenuItem[] => [
-    { id: 'view', label: 'View', icon: <Eye size={14} />, onSelect: () => void view(cp) },
+    { id: 'view', label: 'View', icon: <Eye size={18} strokeWidth={1.75} />, onSelect: () => void view(cp) },
     {
       id: 'cmp',
       label: 'Compare with now',
-      icon: <ArrowLeftRight size={14} />,
+      icon: <ArrowLeftRight size={18} strokeWidth={1.75} />,
       disabled: cp.commitId === headCommitId,
       reason: 'This checkpoint is the current version.',
       onSelect: () => router.push(driveCompareHref(cp.commitId, headCommitId ?? 'head')),
@@ -84,148 +89,215 @@ export default function CheckpointsPage() {
     {
       id: 'restore',
       label: 'Restore drive…',
-      icon: <RotateCcw size={14} />,
+      icon: <RotateCcw size={18} strokeWidth={1.75} />,
+      tone: 'past',
       disabled: cp.commitId === headCommitId,
       reason: 'The drive is already at this version.',
       onSelect: () => openRestore({ scope: 'drive', at: cp.commitId }),
     },
-    { id: 'dup', label: 'Duplicate as workspace…', icon: <Copy size={14} />, onSelect: () => openDuplicate(cp.commitId) },
+    { id: 'dup', label: 'Duplicate as workspace…', icon: <Copy size={18} strokeWidth={1.75} />, onSelect: () => openDuplicate(cp.commitId) },
     { id: 'sep', type: 'separator' },
-    { id: 'rename', label: 'Rename', icon: <Pencil size={14} />, onSelect: () => setEditing({ cp, focus: 'name' }) },
-    { id: 'note', label: 'Edit note', icon: <StickyNote size={14} />, onSelect: () => setEditing({ cp, focus: 'note' }) },
+    { id: 'rename', label: 'Rename', icon: <Pencil size={18} strokeWidth={1.75} />, onSelect: () => setEditing({ cp, focus: 'name' }) },
+    { id: 'note', label: 'Edit note', icon: <StickyNote size={18} strokeWidth={1.75} />, onSelect: () => setEditing({ cp, focus: 'note' }) },
     { id: 'sep2', type: 'separator' },
-    { id: 'del', label: 'Delete', icon: <Trash size={14} />, danger: true, onSelect: () => setRemoving(cp) },
+    { id: 'del', label: 'Delete', icon: <Trash size={18} strokeWidth={1.75} />, danger: true, onSelect: () => setRemoving(cp) },
   ];
 
-  return (
-    <div className="flex h-full min-h-0 flex-col">
-      <header className="shrink-0 border-b border-vx-hair px-6 pb-5 pt-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-0">
-            <h1 className="vx-h1">Checkpoints</h1>
-            {budget ? (
-              <div className="mt-3 flex flex-col gap-2">
-                <span className="vx-meta text-vx-text-3">
-                  <span className="text-vx-text-1">{budget.checkpoints}</span> {budget.checkpoints === 1 ? 'checkpoint' : 'checkpoints'}
-                  {budget.pinnedLinks ? <> · {budget.pinnedLinks} pinned {budget.pinnedLinks === 1 ? 'link' : 'links'}</> : null} ·{' '}
-                  <span className="text-vx-text-1">{budget.used}</span> of {budget.max} slots used
-                </span>
-                <BudgetBar budget={budget} />
-              </div>
-            ) : (
-              <span className="skeleton skel-line mt-3 w-64" />
-            )}
-          </div>
-          <Button
-            variant="primary"
-            kbd="P"
-            disabled={!!budget && budget.used >= budget.max}
-            title={budget && budget.used >= budget.max ? 'All 100 checkpoint slots are used. Remove one first.' : undefined}
-            onClick={() => openCheckpoint(null)}
-          >
-            New checkpoint
-          </Button>
-        </div>
-        <p className="vx-body mt-4 max-w-[640px] text-vx-text-3">
-          A checkpoint names a version and keeps it until you remove it. Checkpoints and pinned share links use the same 100 slots.
-        </p>
-      </header>
+  const full = !!budget && budget.used >= budget.max;
+  const openMenu = (cp: Checkpoint, el: HTMLElement) => {
+    const r = el.getBoundingClientRect();
+    setMenu({ at: { x: r.right - 240, y: r.bottom + 4 }, items: items(cp) });
+  };
 
-      <div className="min-h-0 flex-1 overflow-auto">
+  return (
+    <div className="mx-auto w-full max-w-[960px] px-6 pb-10 pt-6 max-[720px]:px-4">
+      <header className="flex flex-wrap items-center justify-between gap-4">
+        <h1 className="vx-h1">Checkpoints</h1>
+        <Button
+          variant="primary"
+          kbd="P"
+          icon={<Plus size={18} strokeWidth={1.75} aria-hidden />}
+          disabled={full}
+          title={full ? 'All 100 checkpoint slots are used. Remove one first.' : undefined}
+          onClick={() => openCheckpoint(null)}
+        >
+          New checkpoint
+        </Button>
+      </header>
+      <p className="vx-body mt-2 max-w-[640px] text-vx-text-3">
+        A checkpoint names a version and keeps it until you remove it. Checkpoints and pinned share links use the same 100 slots.
+      </p>
+
+      <div className="mt-5 rounded-vx-md bg-vx-surface-2 px-4 py-3">
+        {budget ? (
+          <>
+            <p className="text-[14px] leading-5 tabular-nums text-vx-text-2">
+              <span className="font-semibold text-vx-text-1">
+                {budget.used} of {budget.max}
+              </span>{' '}
+              kept
+              {budget.pinnedLinks ? (
+                <span className="text-vx-text-3">
+                  {' '}
+                  · {budget.pinnedLinks} used by pinned {budget.pinnedLinks === 1 ? 'link' : 'links'}
+                </span>
+              ) : null}
+            </p>
+            <div className="mt-2 max-w-[480px]">
+              <BudgetMeter budget={budget} />
+            </div>
+          </>
+        ) : (
+          <>
+            <span className="skeleton skel-line w-56" />
+            <span className="skeleton mt-3 block h-1.5 w-full max-w-[480px] !rounded-full" />
+          </>
+        )}
+      </div>
+
+      <div className="mt-6">
         {isLoading ? (
-          <div className="px-6 py-3" aria-busy>
+          <div aria-busy>
             {Array.from({ length: 6 }, (_, i) => (
-              <div key={i} className="flex h-10 items-center gap-4 border-b border-vx-hair-soft">
+              <div key={i} className="flex h-[52px] items-center gap-4 px-3">
+                <span className="skeleton h-5 w-5" />
                 <span className="skeleton skel-line w-40" />
-                <span className="skeleton skel-line w-64" />
+                <span className="skeleton skel-line w-64 max-[720px]:hidden" />
               </div>
             ))}
           </div>
         ) : error ? (
-          <EmptyState title="Couldn't load checkpoints." body={errorText(error)} actions={<Button onClick={() => void mutate()}>Retry</Button>} />
+          <EmptyState
+            tone="past"
+            title="Couldn't load checkpoints."
+            body={errorText(error)}
+            actions={
+              <Button variant="tonal" onClick={() => void mutate()}>
+                Retry
+              </Button>
+            }
+          />
         ) : !list.length ? (
           <EmptyState
             title="Name a moment to keep it forever."
             body="Press P on any version."
             actions={
-              <Button variant="primary" onClick={() => openCheckpoint(null)}>
+              <Button variant="tonal" icon={<Plus size={18} strokeWidth={1.75} aria-hidden />} onClick={() => openCheckpoint(null)}>
                 New checkpoint
               </Button>
             }
           />
         ) : (
-          <table className="w-full min-w-[720px] border-collapse">
-            <thead className="sticky top-0 z-[1] bg-vx-surface-2">
-              <tr className="h-8 border-b border-vx-hair">
-                <th className="w-10" aria-label="Checkpoint" />
-                <th className="vx-label px-2 text-left font-medium">Name</th>
-                <th className="vx-label px-2 text-left font-medium">Note</th>
-                <th className="vx-label w-[140px] px-2 text-left font-medium">Version</th>
-                <th className="vx-label w-[96px] px-2 text-right font-medium">Size</th>
-                <th className="vx-label w-[80px] px-2 text-right font-medium">Files</th>
-                <th className="w-[220px]" aria-label="Actions" />
-              </tr>
-            </thead>
-            <tbody>
-              {list.map((cp) => (
-                <tr
-                  key={cp.id}
-                  className="group h-10 border-b border-vx-hair-soft transition-colors duration-[120ms] hover:bg-vx-surface-2"
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    setMenu({ at: { x: e.clientX, y: e.clientY }, items: items(cp) });
-                  }}
-                  onDoubleClick={() => void view(cp)}
-                >
-                  <td className="text-center text-[11px] text-vx-accent">◆</td>
-                  <td className="max-w-[280px] px-2">
-                    <span className="flex min-w-0 items-center gap-2">
-                      <span className="vx-name truncate text-vx-text-1" title={cp.name}>
-                        {cp.name}
-                      </span>
-                      {cp.auto ? <Badge tone="dim">Auto</Badge> : null}
-                      {cp.commitId === headCommitId ? <Badge>Now</Badge> : null}
+          <div role="table" aria-label="Checkpoints">
+            <div role="row" className={cx(CP_GRID, 'h-10 border-b border-vx-hair text-[13px] font-medium leading-5 text-vx-text-3')}>
+              <span role="columnheader" aria-label="Checkpoint" />
+              <span role="columnheader">Name</span>
+              <span role="columnheader" className="max-[900px]:hidden">
+                Note
+              </span>
+              <span role="columnheader" className="max-[720px]:hidden">
+                Version
+              </span>
+              <span role="columnheader" className="text-right max-[720px]:hidden">
+                Size
+              </span>
+              <span role="columnheader" className="text-right max-[720px]:hidden">
+                Files
+              </span>
+              <span role="columnheader" aria-label="Actions" className="hidden max-[720px]:block" />
+            </div>
+            <div className="pt-1">
+              {list.map((cp) => {
+                const isNow = cp.commitId === headCommitId;
+                return (
+                  <div
+                    key={cp.id}
+                    role="row"
+                    className={cx(CP_GRID, 'group relative min-h-[52px] rounded-vx-sm py-1.5 transition-colors duration-[120ms] hover:bg-vx-hover focus-within:bg-vx-hover')}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      setMenu({ at: { x: e.clientX, y: e.clientY }, items: items(cp) });
+                    }}
+                    onDoubleClick={() => void view(cp)}
+                  >
+                    <span role="cell" className="flex justify-center text-vx-accent">
+                      <Bookmark size={20} strokeWidth={1.75} fill="currentColor" aria-hidden />
                     </span>
-                  </td>
-                  <td className="max-w-[360px] px-2">
-                    <span className="vx-name block truncate text-vx-text-3" title={cp.note || undefined}>
+                    <span role="cell" className="flex min-w-0 flex-col">
+                      <span className="flex min-w-0 items-center gap-2">
+                        <span className="truncate text-[14px] font-semibold leading-5 text-vx-text-1" title={cp.name}>
+                          {cp.name}
+                        </span>
+                        {cp.auto ? <Badge>Auto</Badge> : null}
+                        {isNow ? <Badge tone="current">Now</Badge> : null}
+                      </span>
+                      {cp.note ? (
+                        <span className="vx-meta truncate text-vx-text-3 min-[901px]:hidden" title={cp.note}>
+                          {cp.note}
+                        </span>
+                      ) : null}
+                      <span className="vx-meta truncate text-vx-text-3 min-[721px]:hidden">
+                        <VersionDate cp={cp} known={commitTimes.get(cp.commitId)} /> · <Bytes n={cp.logicalBytes} /> · {plural(cp.fileCount, 'file')}
+                      </span>
+                    </span>
+                    <span role="cell" className="min-w-0 truncate text-[14px] leading-5 text-vx-text-3 max-[900px]:hidden" title={cp.note || undefined}>
                       {cp.note || <span className="text-vx-text-4">—</span>}
                     </span>
-                  </td>
-                  <td className="px-2">
-                    <VersionDate cp={cp} known={commitTimes.get(cp.commitId)} />
-                  </td>
-                  <td className="px-2 text-right">
-                    <Bytes n={cp.logicalBytes} className="vx-meta text-vx-text-3" />
-                  </td>
-                  <td className="vx-meta px-2 text-right tabular-nums text-vx-text-3">{cp.fileCount.toLocaleString('en-US')}</td>
-                  <td className="px-2">
-                    <span className="flex items-center justify-end gap-1 opacity-0 transition-opacity duration-[120ms] focus-within:opacity-100 group-hover:opacity-100">
-                      <Button size="sm" variant="ghost" onClick={() => void view(cp)}>
-                        View
-                      </Button>
-                      <Button size="sm" variant="restore" disabled={cp.commitId === headCommitId} onClick={() => openRestore({ scope: 'drive', at: cp.commitId })}>
-                        Restore…
-                      </Button>
-                      <button
-                        type="button"
-                        aria-label={`More actions for ${cp.name}`}
-                        onClick={(e) => {
-                          const r = e.currentTarget.getBoundingClientRect();
-                          setMenu({ at: { x: r.right - 220, y: r.bottom + 4 }, items: items(cp) });
-                        }}
-                        className="inline-flex h-7 w-7 items-center justify-center font-mono text-[12px] text-vx-text-3 hover:bg-vx-surface-3 hover:text-vx-text-1"
-                      >
-                        ⋯
-                      </button>
+                    <span role="cell" className="vx-meta-row text-vx-text-3 max-[720px]:hidden">
+                      <VersionDate cp={cp} known={commitTimes.get(cp.commitId)} />
                     </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                    <span role="cell" className="vx-meta-row text-right text-vx-text-3 max-[720px]:hidden">
+                      <Bytes n={cp.logicalBytes} />
+                    </span>
+                    <span role="cell" className="vx-meta-row text-right tabular-nums text-vx-text-3 max-[720px]:hidden">
+                      {cp.fileCount.toLocaleString('en-US')}
+                    </span>
+                    {/* hover actions overlay the right end of the row */}
+                    <span
+                      role="cell"
+                      className="vxv-reveal absolute inset-y-0 right-0 flex items-center gap-0.5 rounded-r-vx-sm bg-vx-hover pl-3 pr-2 max-[720px]:static max-[720px]:bg-transparent max-[720px]:p-0 max-[720px]:opacity-100"
+                    >
+                      <span className="flex items-center gap-0.5 max-[720px]:hidden">
+                        <Tooltip label="View">
+                          <IconButton size="sm" label={`View ${cp.name}`} nativeTitle={false} onClick={() => void view(cp)}>
+                            <Eye size={18} strokeWidth={1.75} aria-hidden />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip label={isNow ? 'This checkpoint is the current version.' : 'Compare with now'}>
+                          <IconButton
+                            size="sm"
+                            label={`Compare ${cp.name} with now`}
+                            nativeTitle={false}
+                            disabled={isNow}
+                            onClick={() => router.push(driveCompareHref(cp.commitId, headCommitId ?? 'head'))}
+                          >
+                            <ArrowLeftRight size={18} strokeWidth={1.75} aria-hidden />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip label={isNow ? 'The drive is already at this version.' : 'Restore drive…'}>
+                          <IconButton
+                            size="sm"
+                            label={`Restore drive to ${cp.name}`}
+                            nativeTitle={false}
+                            disabled={isNow}
+                            className="!text-vx-past hover:!bg-vx-past-wash"
+                            onClick={() => openRestore({ scope: 'drive', at: cp.commitId })}
+                          >
+                            <RotateCcw size={18} strokeWidth={1.75} aria-hidden />
+                          </IconButton>
+                        </Tooltip>
+                      </span>
+                      <IconButton size="sm" label={`More actions for ${cp.name}`} onClick={(e) => openMenu(cp, e.currentTarget)}>
+                        <Ellipsis size={18} strokeWidth={1.75} aria-hidden />
+                      </IconButton>
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         )}
-        {list.length ? <RetentionNote className="px-6 py-4" /> : null}
+        {list.length ? <RetentionNote className="mt-4 px-3" /> : null}
       </div>
 
       <ContextMenu at={menu?.at ?? null} items={menu?.items ?? []} onClose={() => setMenu(null)} />
@@ -239,7 +311,7 @@ export default function CheckpointsPage() {
         body={
           removing ? (
             <>
-              Remove <span className="text-vx-text-1">“{removing.name}”</span>? The version itself stays in history only while normal retention keeps it.
+              Remove <span className="font-medium text-vx-text-1">“{removing.name}”</span>? The version itself stays in history only while normal retention keeps it.
               This frees one of the {budget?.max ?? 100} slots checkpoints share with pinned links.
             </>
           ) : null

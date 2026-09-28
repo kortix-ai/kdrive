@@ -1,13 +1,14 @@
 'use client';
 
-// Upload conflict (DESIGN §6.12): "notes.md and 2 more already exist." with the
-// first five names, an "Apply to all" box (reused for the rest of this upload only),
+// Upload conflict (DESIGN-v2 §6.13, 480 px): "notes.md and 2 more already exist." with the
+// first five names in a surface-2 r12 box, an "Apply to all" checkbox (reused for the rest of this upload only),
 // Keep both (default, ↵) · Replace. Esc cancels the upload.
 import { useState } from 'react';
 import { basename, dirname } from '@volumes/shared';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
-import { cx } from '@/components/ui/cx';
+import { Checkbox } from '@/components/ui/checkbox';
+import { FileIcon } from '@/components/ui/file-icon';
 import { answerConflict, useUploadPrompts } from '@/lib/upload/prompts';
 
 export function conflictHeadline(paths: readonly string[]): string {
@@ -30,16 +31,17 @@ export default function ConflictDialog() {
   return (
     <Dialog
       open
-      title="Already exists"
+      title={conflictHeadline(prompt.paths)}
+      description="Keep both, or replace what is there."
       width={480}
       onClose={() => choose(null)}
       onSubmit={() => choose('keep-both')}
       footer={
         <>
-          <Button variant="ghost" onClick={() => choose(null)} className="mr-auto">
+          <Button variant="ghost" onClick={() => choose(null)} className="mr-auto max-[720px]:mr-0">
             Cancel upload
           </Button>
-          <Button variant="secondary" onClick={() => choose('replace')}>
+          <Button variant="outline" onClick={() => choose('replace')}>
             Replace
           </Button>
           <Button variant="primary" onClick={() => choose('keep-both')} kbd="↵">
@@ -48,32 +50,26 @@ export default function ConflictDialog() {
         </>
       }
     >
-      <p className="vx-body text-vx-text-1">{conflictHeadline(prompt.paths)}</p>
-      <ul className="mt-3 border border-vx-hair">
+      <ul className="rounded-vx-md bg-vx-surface-2 p-1">
         {shown.map((p) => (
-          <li key={p} className="flex h-8 items-center gap-3 border-b border-vx-hair-soft px-3 last:border-b-0">
-            <span className="vx-name min-w-0 flex-1 truncate text-vx-text-1">{basename(p)}</span>
-            <span className="vx-meta max-w-[45%] truncate text-vx-text-4">{dirname(p)}</span>
+          <li key={p} className="flex h-10 items-center gap-3 px-3">
+            <FileIcon name={basename(p)} type="file" size={24} />
+            <span className="min-w-0 flex-1 truncate text-[14px] font-medium leading-5 text-vx-text-1">{basename(p)}</span>
+            <span className="vx-meta max-w-[45%] truncate text-vx-text-3" title={dirname(p)}>
+              {dirname(p) === '/' ? 'My Drive' : dirname(p)}
+            </span>
           </li>
         ))}
+        {more > 0 ? <li className="vx-meta px-3 pb-2 pt-1 text-vx-text-3">and {more} more</li> : null}
       </ul>
-      {more > 0 ? <p className="vx-meta mt-2 text-vx-text-3">and {more} more</p> : null}
-      <p className="vx-body mt-4 text-vx-text-3">
-        Keep both saves the new copies as <span className="vx-mono text-vx-text-2">name (1).ext</span>. Replace makes the new files the current version; the old ones stay in history.
+      <p className="vx-body mt-4 text-vx-text-2">
+        Keep both saves the new copies as <span className="font-medium text-vx-text-1">name (1).ext</span>. Replace makes the new files the current version; the old
+        ones stay in history.
       </p>
-      <label className="mt-4 flex cursor-pointer items-center gap-2">
-        <input type="checkbox" className="peer sr-only" checked={all} onChange={(e) => setAll(e.target.checked)} />
-        <span
-          aria-hidden
-          className={cx(
-            'inline-flex h-3.5 w-3.5 items-center justify-center border font-mono text-[10px] leading-none peer-focus-visible:outline peer-focus-visible:outline-1 peer-focus-visible:outline-[var(--vx-accent-edge)]',
-            all ? 'border-[var(--pt-100)] bg-[var(--pt-100)] text-vx-text-inv' : 'border-vx-hair-strong text-transparent',
-          )}
-        >
-          ✓
-        </span>
-        <span className="vx-ui text-vx-text-2">Apply to all</span>
-        <span className="vx-meta text-vx-text-4">for the rest of this upload</span>
+      <label className="mt-4 flex cursor-pointer items-center gap-3">
+        <Checkbox checked={all} onChange={(c) => setAll(c)} label="Apply to all" />
+        <span className="text-[14px] font-medium leading-5 text-vx-text-1">Apply to all</span>
+        <span className="vx-meta text-vx-text-3">for the rest of this upload</span>
       </label>
     </Dialog>
   );

@@ -1,12 +1,12 @@
 'use client';
 
-// /compare?path=&a=&b= — compare two versions of one file (DESIGN.md §6.7).
-import { Suspense, useEffect, useState } from 'react';
+// /compare?path=&a=&b= — compare two versions of one file (DESIGN-v2 §6.7).
+import { Suspense, useEffect, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import useSWR from 'swr';
 import { dirname, TEXT_DIFF_MAX_BYTES, formatBytes } from '@volumes/shared';
-import { Button } from '@/components/ui/button';
+import { Button, buttonClass } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { CompareCsv } from '@/components/versioning/compare-csv';
 import { CompareHeader, SummaryBar, type CompareModes } from '@/components/versioning/compare-header';
@@ -21,6 +21,19 @@ import { useVx } from '@/lib/store';
 import { compareHref, driveHref } from '@/lib/urls';
 import { errorText, isGone, useFileVersions, useTimelineEntries } from '@/lib/versioning/hooks';
 
+/** Phones (≤ 720 px) force the unified text diff. */
+function usePhone(): boolean {
+  return useSyncExternalStore(
+    (cb) => {
+      const mq = window.matchMedia('(max-width: 720px)');
+      mq.addEventListener('change', cb);
+      return () => mq.removeEventListener('change', cb);
+    },
+    () => window.matchMedia('(max-width: 720px)').matches,
+    () => false,
+  );
+}
+
 function CompareFile() {
   const sp = useSearchParams();
   const router = useRouter();
@@ -31,6 +44,7 @@ function CompareFile() {
   const closePanel = useVx((s) => s.closePanel);
   const openRestore = useVx((s) => s.openRestore);
   const [modes, setModes] = useState<CompareModes>({ text: 'split', image: 'side', changesOnly: false });
+  const phone = usePhone();
 
   useEffect(() => closePanel(), [closePanel]);
 
@@ -62,8 +76,8 @@ function CompareFile() {
         title="Pick two versions to compare."
         body="Open a file's Versions tab, choose A and B, then Compare."
         actions={
-          <Link href="/drive">
-            <Button>Go to drive</Button>
+          <Link href="/drive" className={buttonClass('tonal')}>
+            Go to drive
           </Link>
         }
       />
@@ -78,22 +92,37 @@ function CompareFile() {
   let body: React.ReactNode;
   if (cmp.error) {
     body = isGone(cmp.error) ? (
-      <EmptyState className="flex-1" title="This version is no longer kept." body={<RetentionNote as="span" className="!text-[14px]" />} actions={<Button onClick={back}>Back</Button>} />
+      <EmptyState
+        tone="past"
+        className="flex-1"
+        title="This version is no longer kept."
+        body={<RetentionNote as="span" className="!text-[16px] !leading-6" />}
+        actions={
+          <Button variant="primary" onClick={back}>
+            Back
+          </Button>
+        }
+      />
     ) : (
       <EmptyState
         className="flex-1"
         title={cmp.error instanceof ApiError && cmp.error.status === 404 ? 'This file is not in either version.' : "Couldn't compare these versions."}
         body={errorText(cmp.error)}
-        actions={<Button onClick={() => void cmp.mutate()}>Retry</Button>}
+        tone="past"
+        actions={
+          <Button variant="tonal" onClick={() => void cmp.mutate()}>
+            Retry
+          </Button>
+        }
       />
     );
   } else if (!d) {
     body = (
       <div className="flex min-h-0 flex-1 flex-col" aria-busy>
         <SummaryBar>Loading versions…</SummaryBar>
-        <div className="grid flex-1 grid-cols-2 gap-px bg-vx-hair">
+        <div className="grid flex-1 grid-cols-2 gap-px bg-vx-hair-soft max-[720px]:grid-cols-1">
           {[0, 1].map((k) => (
-            <div key={k} className="bg-vx-bg p-4">
+            <div key={k} className="bg-vx-surface p-5">
               {Array.from({ length: 10 }, (_, i) => (
                 <span key={i} className="skeleton skel-line" style={{ width: `${45 + ((i * 29) % 50)}%` }} />
               ))}
@@ -103,7 +132,7 @@ function CompareFile() {
       </div>
     );
   } else if (!a && !b) {
-    body = <EmptyState className="flex-1" title="Neither version has this file." body="It did not exist at either point." />;
+    body = <EmptyState tone="past" className="flex-1" title="Neither version has this file." body="It did not exist at either point." />;
   } else if (d.tooLargeForDiff && (kind === 'text' || kind === 'csv')) {
     body = (
       <div className="min-h-0 flex-1 overflow-auto">
@@ -111,7 +140,7 @@ function CompareFile() {
       </div>
     );
   } else if (kind === 'text') {
-    body = <CompareText a={a} b={b} path={path} mode={modes.text} />;
+    body = <CompareText a={a} b={b} path={path} mode={phone ? 'unified' : modes.text} />;
   } else if (kind === 'image') {
     body = <CompareImage a={a} b={b} mode={modes.image} />;
   } else if (kind === 'csv') {
@@ -119,7 +148,9 @@ function CompareFile() {
   } else {
     body = (
       <div className="flex min-h-0 flex-1 flex-col">
-        <SummaryBar>{a && b ? `${formatBytes(a.size)} → ${formatBytes(b.size)}` : a ? 'Only in A' : 'Only in B'}</SummaryBar>
+        <SummaryBar>
+          <span className="truncate tabular-nums">{a && b ? `${formatBytes(a.size)} → ${formatBytes(b.size)} · compared by facts` : a ? 'Only in A' : 'Only in B'}</span>
+        </SummaryBar>
         <div className="min-h-0 flex-1 overflow-auto">
           <CompareMeta a={a} b={b} />
         </div>

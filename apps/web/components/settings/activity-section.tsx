@@ -2,12 +2,13 @@
 
 import useSWRInfinite from 'swr/infinite';
 import type { AuditEvent, AuditListResponse } from '@volumes/shared';
-import { Badge } from '@/components/share/badge';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api/endpoints';
-import { formatRelative, isoTitle } from '@/lib/format';
+import { formatWhen } from '@/components/preview/names';
+import { isoTitle } from '@/lib/format';
 import { auditDetail, auditLabel, auditTone } from './audit-labels';
-import { Section } from './section';
+import { Section, SectionError } from './section';
 
 const PAGE = 25;
 
@@ -22,20 +23,20 @@ export function AuditRows({ events, showActor }: { events: AuditEvent[]; showAct
   return (
     <>
       {events.map((e) => (
-        <tr key={e.id} className="h-9 border-b border-vx-hair-soft last:border-b-0 hover:bg-vx-surface-2">
-          <td className="vx-meta whitespace-nowrap py-1.5 pr-3 text-vx-text-3" title={isoTitle(e.createdAt)}>
-            {formatRelative(e.createdAt)}
+        <tr key={e.id} className="h-11 border-b border-vx-hair-soft transition-colors duration-[120ms] last:border-b-0 hover:bg-vx-hover">
+          <td className="vx-meta-row whitespace-nowrap py-2 pl-3 pr-3 text-vx-text-3" title={isoTitle(e.createdAt)}>
+            {formatWhen(e.createdAt)}
           </td>
-          {showActor ? <td className="vx-meta max-w-[200px] truncate py-1.5 pr-3 text-vx-text-2">{e.actorEmail ?? '—'}</td> : null}
-          <td className="py-1.5 pr-3">
+          {showActor ? <td className="vx-meta-row max-w-[200px] truncate py-2 pr-3 text-vx-text-2">{e.actorEmail ?? '—'}</td> : null}
+          <td className="py-2 pr-3">
             <Badge tone={auditTone(e.kind)} title={e.kind}>
               {auditLabel(e.kind)}
             </Badge>
           </td>
-          <td className="vx-meta max-w-[220px] truncate py-1.5 pr-3 text-vx-text-2" title={e.target ?? undefined}>
+          <td className="vx-meta-row max-w-[220px] truncate py-2 pr-3 text-vx-text-1" title={e.target ?? undefined}>
             {e.target ?? '—'}
           </td>
-          <td className="vx-meta max-w-[260px] truncate py-1.5 text-vx-text-4" title={auditDetail(e.meta)}>
+          <td className="vx-meta-row max-w-[260px] truncate py-2 pr-3 text-vx-text-3" title={auditDetail(e.meta)}>
             {auditDetail(e.meta)}
           </td>
         </tr>
@@ -44,7 +45,10 @@ export function AuditRows({ events, showActor }: { events: AuditEvent[]; showAct
   );
 }
 
-/** ACTIVITY: the signed-in user's audit events (`/api/me/audit`), paged. */
+/** Column header cell for the audit tables (13/500 text-3). */
+export const auditTh = 'h-10 pr-3 text-left text-[13px] font-medium leading-5 text-vx-text-3 first:pl-3';
+
+/** Activity: the signed-in user's audit events (`/api/me/audit`), paged. */
 export function ActivitySection() {
   const { data, error, size, setSize, isValidating, mutate } = useSWRInfinite<AuditListResponse>(
     (i, prev: AuditListResponse | null) => {
@@ -60,11 +64,11 @@ export function ActivitySection() {
   const loadingMore = isValidating && size > (data?.length ?? 0);
 
   return (
-    <Section id="activity" label="Activity">
+    <Section id="activity" label="Activity" description="Sign-ins, restores, checkpoints and links on your account.">
       {error && !data ? (
         <div className="flex items-center gap-2">
-          <span className="text-[12px] text-vx-danger">Couldn&apos;t load activity.</span>
-          <Button size="sm" variant="ghost" onClick={() => void mutate()}>
+          <span className="text-[13px] text-vx-del-fg">Couldn&apos;t load activity.</span>
+          <Button size="sm" variant="text" onClick={() => void mutate()}>
             Retry
           </Button>
         </div>
@@ -78,14 +82,14 @@ export function ActivitySection() {
         <p className="vx-body text-vx-text-3">No activity yet. Sign-ins, restores, checkpoints and links show up here.</p>
       ) : (
         <>
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-left">
+          <div className="-mx-3 overflow-x-auto">
+            <table className="w-full min-w-[520px] border-collapse text-left">
               <thead>
                 <tr className="border-b border-vx-hair">
-                  <th className="vx-label py-1.5 pr-3 font-medium">Time</th>
-                  <th className="vx-label py-1.5 pr-3 font-medium">Event</th>
-                  <th className="vx-label py-1.5 pr-3 font-medium">Target</th>
-                  <th className="vx-label py-1.5 font-medium">Detail</th>
+                  <th className={auditTh}>Time</th>
+                  <th className={auditTh}>Event</th>
+                  <th className={auditTh}>Target</th>
+                  <th className={auditTh}>Detail</th>
                 </tr>
               </thead>
               <tbody>
@@ -94,8 +98,8 @@ export function ActivitySection() {
             </table>
           </div>
           {more ? (
-            <Button size="sm" variant="ghost" className="mt-3" loading={loadingMore} onClick={() => void setSize(size + 1)}>
-              Show older
+            <Button size="sm" variant="outline" className="mt-4" loading={loadingMore} onClick={() => void setSize(size + 1)}>
+              Load more
             </Button>
           ) : null}
         </>

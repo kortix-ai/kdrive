@@ -20,16 +20,16 @@ export function TextView({ src, kind = 'text' }: { src: string; kind?: 'text' | 
   const pretty = useMemo(() => (kind === 'json' && data !== undefined ? prettyJson(data) : null), [kind, data]);
   if (error) return <PreviewError status={error.status} code={error.code} onRetry={() => void mutate()} />;
   if (isLoading || data === undefined) return <PreviewSkeleton />;
-  if (data.length === 0) return <p className="vx-meta px-4 py-6 text-vx-text-4">This file is empty.</p>;
+  if (data.length === 0) return <p className="vx-body px-4 py-6 text-vx-text-3">This file is empty.</p>;
   if (kind === 'json') {
     return (
       <div className="flex min-w-0 flex-col">
-        {pretty === null ? <p className="vx-micro border-b border-vx-hair-soft px-4 py-2 text-vx-text-4">Not valid JSON. Shown as it is stored.</p> : null}
+        {pretty === null ? <p className="vx-meta px-4 pb-1 pt-3 text-vx-text-3">Not valid JSON. Shown as it is stored.</p> : null}
         <SourceLines text={pretty ?? data} />
       </div>
     );
   }
-  return <pre className="vx-code whitespace-pre-wrap break-words px-4 py-3 text-vx-text-2">{data}</pre>;
+  return <pre className="whitespace-pre-wrap break-words px-4 py-3 font-mono text-[13px] leading-5 text-vx-text-1">{data}</pre>;
 }
 
 export default TextView;
