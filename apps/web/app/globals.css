@@ -1,0 +1,326 @@
+@import "tailwindcss";
+
+/* ════════════════════════════════════════════════════════════════════════
+ * Volumes design tokens (DESIGN.md §2). Dark is the hard default; light
+ * applies only when localStorage['vx-theme'] === 'light' (a pre-paint script
+ * sets html[data-vx-theme]). prefers-color-scheme is never read.
+ * Components use only --vx-* (or the Tailwind aliases below), never raw hex.
+ * ════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* Platinum tonal scale */
+  --pt-50: #fafafb; --pt-100: #f4f4f7; --pt-200: #e8e8ec; --pt-300: #d6d6db;
+  --pt-400: #c2c2c9; --pt-500: #a4a4ac; --pt-600: #6e6e76; --pt-700: #3c3c42;
+  --pt-800: #1e1e22; --pt-850: #16161a; --pt-900: #0e0e11; --pt-950: #0a0a0c;
+  --pt-machined: #36363c;
+
+  /* surfaces */
+  --vx-bg: var(--pt-950);
+  --vx-surface: var(--pt-900);
+  --vx-surface-2: var(--pt-850);
+  --vx-surface-3: #1b1b20;
+  --vx-float: #111114;
+  --vx-mat: #131317;
+  --vx-scrim: rgba(6, 6, 9, 0.62);
+
+  /* hairlines */
+  --vx-hair: var(--pt-800);
+  --vx-hair-soft: #151518;
+  --vx-hair-strong: var(--pt-machined);
+  --vx-hair-dash: #34343a;
+
+  /* text */
+  --vx-text-1: var(--pt-100);
+  --vx-text-2: var(--pt-300);
+  --vx-text-3: var(--pt-500);
+  --vx-text-4: var(--pt-600);
+  --vx-text-inv: var(--pt-950);
+
+  /* accent: purple (yours / selected / named) */
+  --vx-accent: #a78bfa;
+  --vx-accent-strong: #c4b5fd;
+  --vx-accent-wash: rgba(167, 139, 250, 0.08);
+  --vx-accent-edge: rgba(167, 139, 250, 0.55);
+
+  /* past: amber (and the ≥80 % meter) */
+  --vx-past: #f0b454;
+  --vx-past-strong: #f7c979;
+  --vx-past-wash: rgba(240, 180, 84, 0.07);
+  --vx-past-edge: rgba(240, 180, 84, 0.45);
+  --vx-past-hatch: rgba(240, 180, 84, 0.14);
+  --vx-past-filter: saturate(0.55) sepia(0.12) brightness(0.92);
+
+  /* status */
+  --vx-ok: #34d399; --vx-ok-wash: rgba(52, 211, 153, 0.08);
+  --vx-danger: #f87171; --vx-danger-wash: rgba(248, 113, 113, 0.08); --vx-danger-edge: #7f1d1d;
+  --vx-warn: var(--vx-past);
+
+  /* diff */
+  --vx-add-bg: rgba(52, 211, 153, 0.10); --vx-add-word: rgba(52, 211, 153, 0.28); --vx-add-fg: #6ee7b7;
+  --vx-del-bg: rgba(248, 113, 113, 0.10); --vx-del-word: rgba(248, 113, 113, 0.28); --vx-del-fg: #fca5a5;
+  --vx-mod-bg: rgba(240, 180, 84, 0.10);
+
+  /* code tokens (lib/highlight.ts maps Shiki output onto these) */
+  --sh-fg: #e8e8ec; --sh-kw: #f4f4f7; --sh-str: #a78bfa; --sh-dim: #86868d; --sh-arg: #c8c8ce;
+
+  /* skeleton */
+  --skel-base: #17171b; --skel-hi: #232329;
+
+  /* empty-state voxel art (pure grayscale + one purple dot) */
+  --ea-top: #2c2c2c; --ea-mid: #242424; --ea-left: #1c1c1c; --ea-line: #454545; --ea-line-dim: #303030;
+  --ea-accent: #a78bfa; --ea-p-face: #3a3a3a; --ea-p-line: #585858;
+  --ea-shadow: #000; --ea-shadow-hi: .40; --ea-shadow-lo: .16;
+
+  /* layout */
+  --vx-topbar-h: 48px; --vx-rail-w: 240px; --vx-timeline-w: 320px; --vx-panel-w: 440px;
+  --vx-strip-h: 56px; --vx-row-h: 32px; --vx-ctl-h: 32px; --vx-ctl-h-sm: 28px;
+
+  /* motion */
+  --vx-ease: cubic-bezier(.2, .7, .2, 1);
+  --vx-dur-1: 120ms;
+  --vx-dur-2: 160ms;
+  --vx-dur-3: 200ms;
+
+  --vx-font-sans: var(--font-inter), Inter, ui-sans-serif, system-ui, sans-serif;
+  --vx-font-mono: var(--font-jetbrains), 'JetBrains Mono', ui-monospace, Menlo, monospace;
+  color-scheme: dark;
+}
+
+html[data-vx-theme='light'] {
+  --pt-50: #09090b; --pt-100: #131316; --pt-200: #1f1f24; --pt-300: #26262c;
+  --pt-400: #34343c; --pt-500: #4a4a53; --pt-600: #8a8a93; --pt-700: #c4c4ca;
+  --pt-800: #e3e3e7; --pt-850: #ededf0; --pt-900: #f4f4f6; --pt-950: #fafafb;
+  --pt-machined: #b4b4bc;
+
+  --vx-bg: #ffffff; --vx-surface: var(--pt-950); --vx-surface-2: var(--pt-900); --vx-surface-3: #ececf1;
+  --vx-float: #ffffff; --vx-mat: #f0f0f3; --vx-scrim: rgba(20, 20, 24, 0.28);
+  --vx-hair-soft: #efeff2; --vx-hair-dash: #cfcfd6;
+
+  --vx-accent: #6d4fd6; --vx-accent-strong: #5b3fc4;
+  --vx-accent-wash: rgba(109, 79, 214, 0.07); --vx-accent-edge: rgba(109, 79, 214, 0.60);
+
+  --vx-past: #a35c06; --vx-past-strong: #8a4d04;
+  --vx-past-wash: rgba(217, 140, 30, 0.09); --vx-past-edge: rgba(163, 92, 6, 0.45);
+  --vx-past-hatch: rgba(163, 92, 6, 0.12); --vx-past-filter: saturate(0.6) sepia(0.15) brightness(1.02);
+
+  --vx-ok: #047857; --vx-ok-wash: rgba(4, 120, 87, 0.08);
+  --vx-danger: #dc2626; --vx-danger-wash: rgba(220, 38, 38, 0.07); --vx-danger-edge: #fca5a5;
+
+  --vx-add-bg: rgba(16, 185, 129, 0.09); --vx-add-word: rgba(16, 185, 129, 0.28); --vx-add-fg: #047857;
+  --vx-del-bg: rgba(239, 68, 68, 0.08); --vx-del-word: rgba(239, 68, 68, 0.24); --vx-del-fg: #b91c1c;
+  --vx-mod-bg: rgba(217, 140, 30, 0.12);
+
+  --sh-fg: #1f1f24; --sh-kw: #09090b; --sh-str: #6d4fd6; --sh-dim: #71717a; --sh-arg: #3a3a41;
+  --skel-base: #ececef; --skel-hi: #f8f8fa;
+  --ea-top: #f4f4f5; --ea-mid: #eaeaec; --ea-left: #e4e4e7; --ea-line: #c8c8cd; --ea-line-dim: #dcdce0;
+  --ea-accent: #7c3aed; --ea-p-face: #e8e8ea; --ea-p-line: #c8c8cd;
+  --ea-shadow: #c8c8cd; --ea-shadow-hi: .9; --ea-shadow-lo: .5;
+  color-scheme: light;
+}
+
+/* ── Tailwind v4 bridge: bg-vx-bg, text-vx-text-2, border-vx-hair, … ───── */
+@theme inline {
+  --font-sans: var(--vx-font-sans);
+  --font-mono: var(--vx-font-mono);
+  --color-vx-bg: var(--vx-bg);
+  --color-vx-surface: var(--vx-surface);
+  --color-vx-surface-2: var(--vx-surface-2);
+  --color-vx-surface-3: var(--vx-surface-3);
+  --color-vx-float: var(--vx-float);
+  --color-vx-mat: var(--vx-mat);
+  --color-vx-scrim: var(--vx-scrim);
+  --color-vx-hair: var(--vx-hair);
+  --color-vx-hair-soft: var(--vx-hair-soft);
+  --color-vx-hair-strong: var(--vx-hair-strong);
+  --color-vx-hair-dash: var(--vx-hair-dash);
+  --color-vx-text-1: var(--vx-text-1);
+  --color-vx-text-2: var(--vx-text-2);
+  --color-vx-text-3: var(--vx-text-3);
+  --color-vx-text-4: var(--vx-text-4);
+  --color-vx-text-inv: var(--vx-text-inv);
+  --color-vx-accent: var(--vx-accent);
+  --color-vx-accent-strong: var(--vx-accent-strong);
+  --color-vx-accent-wash: var(--vx-accent-wash);
+  --color-vx-accent-edge: var(--vx-accent-edge);
+  --color-vx-past: var(--vx-past);
+  --color-vx-past-strong: var(--vx-past-strong);
+  --color-vx-past-wash: var(--vx-past-wash);
+  --color-vx-past-edge: var(--vx-past-edge);
+  --color-vx-ok: var(--vx-ok);
+  --color-vx-ok-wash: var(--vx-ok-wash);
+  --color-vx-danger: var(--vx-danger);
+  --color-vx-danger-wash: var(--vx-danger-wash);
+  --color-vx-danger-edge: var(--vx-danger-edge);
+  --color-vx-add-bg: var(--vx-add-bg);
+  --color-vx-add-word: var(--vx-add-word);
+  --color-vx-add-fg: var(--vx-add-fg);
+  --color-vx-del-bg: var(--vx-del-bg);
+  --color-vx-del-word: var(--vx-del-word);
+  --color-vx-del-fg: var(--vx-del-fg);
+  --color-vx-mod-bg: var(--vx-mod-bg);
+  --color-pt-100: var(--pt-100);
+  --color-pt-300: var(--pt-300);
+  --color-pt-950: var(--pt-950);
+}
+
+/* ── globals ─────────────────────────────────────────────────────────────── */
+*, *::before, *::after { border-radius: 0 !important; }
+html, body {
+  background: var(--vx-bg);
+  color: var(--vx-text-2);
+  font-family: var(--vx-font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+html, body { height: 100%; }
+body { overflow: hidden; }
+.tabular-nums, .vx-label, .vx-micro, .vx-meta, .vx-ui, .vx-title, .vx-h1, .vx-display, .vx-code, .vx-mono, kbd, code, pre {
+  font-family: var(--vx-font-mono);
+}
+.tabular-nums, .vx-meta { font-variant-numeric: tabular-nums; }
+:focus-visible { outline: 1px solid var(--vx-accent-edge); outline-offset: 2px; }
+.vx-inset-focus:focus-visible { outline-offset: -1px; }
+::selection { background: var(--vx-accent-wash); color: var(--vx-text-1); }
+button { cursor: pointer; }
+button:disabled { cursor: not-allowed; }
+
+/* ── type scale (DESIGN.md §3) ─────────────────────────────────────────── */
+.vx-label { font-size: 10px; line-height: 14px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.18em; color: var(--vx-text-3); }
+.vx-micro { font-size: 10.5px; line-height: 14px; font-weight: 400; letter-spacing: 0.02em; }
+.vx-meta { font-size: 11.5px; line-height: 16px; font-weight: 400; }
+.vx-ui { font-size: 12px; line-height: 16px; font-weight: 500; letter-spacing: 0.01em; }
+.vx-name { font-size: 13px; line-height: 18px; font-weight: 450; letter-spacing: -0.005em; }
+.vx-body { font-size: 14px; line-height: 21px; font-weight: 400; letter-spacing: -0.005em; }
+.vx-title { font-size: 15px; line-height: 20px; font-weight: 500; letter-spacing: -0.01em; color: var(--vx-text-1); }
+.vx-h1 { font-size: 22px; line-height: 28px; font-weight: 500; letter-spacing: -0.015em; color: var(--vx-text-1); }
+.vx-display { font-size: clamp(28px, 3vw, 40px); line-height: 1.22; font-weight: 500; letter-spacing: -0.015em; }
+.vx-code { font-size: 12.5px; line-height: 20px; font-weight: 400; }
+.vx-unit { color: var(--vx-text-4); }
+
+/* ── signature surfaces ───────────────────────────────────────────────── */
+.vx-metal {
+  background: linear-gradient(180deg, #fafafb 0%, #e4e4e8 28%, #b8b8bc 58%, #d8d8de 78%, #f4f4f7 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent;
+}
+html[data-vx-theme='light'] .vx-metal {
+  background: linear-gradient(180deg, #3a3a42 0%, #131317 30%, #4e4e58 58%, #222228 78%, #0e0e11 100%);
+  -webkit-background-clip: text; background-clip: text;
+}
+.vx-hatch {
+  background-image: repeating-linear-gradient(135deg, var(--vx-past-hatch) 0 1px, transparent 1px 6px),
+    linear-gradient(var(--vx-past-wash), var(--vx-past-wash));
+}
+.is-past { box-shadow: inset 0 0 0 1px var(--vx-past-edge); transition: box-shadow var(--vx-dur-3) var(--vx-ease); }
+
+/* Platinum section band: label + hairline */
+.pt-band { display: flex; align-items: center; gap: 12px; }
+.pt-band::after { content: ''; flex: 1; height: 1px; background: var(--vx-hair); }
+
+/* Platinum segmented control */
+.pt-seg { display: inline-flex; }
+.pt-seg > * + * { margin-left: -1px; }
+
+/* ── Platinum CTA (sign-in only) ──────────────────────────────────────── */
+.btn-platinum {
+  position: relative; isolation: isolate; overflow: hidden;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 100%; height: 40px; padding: 0 1rem;
+  font-family: var(--vx-font-mono); font-size: 12px; font-weight: 600;
+  letter-spacing: .16em; text-transform: uppercase; color: #09090b;
+  cursor: pointer; border: 0; box-sizing: border-box;
+  background: linear-gradient(180deg, #ffffff 0%, #e6e6eb 46%, #c6c6ce 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .9), inset 0 -1px 0 rgba(0, 0, 0, .18), 0 1px 1px rgba(0, 0, 0, .55), 0 6px 16px -10px rgba(0, 0, 0, .8);
+  transition: box-shadow .34s cubic-bezier(.22, .65, .25, 1), transform .14s cubic-bezier(.22, .65, .25, 1), filter .34s ease;
+}
+.btn-platinum::before {
+  content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background: linear-gradient(105deg, transparent 32%, rgba(255, 255, 255, .85) 50%, transparent 68%);
+  transform: translateX(-130%); transition: transform .55s ease;
+}
+.btn-platinum:hover:not(:disabled)::before { transform: translateX(130%); }
+.btn-platinum:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.04); }
+.btn-platinum:active:not(:disabled) { transform: translateY(1px); }
+.btn-platinum:disabled { cursor: not-allowed; color: #52525b; background: linear-gradient(180deg, #2a2a30 0%, #1f1f23 100%); box-shadow: inset 0 0 0 1px #27272a; }
+html[data-vx-theme='light'] .btn-platinum { background: linear-gradient(180deg, #3a3a42 0%, #1f1f24 60%, #131316 100%); color: #fafafb; }
+.btn-cta-label { position: relative; z-index: 1; display: inline-flex; align-items: center; gap: .55rem; }
+
+/* ── dialogs ──────────────────────────────────────────────────────────── */
+@keyframes dlgFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes dlgPop { from { opacity: 0; transform: translateY(6px) scale(.98); } to { opacity: 1; transform: none; } }
+.dlg-fade { animation: dlgFade .12s ease-out; }
+.dlg-pop { animation: dlgPop .14s cubic-bezier(.16, 1, .3, 1); }
+
+/* ── toasts ───────────────────────────────────────────────────────────── */
+@keyframes vxToastIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes vxDrain { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+.vx-toast { animation: vxToastIn var(--vx-dur-2) var(--vx-ease); }
+.vx-drain { transform-origin: left; animation: vxDrain linear forwards; }
+.vx-toast:hover .vx-drain { animation-play-state: paused; }
+
+/* ── skeleton (Platinum) ──────────────────────────────────────────────── */
+@keyframes skel-sheen { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+.skeleton {
+  display: block; background-color: var(--skel-base);
+  background-image: linear-gradient(90deg, transparent 0%, var(--skel-hi) 50%, transparent 100%);
+  background-size: 200% 100%; background-repeat: no-repeat;
+  animation: skel-sheen 1.3s ease-in-out infinite;
+}
+.skel-line { height: 0.72rem; }
+.skel-line + .skel-line { margin-top: 0.5rem; }
+
+/* ── empty-state art (Platinum .ea) ───────────────────────────────────── */
+@keyframes ea-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@keyframes ea-shadow { 0%, 100% { transform: scaleX(1); opacity: var(--ea-shadow-hi); } 50% { transform: scaleX(0.82); opacity: var(--ea-shadow-lo); } }
+.ea-float { display: flex; animation: ea-float 3.4s ease-in-out infinite; }
+.ea-shadow { animation: ea-shadow 3.4s ease-in-out infinite; }
+
+@keyframes contentIn { from { opacity: 0; } to { opacity: 1; } }
+.fade-in { animation: contentIn 0.18s ease-out; }
+
+/* ── mono spinner ─────────────────────────────────────────────────────── */
+.vx-spinner::after { content: '⠋'; display: inline-block; width: 1ch; animation: vxSpin 0.8s steps(1) infinite; }
+@keyframes vxSpin {
+  0% { content: '⠋'; } 10% { content: '⠙'; } 20% { content: '⠹'; } 30% { content: '⠸'; } 40% { content: '⠼'; }
+  50% { content: '⠴'; } 60% { content: '⠦'; } 70% { content: '⠧'; } 80% { content: '⠇'; } 90% { content: '⠏'; }
+}
+
+/* scrollbars: thin, hairline */
+* { scrollbar-width: thin; scrollbar-color: var(--vx-hair-strong) transparent; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+  .skeleton { background-image: none; }
+}
+
+/* ── app shell grid (DESIGN.md §5) ────────────────────────────────────── */
+.vx-shell {
+  display: grid;
+  grid-template-columns: var(--vx-rail-w) minmax(0, 1fr) auto auto;
+  grid-template-rows: minmax(0, 1fr) auto;
+  height: 100dvh;
+  overflow: hidden;
+}
+.vx-shell > .vx-rail { grid-row: 1 / span 2; grid-column: 1; }
+.vx-shell > .vx-main { grid-row: 1; grid-column: 2; }
+.vx-shell > .vx-timeline { grid-row: 1; grid-column: 3; width: var(--vx-timeline-w); }
+.vx-shell > .vx-panel { grid-row: 1; grid-column: 4; width: var(--vx-panel-w); }
+.vx-shell > .vx-strip { grid-row: 2; grid-column: 2 / span 3; height: var(--vx-strip-h); }
+@media (max-width: 1100px) {
+  .vx-shell { grid-template-columns: 56px minmax(0, 1fr) 0 0; }
+  .vx-rail-label, .vx-rail-extra { display: none !important; }
+  .vx-shell > .vx-timeline, .vx-shell > .vx-panel {
+    position: fixed; top: 0; bottom: var(--vx-strip-h); right: 0; z-index: 30;
+    background: var(--vx-float); box-shadow: inset 1px 0 0 var(--vx-hair-strong);
+  }
+}
+@media (max-width: 720px) {
+  .vx-shell { grid-template-columns: 0 minmax(0, 1fr) 0 0; }
+  .vx-shell > .vx-rail { position: fixed; inset: 0 auto 0 0; width: var(--vx-rail-w); z-index: 40; transform: translateX(-100%); transition: transform var(--vx-dur-3) var(--vx-ease); }
+  .vx-shell > .vx-rail[data-open='true'] { transform: none; }
+  .vx-shell > .vx-rail .vx-rail-label, .vx-shell > .vx-rail .vx-rail-extra { display: revert !important; }
+  .vx-shell > .vx-timeline, .vx-shell > .vx-panel { width: 100vw; }
+}
