@@ -39,14 +39,28 @@ export async function listWorkspaceSummaries(userId: string): Promise<WorkspaceS
 
 /**
  * Every workspace is one volume in one shared Platinum org, so the org's volume
- * limit caps workspaces for the whole server. Check it before creating one.
+ * limit caps workspaces for the whole server. An extra workspace may not take
+ * the last `reservedVolumes` slots: those stay free for new users' default
+ * workspaces, or one person could lock everyone else out of signing up.
  */
 async function assertVolumeSlot(): Promise<void> {
   const l = await getStore().limits();
-  if (l.usedVolumes >= l.maxVolumes) {
-    throw new ApiError(409, 'storage_limit', 'No more workspaces can be created on this server.', {
+  const usable = Math.max(0, l.maxVolumes - env.reservedVolumes);
+  if (l.usedVolumes >= usable) {
+    throw new ApiError(409, 'storage_limit', 'No more workspaces can be created on this server right now.', {
       max: l.maxVolumes,
       used: l.usedVolumes,
+    });
+  }
+}
+
+/** One person may own at most env.maxWorkspacesPerUser live workspaces (the default and duplicates included). */
+async function assertWorkspaceAllowance(userId: string): Promise<void> {
+  const owned = (await listWorkspaces(userId)).length;
+  if (owned >= env.maxWorkspacesPerUser) {
+    throw new ApiError(409, 'storage_limit', `You can have at most ${env.maxWorkspacesPerUser} workspaces. Delete one to make another.`, {
+      max: env.maxWorkspacesPerUser,
+      used: owned,
     });
   }
 }
@@ -58,6 +72,7 @@ async function dropRow(id: string): Promise<void> {
 
 /** POST /api/workspaces: a new empty workspace (volume limit checked first). */
 export async function createWorkspace(c: Context | null, userId: string, name: string): Promise<WorkspaceSummary> {
+  await assertWorkspaceAllowance(userId);
   await assertVolumeSlot();
   const id = newId();
   const [row] = await db
@@ -99,6 +114,7 @@ export async function duplicateWorkspace(
   const store = getStore();
   // Resolve the ref once so the fork, the row and the audit all name one commit.
   const commit = await store.getCommit(src.volumeId, input.at ?? 'head');
+  await assertWorkspaceAllowance(userId);
   await assertQuota(userId, commit.logicalBytes);
   await assertVolumeSlot();
   const newWsId = newId();

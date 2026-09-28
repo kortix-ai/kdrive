@@ -124,8 +124,8 @@ describe('workspaces', () => {
     expect((await client.get('/api/workspaces')).body.workspaces).toHaveLength(1);
   });
 
-  test('the storage volume limit is checked before creating or duplicating', async () => {
-    store = freshStore(2);
+  test('the storage volume limit is checked before creating or duplicating, keeping a slot for new users', async () => {
+    store = freshStore(3); // one of the three stays free for someone's first sign-in
     const { client, ws } = await signInWithWorkspace('ws-limit@test.local'); // volume 1
     const ok = await client.post('/api/workspaces', { name: 'Two' }); // volume 2
     expect(ok.status).toBe(201);
@@ -138,6 +138,23 @@ describe('workspaces', () => {
     // no half-created rows
     expect((await client.get('/api/workspaces')).body.workspaces).toHaveLength(2);
     expect(await db.select().from(workspaces)).toHaveLength(2);
+    // The reserved slot: a brand-new user still gets a drive.
+    const newcomer = await signInWithWorkspace('ws-newcomer@test.local');
+    expect(newcomer.me.workspaces).toHaveLength(1);
+  });
+
+  test('one person can own at most VOLUMES_MAX_WORKSPACES_PER_USER workspaces (duplicates count)', async () => {
+    store = freshStore(200);
+    const { client, ws } = await signInWithWorkspace('ws-cap@test.local'); // 1
+    for (let i = 2; i <= 5; i++) expect((await client.post('/api/workspaces', { name: `W${i}` })).status).toBe(201);
+    const sixth = await client.post('/api/workspaces', { name: 'W6' });
+    expect(sixth.status).toBe(409);
+    expect(sixth.body.error.code).toBe('storage_limit');
+    expect(sixth.body.error.message).toContain('at most 5 workspaces');
+    expect((await client.post(`/api/workspaces/${ws}/duplicate`, { name: 'Copy' })).status).toBe(409);
+    // Other people are unaffected.
+    const other = await signInWithWorkspace('ws-cap-other@test.local');
+    expect((await other.client.post('/api/workspaces', { name: 'Mine' })).status).toBe(201);
   });
 
   test("another user's workspace ids are 404 everywhere", async () => {
