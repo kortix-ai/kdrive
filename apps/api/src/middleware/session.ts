@@ -7,7 +7,9 @@ import type { AppEnv } from '../types';
 /** Loads the better-auth session (if any) into c.var.user / c.var.session. Never rejects. */
 export const sessionMiddleware: MiddlewareHandler<AppEnv> = async (c, next) => {
   try {
-    const s = await auth.api.getSession({ headers: c.req.raw.headers });
+    // Always check the session row: the 30 s cookie cache would otherwise keep a
+    // deleted account (or a revoked session) signed in until it expires.
+    const s = await auth.api.getSession({ headers: c.req.raw.headers, query: { disableCookieCache: true } });
     if (s?.user && s.session) {
       c.set('user', { id: s.user.id, email: s.user.email, name: s.user.name ?? null, image: s.user.image ?? null });
       c.set('session', { id: s.session.id, expiresAt: new Date(s.session.expiresAt) });
