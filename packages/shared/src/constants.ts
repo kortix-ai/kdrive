@@ -30,8 +30,7 @@ export const IMAGE_THUMB_MAX_BYTES = 20 * MiB;
 export const MAX_NAME_BYTES = 255;
 export const MAX_PATH_BYTES = 4096;
 
-export const RETENTION_COPY =
-  'Every change from the last hour, one version per 10 minutes for 7 days, and checkpoints forever.';
+export const RETENTION_COPY = 'Every version from the last 7 days, your newest 50 always, and checkpoints forever.';
 
 export const CHECKPOINT_TAG_PREFIX = 'cp-';
 export const LINK_TAG_PREFIX = 'ln-';
