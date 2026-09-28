@@ -18,7 +18,7 @@ describe('settings helpers', () => {
     expect(auditTone('account.delete')).toBe('danger');
     expect(auditTone('checkpoint.create')).toBe('accent');
     expect(auditDetail({ from: 10 * GiB, to: 20 * GiB })).toBe('10 GiB → 20 GiB');
-    expect(auditDetail({ name: 'v1.0', at: 'vc_01J8ZQ3ABCDEF' })).toBe('v1.0 · @01j8zq3');
+    expect(auditDetail({ name: 'v1.0', at: 'vc_01J8ZQ3ABCDEF' })).toBe('v1.0 · @3abcdef');
     expect(auditDetail({ ip: '1.2.3.4' })).toBe('');
   });
 
@@ -55,7 +55,7 @@ describe('workspace helpers', () => {
 
   test('provenance', () => {
     expect(provenance({ forkedFrom: null })).toBeNull();
-    expect(provenance({ forkedFrom: { workspaceId: 'w', workspaceName: 'Personal', commitId: 'vc_01J8ZQ3ABC' } })).toBe('Duplicated from Personal @01j8zq3');
+    expect(provenance({ forkedFrom: { workspaceId: 'w', workspaceName: 'Personal', commitId: 'vc_01J8ZQ3ABC' } })).toBe('Duplicated from Personal @8zq3abc');
     expect(provenance({ forkedFrom: { workspaceId: null, workspaceName: null, commitId: 'vc_01J8ZQ3ABC' } })).toContain('a deleted workspace');
   });
 });

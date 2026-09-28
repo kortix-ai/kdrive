@@ -8,10 +8,11 @@ describe('validateName', () => {
     }
   });
   test('rejects bad names', () => {
-    for (const n of ['', ' ', '.', '..', 'a/b', 'a\u0000', 'tab\there', 'x\u007f']) {
+    for (const n of ['', ' ', '.', '..', 'a/b', 'Q1\\report.txt', 'a\u0000', 'tab\there', 'x\u007f']) {
       expect(validateName(n)).not.toBeNull();
     }
     expect(isValidName('ok')).toBe(true);
+    expect(validateName('Q1\\report.txt')).toBe('Name cannot contain "\\".');
   });
   test('255 byte limit counts UTF-8 bytes', () => {
     expect(validateName('x'.repeat(255))).toBeNull();

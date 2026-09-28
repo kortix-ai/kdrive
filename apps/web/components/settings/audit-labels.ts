@@ -1,4 +1,4 @@
-import { formatBytes } from '@volumes/shared';
+import { formatBytes, shortId } from '@volumes/shared';
 
 const LABELS: Record<string, string> = {
   'auth.sign_in': 'Signed in',
@@ -40,7 +40,7 @@ export function auditDetail(meta: Record<string, unknown>): string {
   if (typeof m.from === 'number' && typeof m.to === 'number') parts.push(`${formatBytes(m.from)} → ${formatBytes(m.to)}`);
   if (typeof m.name === 'string') parts.push(m.name);
   if (typeof m.mode === 'string') parts.push(m.mode);
-  if (typeof m.at === 'string') parts.push(`@${m.at.replace(/^[a-z]{2,4}_/i, '').slice(0, 7).toLowerCase()}`);
+  if (typeof m.at === 'string') parts.push(shortId(m.at));
   if (typeof m.path === 'string') parts.push(m.path);
   if (typeof m.email === 'string') parts.push(m.email);
   if (parts.length === 0) {

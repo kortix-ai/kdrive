@@ -16,6 +16,8 @@ export function validateName(name: string): string | null {
   if (name.trim().length === 0) return 'Name cannot be only spaces.';
   if (name === '.' || name === '..') return `"${name}" is not a valid name.`;
   if (name.includes('/')) return 'Name cannot contain "/".';
+  // Rejected rather than turned into a folder separator: one rule for rename, upload and the API.
+  if (name.includes('\\')) return 'Name cannot contain "\\".';
   if (CONTROL.test(name)) return 'Name cannot contain control characters.';
   if (utf8Length(name) > MAX_NAME_BYTES) return `Name is too long (max ${MAX_NAME_BYTES} bytes).`;
   return null;

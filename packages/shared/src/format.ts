@@ -28,9 +28,13 @@ export function meterLevel(used: number, quota: number): MeterLevel {
   return 'ok';
 }
 
-/** `vc_01ABC…` → `@01abc..` (7 chars, no prefix). */
+/**
+ * `vc_01J8ZQ3…QRSTVW` → `@qrstvw…` style short id: the LAST 7 characters.
+ * A ULID starts with its millisecond timestamp, so leading characters are
+ * shared by every commit made within ~30 s; the random tail tells them apart.
+ */
 export function shortId(id: string | null | undefined): string {
   if (!id) return '';
   const bare = id.replace(/^[a-z]{2,4}_/i, '');
-  return '@' + bare.slice(0, 7).toLowerCase();
+  return '@' + bare.slice(-7).toLowerCase();
 }

@@ -30,7 +30,9 @@ describe('normalizePath', () => {
     expect(() => normalizePath('/a\u007fb')).toThrow(PathError);
   });
   test('backslashes are separators', () => {
-    expect(normalizePath('a\\b')).toBe('/a/b');
+    // A backslash is never a separator: it is an invalid name character.
+    expect(() => normalizePath('a\\b')).toThrow(PathError);
+    expect(() => normalizePath('/Q1\\report.txt')).toThrow('Name cannot contain "\\".');
   });
   test('rejects too-long segments and paths', () => {
     expect(() => normalizePath('/' + 'x'.repeat(256))).toThrow(PathError);

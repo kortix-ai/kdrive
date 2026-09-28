@@ -13,12 +13,13 @@ export class PathError extends Error {
 /**
  * Normalises a drive path: absolute POSIX, `/` is the root, no trailing slash,
  * NFC, `.` and empty segments dropped, `..` collapsed (never above the root).
- * Every segment must pass `validateName`. Throws `PathError`.
+ * Every segment must pass `validateName` (so a backslash is an invalid name,
+ * never a separator). Throws `PathError`.
  */
 export function normalizePath(input: string): string {
   if (typeof input !== 'string') throw new PathError('Path must be a string.');
   if (input.includes('\0')) throw new PathError('Path cannot contain NUL.', input);
-  const raw = input.normalize('NFC').replace(/\\/g, '/');
+  const raw = input.normalize('NFC');
   const out: string[] = [];
   for (const seg of raw.split('/')) {
     if (seg === '' || seg === '.') continue;

@@ -57,7 +57,9 @@ describe('format', () => {
     expect(meterLevel(120, 100)).toBe('red');
   });
   test('shortId', () => {
-    expect(shortId('vc_01J8ZQ3ABCDEFGHJKMNPQRSTVW')).toBe('@01j8zq3');
+    expect(shortId('vc_01J8ZQ3ABCDEFGHJKMNPQRSTVW')).toBe('@pqrstvw');
+    // Commits made in the same second differ in the tail, not the timestamp prefix.
+    expect(shortId('vc_01M3K9CWJB6Y156PNYW4X90FVF')).not.toBe(shortId('vc_01M3K9CWJ40P2PDAAJPKCDX91Z'));
     expect(shortId(null)).toBe('');
   });
 });
