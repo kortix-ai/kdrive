@@ -1,7 +1,7 @@
-import { eq } from 'drizzle-orm';
+import { and, eq, gt, inArray, ne, sql } from 'drizzle-orm';
 import { meterLevel, type UsageResponse } from '@volumes/shared';
 import { db } from '../db/client';
-import { userSettings } from '../db/schema';
+import { uploads, userSettings } from '../db/schema';
 import { env } from '../env';
 import { ApiError } from '../lib/http';
 import { listWorkspaces, workspaceUsage } from './workspaces';
@@ -21,16 +21,37 @@ export async function getUsage(userId: string): Promise<UsageResponse> {
 }
 
 /**
- * Refuses `addBytes` more when it would push the user over quota: 413
+ * Bytes promised to the user's uploads that are planned but not committed yet
+ * (and not expired): their growth is not in logicalBytes until they commit.
+ */
+export async function reservedBytes(userId: string, opts: { excludeUploadId?: string } = {}): Promise<number> {
+  const conds = [
+    eq(uploads.userId, userId),
+    inArray(uploads.status, ['planned', 'uploading']),
+    gt(uploads.expiresAt, new Date()),
+    gt(uploads.addedBytes, 0),
+  ];
+  if (opts.excludeUploadId) conds.push(ne(uploads.id, opts.excludeUploadId));
+  const [r] = await db
+    .select({ n: sql<string>`COALESCE(SUM(${uploads.addedBytes}), 0)` })
+    .from(uploads)
+    .where(and(...conds));
+  return Number(r?.n ?? 0);
+}
+
+/**
+ * Refuses `addBytes` more when it would push the user over quota, counting
+ * what is committed plus what in-flight uploads have reserved: 413
  * `quota_exceeded` with {usedBytes, quotaBytes, requestedBytes, overBytes}.
  */
-export async function assertQuota(userId: string, addBytes: number): Promise<void> {
+export async function assertQuota(userId: string, addBytes: number, opts: { excludeUploadId?: string } = {}): Promise<void> {
   if (addBytes <= 0) return;
-  const u = await getUsage(userId);
-  const after = u.usedBytes + addBytes;
+  const [u, reserved] = await Promise.all([getUsage(userId), reservedBytes(userId, opts)]);
+  const used = u.usedBytes + reserved;
+  const after = used + addBytes;
   if (after > u.quotaBytes) {
     throw new ApiError(413, 'quota_exceeded', 'This would go over your storage quota.', {
-      usedBytes: u.usedBytes,
+      usedBytes: used,
       quotaBytes: u.quotaBytes,
       requestedBytes: addBytes,
       overBytes: after - u.quotaBytes,

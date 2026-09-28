@@ -34,7 +34,7 @@ import {
   type VolumeStore,
   VolumeStoreError,
 } from '../types';
-import { UploadSlots, uploadSlots as sharedSlots } from '../upload-slots';
+import { UploadSlots } from '../upload-slots';
 import { BlockStore, ZERO_BLOCK_SHA, blocksOf, readJson, sha256Hex, writeJson } from './fs';
 import { parseRange } from './range';
 import { KEEP_LAST, RETENTION_DAYS, TRASH_MS, computeRetained } from './retention';
@@ -59,7 +59,9 @@ interface VolumeDoc {
 
 interface CommitDoc {
   id: string;
-  seq: number;
+  /** null for a side commit (an upload that lost the race for the head; hidden from history) */
+  seq: number | null;
+  side?: boolean;
   kind: CommitKind;
   parentId: string | null;
   baseId: string | null;
@@ -82,6 +84,25 @@ interface Plan {
   expiresAt: number;
   uploadedBlocks: number;
   uploadedBytes: number;
+  /** Given up by the app (Platinum has no abort): unusable, but it holds its slot until it expires. */
+  abandoned?: boolean;
+  totalBytes: number;
+}
+
+/** A stored-bytes reservation: a plan's full size, counted while it lives and 48 h after it ends uncommitted. */
+interface Reservation {
+  volumeId: string;
+  bytes: number;
+  /** ms; Infinity while the plan is live */
+  until: number;
+}
+
+/** Store operations a test can make fail on purpose (fault injection). */
+export type FaultOp = 'move' | 'copy' | 'remove' | 'commitUpload' | 'planUpload' | 'restoreVolume' | 'putTag';
+export interface Fault {
+  error: VolumeStoreError;
+  /** true: the operation is applied, then the error is thrown (a response lost after the commit landed). */
+  afterApply?: boolean;
 }
 
 export interface EmulatedStoreOptions {
@@ -90,10 +111,15 @@ export interface EmulatedStoreOptions {
   now?: () => number;
   maxVolumes?: number;
   maxBytesPerVolume?: number;
-  /** Upload slot semaphore (defaults to the process-wide one). */
+  /** Upload slot semaphore (defaults to one per emulated org, like Platinum's 4 per org). */
   slots?: UploadSlots;
   slotWaitMs?: number;
 }
+
+/** Stored bytes (history + pending plans) may reach this many times the volume size (Platinum's factor). */
+const STORED_FACTOR = 4;
+/** An uncommitted plan's reservation keeps counting this long after it ends. */
+const RESERVATION_TAIL_MS = 48 * 3600_000;
 
 const VOLUME_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$/;
 const TAG_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$/;
@@ -179,6 +205,8 @@ export class EmulatedStore implements VolumeStore {
   private volumes = new Map<string, VolumeDoc>();
   private commits = new Map<string, Map<string, CommitDoc>>(); // volId -> commits (all loaded)
   private plans = new Map<string, Plan>();
+  private reservations = new Map<string, Reservation>(); // uploadId -> reservation
+  private faults = new Map<FaultOp, Fault[]>();
   private locks = new Map<string, Promise<unknown>>();
   private globalLock: Promise<unknown> = Promise.resolve();
 
@@ -188,7 +216,7 @@ export class EmulatedStore implements VolumeStore {
     this.now = opts.now ?? Date.now;
     this.maxVolumes = opts.maxVolumes ?? 25;
     this.maxBytesPerVolume = opts.maxBytesPerVolume ?? 50 * GiB;
-    this.slots = opts.slots ?? sharedSlots;
+    this.slots = opts.slots ?? new UploadSlots(MAX_UPLOADS_IN_FLIGHT, PLAN_TTL_MS, this.now);
     this.slotWaitMs = opts.slotWaitMs ?? 30_000;
   }
 
@@ -196,6 +224,22 @@ export class EmulatedStore implements VolumeStore {
 
   private newId(prefix: 'vol_' | 'vc_' | 'vu_'): string {
     return prefix + this.ulid(this.now());
+  }
+
+  /** Test hook: the next `times` calls of `op` fail with `fault.error` (optionally after applying). */
+  injectFault(op: FaultOp, fault: Fault, times = 1): void {
+    const l = this.faults.get(op) ?? [];
+    for (let i = 0; i < times; i++) l.push(fault);
+    this.faults.set(op, l);
+  }
+
+  /** Runs `apply` unless a fault is queued for `op`; an after-apply fault throws once the change landed. */
+  private async faulty<T>(op: FaultOp, apply: () => Promise<T>): Promise<T> {
+    const f = this.faults.get(op)?.shift();
+    if (!f) return apply();
+    if (!f.afterApply) throw f.error;
+    await apply();
+    throw f.error;
   }
 
   private iso(ms = this.now()): string {
@@ -325,7 +369,7 @@ export class EmulatedStore implements VolumeStore {
     return {
       id: c.id,
       seq: c.seq,
-      onHead: true,
+      onHead: !c.side,
       kind: c.kind,
       parentId: c.parentId,
       baseId: c.baseId,
@@ -465,7 +509,7 @@ export class EmulatedStore implements VolumeStore {
     pinned.add(v.headCommitId);
     const live = [...commits.values()].filter((c) => !c.purged);
     const keep = computeRetained(
-      live.map((c) => ({ id: c.id, seq: c.seq, onHead: true, kind: c.kind, createdAt: Date.parse(c.createdAt) })),
+      live.map((c) => ({ id: c.id, seq: c.seq, onHead: !c.side, kind: c.kind, createdAt: Date.parse(c.createdAt) })),
       pinned,
       now,
       { keepLast: KEEP_LAST, days: RETENTION_DAYS },
@@ -500,12 +544,55 @@ export class EmulatedStore implements VolumeStore {
     const now = this.now();
     let n = 0;
     for (const [id, p] of this.plans) {
-      if (p.expiresAt <= now) {
-        this.plans.delete(id);
-        this.slots.release(id);
-      } else n++;
+      if (p.expiresAt <= now) this.endPlan(id, p.expiresAt);
+      else n++;
     }
     return n;
+  }
+
+  /** A plan ends without a commit: its slot frees, its stored-bytes reservation lingers 48 h. */
+  private endPlan(id: string, at: number): void {
+    this.plans.delete(id);
+    this.slots.release(id);
+    const r = this.reservations.get(id);
+    if (r) r.until = at + RESERVATION_TAIL_MS;
+  }
+
+  /**
+   * Stored bytes of a volume: every distinct block its unpurged commits
+   * reference, plus the reservations of its plans (full plan size, dedup ignored).
+   */
+  private async storedBytes(volumeId: string): Promise<number> {
+    const commits = await this.commitsOf(volumeId);
+    const seen = new Map<string, number>();
+    for (const c of commits.values()) {
+      if (c.purged || !c.tree) continue;
+      for (const n of Object.values(c.tree)) {
+        if (n.type !== 'file') continue;
+        n.blocks.forEach((sha, i) => {
+          if (!seen.has(sha)) seen.set(sha, Math.min(BLOCK_SIZE, n.size - i * BLOCK_SIZE));
+        });
+      }
+    }
+    let bytes = 0;
+    for (const len of seen.values()) bytes += len;
+    const now = this.now();
+    for (const [id, r] of this.reservations) {
+      if (r.until <= now) this.reservations.delete(id);
+      else if (r.volumeId === volumeId) bytes += r.bytes;
+    }
+    return bytes;
+  }
+
+  /** Platinum's stored-bytes budget: 4 × the volume size per volume, max volumes × size × 4 per org. */
+  private async assertStoredBudget(volumeId: string, adding: number): Promise<void> {
+    const volMax = this.maxBytesPerVolume * STORED_FACTOR;
+    const vol = (await this.storedBytes(volumeId)) + adding;
+    if (vol > volMax) throw err(403, 'quota_exceeded', 'stored bytes budget exhausted', { limit: 'stored_bytes', max: volMax, bytes: vol });
+    const orgMax = this.maxVolumes * this.maxBytesPerVolume * STORED_FACTOR;
+    let org = adding;
+    for (const id of Object.values(await this.loadNames())) org += await this.storedBytes(id);
+    if (org > orgMax) throw err(403, 'quota_exceeded', 'stored bytes budget exhausted', { limit: 'stored_bytes', max: orgMax, bytes: org });
   }
 
   /** Test hook: runs retention for one volume now. */
@@ -581,7 +668,7 @@ export class EmulatedStore implements VolumeStore {
   async restoreVolume(id: string, to: Ref): Promise<Commit> {
     if (!to) throw err(400, 'bad_request', 'to is required');
     const v = await this.vol(id);
-    return this.withLock(v.id, async () => {
+    return this.faulty('restoreVolume', () => this.withLock(v.id, async () => {
       const target = await this.resolve(v, to);
       await this.revive(v, target);
       const r = await this.commitTree(v, 'restore', () => structuredClone(target.tree ?? {}));
@@ -589,7 +676,7 @@ export class EmulatedStore implements VolumeStore {
       c.baseId = target.id;
       await this.saveCommit(v.id, c);
       return this.toCommit(v, c);
-    });
+    }));
   }
 
   async limits(): Promise<StoreLimits> {
@@ -715,6 +802,7 @@ export class EmulatedStore implements VolumeStore {
     if (data.length > MAX_WRITE_BYTES) {
       throw err(413, 'payload_too_large', `write exceeds ${MAX_WRITE_BYTES} bytes`, { max: MAX_WRITE_BYTES });
     }
+    await this.assertStoredBudget(v.id, data.length);
     const chunks = blocksOf(data);
     for (const b of chunks) await this.blocks.put(b.sha, b.bytes);
     return this.withLock(v.id, async () => {
@@ -747,7 +835,7 @@ export class EmulatedStore implements VolumeStore {
     const src = normPath(rawSrc);
     const dst = normPath(rawDst);
     if (src === '/' || dst === '/') throw err(400, 'bad_request', 'cannot copy the root');
-    return this.withLock(v.id, async () => {
+    return this.faulty('copy', () => this.withLock(v.id, async () => {
       const r = await this.commitTree(v, 'api', (tree, version, now) => {
         const s = tree[src];
         if (!s) throw err(404, 'path_not_found', `${src} not found`, { path: src });
@@ -766,7 +854,7 @@ export class EmulatedStore implements VolumeStore {
         return tree;
       });
       return strip(r);
-    });
+    }));
   }
 
   async move(id: string, rawSrc: string, rawDst: string, opts: { overwrite?: boolean } = {}): Promise<CommitResult> {
@@ -774,7 +862,7 @@ export class EmulatedStore implements VolumeStore {
     const src = normPath(rawSrc);
     const dst = normPath(rawDst);
     if (src === '/' || dst === '/') throw err(400, 'bad_request', 'cannot move the root');
-    return this.withLock(v.id, async () => {
+    return this.faulty('move', () => this.withLock(v.id, async () => {
       const r = await this.commitTree(v, 'api', (tree, version, now) => {
         const s = tree[src];
         if (!s) throw err(404, 'path_not_found', `${src} not found`, { path: src });
@@ -793,14 +881,14 @@ export class EmulatedStore implements VolumeStore {
         return tree;
       });
       return strip(r);
-    });
+    }));
   }
 
   async remove(id: string, rawPath: string, opts: { recursive?: boolean } = {}): Promise<CommitResult> {
     const v = await this.vol(id);
     const p = normPath(rawPath);
     if (p === '/') throw err(400, 'bad_request', 'cannot remove the root');
-    return this.withLock(v.id, async () => {
+    return this.faulty('remove', () => this.withLock(v.id, async () => {
       const r = await this.commitTree(v, 'api', (tree) => {
         const n = tree[p];
         if (!n) throw err(404, 'path_not_found', `${p} not found`, { path: p });
@@ -812,12 +900,12 @@ export class EmulatedStore implements VolumeStore {
         return tree;
       });
       return strip(r);
-    });
+    }));
   }
 
   // ── block upload protocol ─────────────────────────────────────────────────
 
-  async planUpload(id: string, plan: UploadPlan): Promise<PlannedUpload> {
+  async planUpload(id: string, plan: UploadPlan, opts: { waitMs?: number } = {}): Promise<PlannedUpload> {
     const v = await this.vol(id);
     if (plan.files.length > MAX_PLAN_FILES) throw err(400, 'bad_request', `at most ${MAX_PLAN_FILES} files per upload`);
     const seen = new Set<string>();
@@ -858,12 +946,16 @@ export class EmulatedStore implements VolumeStore {
       const clash = files.filter((f) => tree[f.path]).map((f) => f.path);
       if (clash.length) throw err(409, 'path_exists', `${clash.length} path(s) already exist`, { paths: clash.slice(0, 1000) });
     }
+    // Platinum reserves the plan's full size (dedup ignored) against the stored-bytes budget.
+    await this.assertStoredBudget(v.id, totalBytes);
 
+    const f = this.faults.get('planUpload')?.shift();
+    if (f) throw f.error;
     const tempId = `pending_${this.newId('vu_')}`;
-    await this.slots.acquire(tempId, { waitMs: this.slotWaitMs });
+    await this.slots.acquire(tempId, { waitMs: opts.waitMs ?? this.slotWaitMs });
     if (this.livePlanCount() >= MAX_UPLOADS_IN_FLIGHT) {
       this.slots.release(tempId);
-      throw err(429, 'rate_limited', 'too many uploads in progress', { retryAfterSeconds: 30, retryable: true });
+      throw err(429, 'rate_limited', 'too many uploads in progress', { retryAfterSeconds: 30, retryable: true, reason: 'org_uploads' });
     }
     const uploadId = this.newId('vu_');
     this.slots.rename(tempId, uploadId);
@@ -877,15 +969,17 @@ export class EmulatedStore implements VolumeStore {
       expiresAt,
       uploadedBlocks: 0,
       uploadedBytes: 0,
+      totalBytes,
     });
+    this.reservations.set(uploadId, { volumeId: v.id, bytes: totalBytes, until: Infinity });
     const missing = await this.blocks.missing(blockLen.keys());
     return { uploadId, missing, expiresAt: this.iso(expiresAt) };
   }
 
   private livePlan(volumeId: string, uploadId: string): Plan {
     const p = this.plans.get(uploadId);
-    if (!p || p.volumeId !== volumeId || p.expiresAt <= this.now()) {
-      if (p && p.expiresAt <= this.now()) this.releaseUpload(uploadId);
+    if (p && p.expiresAt <= this.now()) this.endPlan(uploadId, p.expiresAt);
+    if (!p || p.volumeId !== volumeId || p.expiresAt <= this.now() || p.abandoned) {
       throw err(404, 'not_found', 'upload not found or expired');
     }
     return p;
@@ -906,6 +1000,41 @@ export class EmulatedStore implements VolumeStore {
     this.slots.touch(uploadId);
   }
 
+  /** Applies a plan's files and dirs onto `tree`. `check` refuses existing paths when the plan does not overwrite. */
+  private applyPlan(p: Plan, tree: Tree, version: string, now: number, check: Tree | null): { overwritten: PathReason[]; skipped: PathReason[] } {
+    const overwritten: PathReason[] = [];
+    const skipped: PathReason[] = [];
+    for (const d of p.plan.dirs) {
+      const cur = tree[d];
+      if (cur && cur.type !== 'dir') throw err(409, 'not_a_directory', `${d} is not a directory`, { path: d });
+      this.mkParents(tree, d, version, now);
+      if (!cur) tree[d] = { type: 'dir', mtime: now, mode: 0o755, version };
+    }
+    for (const f of p.plan.files) {
+      // Commit-time overwrite check (Platinum re-checks here, on the tree it commits against).
+      if (check && !p.plan.overwrite && check[f.path]) throw err(409, 'path_exists', `${f.path} already exists`, { path: f.path });
+      const cur = tree[f.path];
+      if (cur && cur.type === 'dir') {
+        if (!check) {
+          skipped.push({ path: f.path, reason: 'type_change' });
+          continue;
+        }
+        throw err(409, 'not_a_file', `${f.path} is a directory`, { path: f.path });
+      }
+      this.mkParents(tree, f.path, version, now);
+      const node: FileNode = { type: 'file', size: f.size, mtime: f.mtime ?? now, mode: f.mode ?? 0o644, blocks: f.blocks.slice(), version };
+      if (!check && cur) overwritten.push({ path: f.path, reason: 'newer_remote_replaced' });
+      if (!sameNode(cur, node)) tree[f.path] = node;
+    }
+    return { overwritten, skipped };
+  }
+
+  /**
+   * Commits a plan. Like Platinum, the commit CASes against the head the plan
+   * was made on: when the head moved since, the plan lands as a hidden side
+   * commit on that base and a `merge` commit brings it onto the head
+   * (outcome `merged`, head_commit_id = the merge).
+   */
   async commitUpload(id: string, uploadId: string): Promise<CommitResult & { files: number }> {
     const v = await this.vol(id);
     const p = this.livePlan(v.id, uploadId);
@@ -913,43 +1042,64 @@ export class EmulatedStore implements VolumeStore {
     if (missing.length) {
       throw err(400, 'bad_request', 'upload incomplete', { missing: missing.slice(0, 1000) });
     }
-    const r = await this.withLock(v.id, () =>
-      this.commitTree(
-        v,
-        'api',
-        (tree, version, now) => {
-          for (const d of p.plan.dirs) {
-            const cur = tree[d];
-            if (cur && cur.type !== 'dir') throw err(409, 'not_a_directory', `${d} is not a directory`, { path: d });
-            this.mkParents(tree, d, version, now);
-            if (!cur) tree[d] = { type: 'dir', mtime: now, mode: 0o755, version };
-          }
-          for (const f of p.plan.files) {
-            const cur = tree[f.path];
-            if (cur && cur.type === 'dir') throw err(409, 'not_a_file', `${f.path} is a directory`, { path: f.path });
-            this.mkParents(tree, f.path, version, now);
-            const node: FileNode = {
-              type: 'file',
-              size: f.size,
-              mtime: f.mtime ?? now,
-              mode: f.mode ?? 0o644,
-              blocks: f.blocks.slice(),
-              version,
-            };
-            if (!sameNode(cur, node)) tree[f.path] = node;
-          }
-          return tree;
-        },
-        { uploadedBlocks: p.uploadedBlocks, uploadedBytes: p.uploadedBytes },
-      ),
+    const stats = { uploadedBlocks: p.uploadedBlocks, uploadedBytes: p.uploadedBytes };
+    const r = await this.faulty('commitUpload', () =>
+      this.withLock(v.id, async () => {
+        const head = await this.resolve(v, 'head');
+        if (head.id === p.baseCommitId) {
+          return strip(await this.commitTree(v, 'api', (tree, version, now) => (this.applyPlan(p, tree, version, now, tree), tree), stats));
+        }
+        return this.mergeUpload(v, p, head, stats);
+      }),
     );
-    this.releaseUpload(uploadId);
-    return { ...strip(r), files: p.plan.files.length };
+    this.plans.delete(uploadId);
+    this.reservations.delete(uploadId);
+    this.slots.release(uploadId);
+    return { ...r, files: p.plan.files.length };
   }
 
+  private async mergeUpload(v: VolumeDoc, p: Plan, head: CommitDoc, stats: { uploadedBlocks: number; uploadedBytes: number }): Promise<CommitResult> {
+    const base = await this.resolve(v, p.baseCommitId, { allowPurged: false });
+    const now = this.now();
+    // The side commit: the plan applied to the tree it was made on.
+    const sideId = this.newId('vc_');
+    const sideTree = structuredClone(base.tree ?? {});
+    this.applyPlan(p, sideTree, sideId.slice(3), now, base.tree ?? {});
+    const side: CommitDoc = {
+      id: sideId,
+      seq: null,
+      side: true,
+      kind: 'side',
+      parentId: base.id,
+      baseId: base.id,
+      createdAt: this.iso(now),
+      expiredAt: null,
+      purged: false,
+      ...logicalBytesOf(sideTree),
+      stats: { changedPaths: 0, deletedPaths: 0, ...stats },
+      tree: sideTree,
+    };
+    await this.saveCommit(v.id, side);
+    // The merge: the same changes on top of the current head.
+    let reasons: { overwritten: PathReason[]; skipped: PathReason[] } = { overwritten: [], skipped: [] };
+    const r = await this.commitTree(v, 'merge', (tree) => {
+      const versionOfSide = sideId.slice(3);
+      reasons = this.applyPlan(p, tree, versionOfSide, now, null);
+      return tree;
+    });
+    return { commitId: sideId, outcome: 'merged', headCommitId: r.headCommitId, overwritten: reasons.overwritten, skipped: reasons.skipped };
+  }
+
+  /**
+   * Gives up on a plan (the app aborted it or a commit failed for good).
+   * Platinum has no abort: the plan keeps its org slot and its stored-bytes
+   * reservation until it expires, so the emulator does too. A committed plan
+   * is already gone, which makes this a no-op after success.
+   */
   releaseUpload(uploadId: string): void {
-    this.plans.delete(uploadId);
-    this.slots.release(uploadId);
+    const p = this.plans.get(uploadId);
+    if (!p) return;
+    p.abandoned = true;
   }
 
   // ── history & tags ────────────────────────────────────────────────────────
@@ -960,7 +1110,7 @@ export class EmulatedStore implements VolumeStore {
     const commits = await this.commitsOf(v.id);
     const order = (a: CommitDoc, b: CommitDoc) =>
       a.createdAt === b.createdAt ? (a.id < b.id ? 1 : a.id > b.id ? -1 : 0) : a.createdAt < b.createdAt ? 1 : -1;
-    let visible = [...commits.values()].filter((c) => !c.expiredAt && !c.purged).sort(order);
+    let visible = [...commits.values()].filter((c) => !c.expiredAt && !c.purged && !c.side).sort(order);
     if (opts.before) {
       const cur = commits.get(opts.before);
       if (!cur) throw err(400, 'bad_request', 'invalid cursor');
@@ -990,7 +1140,7 @@ export class EmulatedStore implements VolumeStore {
   async putTag(id: string, name: string, commit?: Ref): Promise<Tag> {
     if (!TAG_NAME.test(name) || name === 'head') throw err(400, 'bad_request', `invalid tag name "${name}"`);
     const v = await this.vol(id);
-    return this.withLock(v.id, async () => {
+    return this.faulty('putTag', () => this.withLock(v.id, async () => {
       const c = await this.resolve(v, commit ?? 'head');
       if (!v.tags[name] && Object.keys(v.tags).length >= TAG_BUDGET) {
         throw err(403, 'quota_exceeded', `tag limit reached (${TAG_BUDGET})`, { limit: 'tags', max: TAG_BUDGET });
@@ -1000,7 +1150,7 @@ export class EmulatedStore implements VolumeStore {
       v.tags[name] = t;
       await this.saveVolume(v);
       return { name, ...t };
-    });
+    }));
   }
 
   async deleteTag(id: string, name: string): Promise<void> {

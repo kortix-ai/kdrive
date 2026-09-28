@@ -47,15 +47,22 @@ export function mapStoreError(e: VolumeStoreError): Envelope {
       if (e.extra.limit === 'tags') {
         return { status: 409, code: 'tag_budget_exceeded', message: 'This workspace has used all 100 checkpoints and pinned links.', details: pick(e, ['max']) };
       }
+      // Storage-side limits carry `limit` but no user-quota numbers, so the client
+      // shows their message instead of the "you need N more" quota dialog.
       if (e.extra.limit === 'stored_bytes') {
         return {
           status: 413,
           code: 'quota_exceeded',
           message: 'History is full; remove checkpoints or wait for old versions to expire.',
-          details: { limit: 'stored_bytes' },
+          details: { limit: 'stored_bytes', ...pick(e, ['max']) },
         };
       }
-      return { status: 413, code: 'quota_exceeded', message: 'Storage limit exceeded.', details: { limit: e.extra.limit ?? 'bytes' } };
+      return {
+        status: 413,
+        code: 'quota_exceeded',
+        message: 'This workspace reached its storage size limit. Move some files to another workspace.',
+        details: { limit: e.extra.limit ?? 'bytes', ...pick(e, ['max']) },
+      };
     case 'rate_limited':
       return { status: 429, code: 'rate_limited', message: 'Storage is busy. Try again shortly.', details: pick(e, ['retryAfterSeconds']), headers: retryHeaders ?? { 'Retry-After': '5' } };
     case 'commit_failed':

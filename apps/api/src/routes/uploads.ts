@@ -20,12 +20,14 @@ import { ApiError, noContent, ok, parseJson } from '../lib/http';
 import { newId } from '../lib/ids';
 import { withWorkspaceLock } from '../lib/lock';
 import { checkRateLimit, limits } from '../middleware/rate-limit';
-import { appendPaths, attachCommit, finalize, getAction, recordIntent, toSummary } from '../services/ledger';
+import { actionPaths } from '../db/schema';
+import { actionsByCommits, appendPaths, attachCommit, finalize, getAction, isAmbiguousFailure, recordIntent, toSummary } from '../services/ledger';
+import { missingForUser } from '../services/proven-blocks';
 import { assertQuota } from '../services/quota';
 import { statOrNull } from '../services/tree';
 import { resolveUploadPlan, type ResolvedUploadPlan } from '../services/upload-plan';
 import { getStore } from '../storage';
-import { isStoreError } from '../storage/types';
+import { isStoreError, type CommitResult, type UploadPlan } from '../storage/types';
 import type { AppEnv, WorkspaceCtx } from '../types';
 
 export const uploadsRoutes = new Hono<AppEnv>();
@@ -180,51 +182,63 @@ uploadsRoutes.post('/uploads', async (c) => {
     }
   }
 
+  // The head the conflicts are resolved against: a commit onto a newer head re-checks them.
+  const head = (await getStore().getVolume(ws.volumeId)).headCommitId;
   const resolved = await resolveUploadPlan(ws, req);
-  // Quota is checked before anything is recorded or sent: 413 with QuotaDetails.
-  await assertQuota(user.id, resolved.addedBytes);
-
-  let actionId: string;
-  if (joined) {
-    actionId = joined.id;
-    await appendPaths(actionId, ws.id, resolved.changes);
-    const prevFiles = Number((joined.meta as { files?: number }).files ?? 0);
-    const files = prevFiles + resolved.plan.files.length;
-    const summary = files > 0 ? uploadSummaryForTotal(joined.summary, files) : joined.summary;
-    await db
-      .update(actions)
-      .set({ summary, meta: sql`${actions.meta} || ${JSON.stringify({ files, plans: Number((joined.meta as { plans?: number }).plans ?? 1) + 1 })}::jsonb` })
-      .where(eq(actions.id, actionId));
-  } else {
-    const rec = await recordIntent(
-      { ws, userId: user.id },
-      {
-        kind: resolved.plan.files.length ? 'upload' : 'folder.create',
-        summary: await uploadSummary(ws, resolved),
-        paths: resolved.changes,
-        meta: { files: resolved.plan.files.length, plans: 1, renamed: resolved.renamed.length },
-      },
-    );
-    actionId = rec.actionId;
-  }
-
+  // Quota is checked before anything is recorded or sent (413 with QuotaDetails),
+  // counting what other in-flight uploads reserved. Checking and reserving happen
+  // under one per-user lock, so two plans made at once cannot both fit.
   const id = newId();
-  await db.insert(uploads).values({
-    id,
-    workspaceId: ws.id,
-    userId: user.id,
-    actionId,
-    ptUploadId: null,
-    status: 'planned',
-    plan: {
-      files: resolved.plan.files.map((f) => ({ path: f.path, size: f.size })),
-      dirs: resolved.plan.dirs,
-      overwrite: resolved.plan.overwrite,
-      renamed: resolved.renamed,
-    },
-    totalBytes: resolved.totalBytes,
-    missingCount: 0,
-    expiresAt: new Date(Date.now() + PLAN_TTL_MS),
+  /** The action this plan belongs to: a later plan joins the first plan's action. */
+  const recordPlan = async (): Promise<string> => {
+    if (joined) {
+      const actionId = joined.id;
+      await appendPaths(actionId, ws.id, resolved.changes);
+      const prevFiles = Number((joined.meta as { files?: number }).files ?? 0);
+      const files = prevFiles + resolved.plan.files.length;
+      const summary = files > 0 ? uploadSummaryForTotal(joined.summary, files) : joined.summary;
+      await db
+        .update(actions)
+        .set({ summary, meta: sql`${actions.meta} || ${JSON.stringify({ files, plans: Number((joined.meta as { plans?: number }).plans ?? 1) + 1 })}::jsonb` })
+        .where(eq(actions.id, actionId));
+      return actionId;
+    } else {
+      const rec = await recordIntent(
+        { ws, userId: user.id },
+        {
+          kind: resolved.plan.files.length ? 'upload' : 'folder.create',
+          summary: await uploadSummary(ws, resolved),
+          paths: resolved.changes,
+          meta: { files: resolved.plan.files.length, plans: 1, renamed: resolved.renamed.length },
+        },
+      );
+      return rec.actionId;
+    }
+  };
+
+  let actionId = '';
+  await withWorkspaceLock(`quota:${user.id}`, async () => {
+    await assertQuota(user.id, resolved.addedBytes);
+    actionId = await recordPlan();
+    await db.insert(uploads).values({
+      id,
+      workspaceId: ws.id,
+      userId: user.id,
+      actionId,
+      ptUploadId: null,
+      status: 'planned',
+      plan: {
+        files: resolved.plan.files.map((f) => ({ path: f.path, size: f.size })),
+        dirs: resolved.plan.dirs,
+        overwrite: resolved.plan.overwrite,
+        renamed: resolved.renamed,
+        baseCommitId: head,
+      },
+      totalBytes: resolved.totalBytes,
+      addedBytes: Math.max(0, resolved.addedBytes),
+      missingCount: 0,
+      expiresAt: new Date(Date.now() + PLAN_TTL_MS),
+    });
   });
 
   let planned;
@@ -236,16 +250,22 @@ uploadsRoutes.post('/uploads', async (c) => {
     throw e;
   }
   const expiresAt = new Date(planned.expiresAt);
+  // Never reveal what OTHER users store: only blocks this user already holds are skipped.
+  const missing = await missingForUser(
+    user.id,
+    resolved.plan.files.flatMap((f) => f.blocks),
+    planned.missing,
+  );
   await setStatus(id, 'planned', {
     ptUploadId: planned.uploadId,
-    missingCount: planned.missing.length,
+    missingCount: missing.length,
     expiresAt: Number.isFinite(expiresAt.getTime()) ? expiresAt : new Date(Date.now() + PLAN_TTL_MS),
   });
 
   return ok(c, UploadPlanResponse, {
     uploadId: id,
     actionId,
-    missing: planned.missing,
+    missing,
     renamed: resolved.renamed,
     expiresAt: Number.isFinite(expiresAt.getTime()) ? expiresAt.toISOString() : new Date(Date.now() + PLAN_TTL_MS).toISOString(),
   });
@@ -287,10 +307,46 @@ uploadsRoutes.put('/uploads/:id/blocks/:sha', async (c) => {
 
 // ── commit ─────────────────────────────────────────────────────────────────
 
+/** The full store plan of an upload row, rebuilt from its ledger rows (sizes, block lists, mtimes). */
+async function storePlanOf(row: UploadRow): Promise<UploadPlan | null> {
+  if (!row.actionId) return null;
+  const want = new Set(row.plan.files.map((f) => f.path));
+  const rows = await db
+    .select({ path: actionPaths.path, size: actionPaths.size, blocks: actionPaths.blockHashes, mtime: actionPaths.mtime })
+    .from(actionPaths)
+    .where(and(eq(actionPaths.actionId, row.actionId), eq(actionPaths.entryType, 'file')));
+  const byPath = new Map(rows.filter((r) => want.has(r.path)).map((r) => [r.path, r]));
+  const files: UploadPlan['files'] = [];
+  for (const f of row.plan.files) {
+    const r = byPath.get(f.path);
+    if (!r?.blocks) return null;
+    files.push({ path: f.path, size: f.size, blocks: r.blocks, ...(r.mtime !== null ? { mtime: r.mtime } : {}) });
+  }
+  return { files, dirs: row.plan.dirs, overwrite: row.plan.overwrite };
+}
+
+/**
+ * Files this plan adds (not replaces) that exist at head now: something was
+ * created there between plan and commit. They go back to the browser as a
+ * conflict to resolve, instead of being silently overwritten.
+ */
+async function newConflicts(ws: WorkspaceCtx, row: UploadRow): Promise<string[]> {
+  if (!row.actionId) return [];
+  const planned = new Set(row.plan.files.map((f) => f.path));
+  const added = await db
+    .select({ path: actionPaths.path })
+    .from(actionPaths)
+    .where(and(eq(actionPaths.actionId, row.actionId), eq(actionPaths.op, 'added'), eq(actionPaths.entryType, 'file')));
+  const out: string[] = [];
+  for (const { path } of added) if (planned.has(path) && (await statOrNull(ws, path))) out.push(path);
+  return out;
+}
+
 uploadsRoutes.post('/uploads/:id/commit', async (c) => {
   await parseJson(c, EmptyBody);
   const ws = c.get('ws');
-  const row = await loadUpload(ws, c.get('user').id, c.req.param('id'));
+  const user = c.get('user');
+  const row = await loadUpload(ws, user.id, c.req.param('id'));
   const fileCount = row.plan.files.length;
 
   // A retried commit after success answers the same result.
@@ -302,32 +358,109 @@ uploadsRoutes.post('/uploads/:id/commit', async (c) => {
     throw new ApiError(409, 'conflict', `This upload is ${row.status}. Start it again.`, { status: row.status });
   }
   if (!row.ptUploadId || !row.actionId) throw new ApiError(409, 'conflict', 'This upload was never planned. Start it again.');
-  const ptUploadId = row.ptUploadId;
   const actionId = row.actionId;
   const store = getStore();
 
   const result = await withWorkspaceLock(ws.id, async () => {
     // Re-check under the lock: a concurrent commit of the same upload may have won.
-    const [fresh] = await db.select({ status: uploads.status }).from(uploads).where(eq(uploads.id, row.id));
+    const [fresh] = await db.select().from(uploads).where(eq(uploads.id, row.id));
     if (fresh?.status === 'committed') return null;
-    let r;
+    let ptUploadId = fresh?.ptUploadId ?? row.ptUploadId!;
+    const head = (await store.getVolume(ws.volumeId)).headCommitId;
+    const planBase = row.plan.baseCommitId;
+
+    if (planBase && head !== planBase) {
+      // The head moved since the plan (another tab, a rename, a delete...).
+      const clash = await newConflicts(ws, row);
+      if (clash.length) {
+        throw new ApiError(
+          409,
+          'conflict',
+          clash.length === 1 ? `"${basename(clash[0])}" was created since this upload started.` : `${clash.length} items were created since this upload started.`,
+          { conflicts: clash, uploadId: row.id },
+        );
+      }
+    }
+    // Quota again, against what is committed now (copies and restores do not reserve).
+    try {
+      await assertQuota(user.id, row.addedBytes, { excludeUploadId: row.id });
+    } catch (e) {
+      store.releaseUpload(ptUploadId);
+      await setStatus(row.id, 'failed');
+      await failActionIfEmpty(actionId, 'over quota at commit');
+      throw e;
+    }
+
+    if (planBase && head !== planBase) {
+      // Platinum would commit against the plan's base and merge (a hidden side
+      // commit plus a `merge` head that retention thins). Every block is stored
+      // by now, so a fresh plan on the current head commits at once, fast.
+      const plan = await storePlanOf(row);
+      if (plan) {
+        try {
+          const fresh2 = await store.planUpload(ws.volumeId, plan, { waitMs: 0 });
+          store.releaseUpload(ptUploadId);
+          ptUploadId = fresh2.uploadId;
+          await setStatus(row.id, 'uploading', { ptUploadId, plan: { ...row.plan, baseCommitId: head } });
+        } catch {
+          // No free slot: commit the original plan; a `merged` result is recorded as such.
+        }
+      }
+    }
+
+    // The head right before the FIRST commit attempt: the action's base (so undo
+    // and the size delta cover exactly this upload), and how a lost response is
+    // recognised on a retry.
+    const firstHead = fresh?.plan.commitHead ?? head;
+    if (!fresh?.plan.commitHead) {
+      await db.update(uploads).set({ plan: { ...(fresh?.plan ?? row.plan), commitHead: head } }).where(eq(uploads.id, row.id));
+      const [a] = await db.select({ commitIds: actions.commitIds }).from(actions).where(eq(actions.id, actionId));
+      if (a && a.commitIds.length === 0) await db.update(actions).set({ baseCommitId: head }).where(eq(actions.id, actionId));
+    }
+
+    let r: CommitResult & { files: number };
     try {
       r = await store.commitUpload(ws.volumeId, ptUploadId);
     } catch (e) {
       // Blocks still missing: the plan stays alive; the browser sends them and commits again (409 {missing}).
       if (isStoreError(e, 'bad_request') && e.extra.missing?.length) throw e;
-      store.releaseUpload(ptUploadId);
+      // Created at commit time with overwrite off: a conflict the browser can resolve; the plan stays.
+      if (isStoreError(e, 'path_exists')) {
+        const p = e.extra.path ?? e.extra.paths?.[0];
+        throw new ApiError(409, 'conflict', 'Something with that name was created since this upload started.', {
+          conflicts: p ? [p] : [],
+          uploadId: row.id,
+        });
+      }
+      // A timeout / 5xx (or a plan gone after one) may have committed anyway: the
+      // lock means a head that moved since the first attempt, claimed by no other
+      // action, is this upload.
+      if (isAmbiguousFailure(e) || isStoreError(e, 'not_found')) {
+        const now = await store.getVolume(ws.volumeId).then((v) => v.headCommitId).catch(() => null);
+        if (now && now !== firstHead && !(await actionsByCommits(ws.id, [now])).has(now)) {
+          r = { commitId: now, headCommitId: now, outcome: 'fast', overwritten: [], skipped: [], files: fileCount };
+          return finish(r);
+        }
+      }
+      // Retryable (write ceiling, commit_failed, storage unreachable): keep the plan, the
+      // slot and the pending action; the browser commits again.
+      if (isStoreError(e, 'rate_limited') || isStoreError(e, 'commit_failed') || isStoreError(e, 'unavailable')) throw e;
       if (isStoreError(e, 'not_found')) await expired(row);
+      store.releaseUpload(ptUploadId);
       await setStatus(row.id, 'failed');
       await failActionIfEmpty(actionId, e instanceof Error ? e.message.slice(0, 500) : String(e));
       throw e;
     }
-    // The store frees the slot on commit; make sure ours is free too (idempotent).
-    store.releaseUpload(ptUploadId);
-    await setStatus(row.id, 'committed');
-    await attachCommit(actionId, r);
-    const summary: ActionSummary = await finalize(actionId, 'committed');
-    return { summary, files: r.files || fileCount };
+    return finish(r);
+
+    async function finish(res: CommitResult & { files: number }) {
+      await setStatus(row.id, 'committed');
+      await attachCommit(actionId, res);
+      // `queued` (merge still running): the action stays pending; reconciliation attaches the merge.
+      const summary: ActionSummary =
+        res.outcome === 'queued' ? toSummary((await getAction(ws.id, actionId))!) : await finalize(actionId, 'committed');
+      return { summary, files: res.files || fileCount };
+    }
   });
   if (!result) {
     const a = await getAction(ws.id, actionId);
@@ -343,6 +476,7 @@ uploadsRoutes.delete('/uploads/:id', async (c) => {
   const ws = c.get('ws');
   const row = await loadUpload(ws, c.get('user').id, c.req.param('id'));
   if (row.status === 'planned' || row.status === 'uploading') {
+    // Platinum keeps the plan (and its org slot) until it expires; so do we.
     if (row.ptUploadId) getStore().releaseUpload(row.ptUploadId);
     await setStatus(row.id, 'aborted');
     await failActionIfEmpty(row.actionId, 'aborted');

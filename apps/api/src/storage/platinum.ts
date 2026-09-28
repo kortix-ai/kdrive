@@ -89,6 +89,7 @@ export function toStoreError(e: unknown): VolumeStoreError {
     if (num(body.bytes) !== undefined) extra.bytes = num(body.bytes);
     if (retryAfter !== undefined) extra.retryAfterSeconds = retryAfter;
     if (typeof body.retryable === 'boolean') extra.retryable = body.retryable;
+    if (typeof body.reason === 'string') extra.reason = body.reason;
     if (code === 'unavailable' || code === 'commit_failed') extra.retryable = true;
     const message = typeof body.error === 'string' ? body.error : e.message || code;
     return new VolumeStoreError(status || 503, code, message, extra);
@@ -102,6 +103,9 @@ function num(v: unknown): number | undefined {
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** The org-wide upload slots are full: waiting here (holding a local slot) would not free one. */
+const isOrgUploadsFull = (e: VolumeStoreError) => e.code === 'rate_limited' && e.extra.reason === 'org_uploads';
 
 // ── wire shapes (snake_case) ────────────────────────────────────────────────
 
@@ -187,6 +191,10 @@ export interface PlatinumStoreOptions {
   slotWaitMs?: number;
   /** Total time planUpload keeps retrying rate_limited / unavailable. */
   planRetryMs?: number;
+  /** Total time a mutation keeps retrying the org write ceiling (429 rate_limited). */
+  writeRetryMs?: number;
+  /** How long an upload commit answered `queued` is polled for its merge. */
+  mergeWaitMs?: number;
 }
 
 export class PlatinumStore implements VolumeStore {
@@ -195,12 +203,16 @@ export class PlatinumStore implements VolumeStore {
   private readonly slots: UploadSlots;
   private readonly slotWaitMs: number;
   private readonly planRetryMs: number;
+  private readonly writeRetryMs: number;
+  private readonly mergeWaitMs: number;
 
   constructor(opts: PlatinumStoreOptions) {
     this.pt = new Platinum({ url: opts.url, token: opts.token, timeoutMs: opts.timeoutMs ?? 60_000, fetch: opts.fetch });
     this.slots = opts.slots ?? sharedSlots;
     this.slotWaitMs = opts.slotWaitMs ?? 30_000;
     this.planRetryMs = opts.planRetryMs ?? 60_000;
+    this.writeRetryMs = opts.writeRetryMs ?? 20_000;
+    this.mergeWaitMs = opts.mergeWaitMs ?? 60_000;
   }
 
   private async call<T>(fn: () => Promise<T>): Promise<T> {
@@ -208,6 +220,26 @@ export class PlatinumStore implements VolumeStore {
       return await fn();
     } catch (e) {
       throw toStoreError(e);
+    }
+  }
+
+  /**
+   * A mutation (POST/PUT/PATCH/DELETE). Every one shares the org-wide write
+   * ceiling (20/s, burst 60, all users of the deployment), which Platinum
+   * enforces before the route runs, so a 429 is safe to retry: wait
+   * Retry-After (with jitter), up to writeRetryMs in total.
+   */
+  private async mutate<T>(fn: () => Promise<T>): Promise<T> {
+    const deadline = Date.now() + this.writeRetryMs;
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await fn();
+      } catch (e) {
+        const se = toStoreError(e);
+        if (se.code !== 'rate_limited' || isOrgUploadsFull(se) || Date.now() >= deadline) throw se;
+        const base = (se.extra.retryAfterSeconds ?? 2 ** Math.min(attempt, 3)) * 1000;
+        await sleep(Math.min(base + Math.random() * 250, Math.max(0, deadline - Date.now())));
+      }
     }
   }
 
@@ -225,7 +257,7 @@ export class PlatinumStore implements VolumeStore {
         return toInfo(vol.data as VolumeData);
       } catch (e) {
         const se = toStoreError(e);
-        if (se.code === 'unavailable' && attempt < 4) {
+        if ((se.code === 'unavailable' || (se.code === 'rate_limited' && !isOrgUploadsFull(se))) && attempt < 4) {
           await sleep((se.extra.retryAfterSeconds ?? 1) * 1000);
           continue;
         }
@@ -235,7 +267,7 @@ export class PlatinumStore implements VolumeStore {
   }
 
   async createVolume(name: string): Promise<VolumeInfo> {
-    return this.call(async () => toInfo((await this.pt.volumes.create(name)).data as VolumeData));
+    return this.mutate(async () => toInfo((await this.pt.volumes.create(name)).data as VolumeData));
   }
 
   async getVolume(id: string): Promise<VolumeInfo> {
@@ -243,18 +275,18 @@ export class PlatinumStore implements VolumeStore {
   }
 
   async deleteVolume(id: string, opts: { missingOk?: boolean } = {}): Promise<void> {
-    await this.call(() => this.pt.volumes.delete(id, { missingOk: opts.missingOk }));
+    await this.mutate(() => this.pt.volumes.delete(id, { missingOk: opts.missingOk }));
   }
 
   async forkVolume(id: string, newName: string, at?: Ref): Promise<VolumeInfo> {
-    return this.call(async () => {
+    return this.mutate(async () => {
       const d = await this.pt.request<VolumeData>('POST', `${this.v(id)}/fork`, at ? { name: newName, at } : { name: newName });
       return toInfo(d);
     });
   }
 
   async restoreVolume(id: string, to: Ref): Promise<Commit> {
-    return this.call(async () => toCommit(await this.pt.request<VolumeCommit>('POST', `${this.v(id)}/restore`, { to })));
+    return this.mutate(async () => toCommit(await this.pt.request<VolumeCommit>('POST', `${this.v(id)}/restore`, { to })));
   }
 
   async limits(): Promise<StoreLimits> {
@@ -338,7 +370,7 @@ export class PlatinumStore implements VolumeStore {
     data: Uint8Array,
     opts: { overwrite?: boolean; mode?: number } = {},
   ): Promise<CommitResult & { version: string | null }> {
-    return this.call(async () => {
+    return this.mutate(async () => {
       const r = await this.pt.request<WireCommitResult & { version?: string | null }>('PUT', `${this.v(id)}/files/content`, undefined, {
         query: {
           path,
@@ -353,7 +385,7 @@ export class PlatinumStore implements VolumeStore {
   }
 
   async copy(id: string, src: string, dst: string, opts: { recursive?: boolean; overwrite?: boolean } = {}): Promise<CommitResult> {
-    return this.call(async () =>
+    return this.mutate(async () =>
       toResult(
         await this.pt.request<WireCommitResult>('POST', `${this.v(id)}/files/copy`, {
           src,
@@ -366,13 +398,13 @@ export class PlatinumStore implements VolumeStore {
   }
 
   async move(id: string, src: string, dst: string, opts: { overwrite?: boolean } = {}): Promise<CommitResult> {
-    return this.call(async () =>
+    return this.mutate(async () =>
       toResult(await this.pt.request<WireCommitResult>('POST', `${this.v(id)}/files/move`, { src, dst, overwrite: !!opts.overwrite })),
     );
   }
 
   async remove(id: string, path: string, opts: { recursive?: boolean } = {}): Promise<CommitResult> {
-    return this.call(async () =>
+    return this.mutate(async () =>
       toResult(
         await this.pt.request<WireCommitResult>('DELETE', `${this.v(id)}/files`, undefined, {
           query: { path, recursive: opts.recursive ? 'true' : undefined },
@@ -383,9 +415,9 @@ export class PlatinumStore implements VolumeStore {
 
   // ── block upload protocol ─────────────────────────────────────────────────
 
-  async planUpload(id: string, plan: UploadPlan): Promise<PlannedUpload> {
+  async planUpload(id: string, plan: UploadPlan, opts: { waitMs?: number } = {}): Promise<PlannedUpload> {
     const tempId = `pending_${crypto.randomUUID()}`;
-    await this.slots.acquire(tempId, { waitMs: this.slotWaitMs });
+    await this.slots.acquire(tempId, { waitMs: opts.waitMs ?? this.slotWaitMs });
     const deadline = Date.now() + this.planRetryMs;
     try {
       for (let attempt = 0; ; attempt++) {
@@ -410,7 +442,9 @@ export class PlatinumStore implements VolumeStore {
           return { uploadId: r.upload_id, missing: r.missing ?? [], expiresAt: r.expires_at };
         } catch (e) {
           const se = toStoreError(e);
-          const retryable = se.code === 'rate_limited' || se.code === 'unavailable';
+          const retryable = (se.code === 'rate_limited' && !isOrgUploadsFull(se)) || se.code === 'unavailable';
+          // org_uploads: Platinum holds plans we no longer count (e.g. from before a restart);
+          // fail fast with its Retry-After instead of sleeping while holding a local slot.
           if (!retryable || Date.now() >= deadline) throw se;
           const wait = Math.min((se.extra.retryAfterSeconds ?? 2 ** Math.min(attempt, 4)) * 1000, Math.max(0, deadline - Date.now()));
           await sleep(wait);
@@ -433,6 +467,7 @@ export class PlatinumStore implements VolumeStore {
   }
 
   async commitUpload(id: string, uploadId: string): Promise<CommitResult & { files: number }> {
+    const deadline = Date.now() + 30_000;
     for (let attempt = 0; ; attempt++) {
       try {
         const r = await this.pt.request<WireCommitResult & { files: number }>(
@@ -441,23 +476,52 @@ export class PlatinumStore implements VolumeStore {
           {},
           { timeoutMs: 600_000 },
         );
+        // The commit consumed the plan: its org slot is free again.
         this.slots.release(uploadId);
-        return { ...toResult(r), files: r.files ?? 0 };
+        const out = { ...toResult(r), files: r.files ?? 0 };
+        return out.outcome === 'queued' ? { ...(await this.awaitMerge(id, out)), files: out.files } : out;
       } catch (e) {
         const se = toStoreError(e);
-        if (se.code === 'commit_failed' && attempt < 3) {
-          await sleep((se.extra.retryAfterSeconds ?? 0) * 1000 || 500 * 2 ** attempt);
+        // commit_failed is always retryable; the write ceiling refuses before the route runs.
+        const retry =
+          (se.code === 'commit_failed' && attempt < 3) || (se.code === 'rate_limited' && !isOrgUploadsFull(se) && Date.now() < deadline);
+        if (retry) {
+          await sleep((se.extra.retryAfterSeconds ?? 0) * 1000 || 500 * 2 ** Math.min(attempt, 4));
           continue;
         }
-        // An incomplete commit keeps the plan alive (the browser resends the missing blocks).
-        if (!(se.code === 'bad_request' && se.extra.missing?.length)) this.slots.release(uploadId);
+        // The plan is gone only when Platinum says so; otherwise it still holds its org
+        // slot (no abort exists), so the local slot stays taken until it expires.
+        if (se.code === 'not_found') this.slots.release(uploadId);
         throw se;
       }
     }
   }
 
-  releaseUpload(uploadId: string): void {
-    this.slots.release(uploadId);
+  /**
+   * `queued`: the merge had not finished after 30 s and head_commit_id is
+   * still the OLD head. Poll the volume until the head moves (the merge that
+   * holds our side commit); if it does not in time, stay `queued` and let the
+   * ledger's reconciliation attach it later.
+   */
+  private async awaitMerge(id: string, r: CommitResult): Promise<CommitResult> {
+    const deadline = Date.now() + this.mergeWaitMs;
+    while (Date.now() < deadline) {
+      await sleep(2000);
+      try {
+        const head = (await this.getVolume(id)).headCommitId;
+        if (head && head !== r.headCommitId) return { ...r, outcome: 'merged', headCommitId: head };
+      } catch {
+        /* keep polling */
+      }
+    }
+    return r;
+  }
+
+  releaseUpload(_uploadId: string): void {
+    // Platinum has no abort endpoint: an uncommitted plan keeps its org slot
+    // until it expires (15 min after its last use). Keep the local slot too,
+    // so we never plan into a slot Platinum still counts; UploadSlots frees it
+    // on the same idle timeout.
   }
 
   // ── history & tags ────────────────────────────────────────────────────────
@@ -494,13 +558,13 @@ export class PlatinumStore implements VolumeStore {
   }
 
   async putTag(id: string, name: string, commit?: Ref): Promise<Tag> {
-    return this.call(async () => {
+    return this.mutate(async () => {
       const t = await this.handle(id).tag(name, commit);
       return { name: t.name, commitId: t.commit_id, createdAt: t.created_at };
     });
   }
 
   async deleteTag(id: string, name: string): Promise<void> {
-    await this.call(() => this.handle(id).untag(name));
+    await this.mutate(() => this.handle(id).untag(name));
   }
 }

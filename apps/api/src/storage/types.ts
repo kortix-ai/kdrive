@@ -140,10 +140,16 @@ export interface VolumeStore {
   copy(id: string, src: string, dst: string, opts?: { recursive?: boolean; overwrite?: boolean }): Promise<CommitResult>;
   move(id: string, src: string, dst: string, opts?: { overwrite?: boolean }): Promise<CommitResult>;
   remove(id: string, path: string, opts?: { recursive?: boolean }): Promise<CommitResult>;
-  planUpload(id: string, plan: UploadPlan): Promise<PlannedUpload>;
+  /** `waitMs`: how long to queue for a free upload slot (default 30 s). */
+  planUpload(id: string, plan: UploadPlan, opts?: { waitMs?: number }): Promise<PlannedUpload>;
   putBlock(id: string, uploadId: string, sha: string, bytes: Uint8Array): Promise<void>;
   commitUpload(id: string, uploadId: string): Promise<CommitResult & { files: number }>;
-  /** frees our local upload slot (Platinum has no abort endpoint) */
+  /**
+   * Gives up on a plan that will not be committed. Platinum has no abort
+   * endpoint: the plan keeps one of the org's upload slots until it expires
+   * (15 min after its last use), so the local slot is kept until then too.
+   * After a successful commit this is a no-op (the commit already freed it).
+   */
   releaseUpload(uploadId: string): void;
   history(id: string, opts?: { limit?: number; before?: string }): Promise<{ commits: Commit[]; nextCursor: string | null }>;
   getCommit(id: string, ref: Ref): Promise<Commit & { overwritten: PathReason[]; skipped: PathReason[] }>;
@@ -183,6 +189,8 @@ export interface StoreErrorExtra {
   bytes?: number;
   retryAfterSeconds?: number;
   retryable?: boolean;
+  /** Platinum's reason for a 429 / 503 (e.g. `org_uploads`, `gateway_busy`). */
+  reason?: string;
 }
 
 export class VolumeStoreError extends Error {
