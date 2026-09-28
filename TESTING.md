@@ -7,10 +7,12 @@ bun run typecheck   # shared, api, web
 bun run test        # shared, api (emulated storage + volumes_test), web (lib + components)
 ```
 
-The API suite needs PostgreSQL with a `volumes_test` database (`createdb volumes_test`).
-`apps/api/test/setup.ts` runs first. It forces the test environment, migrates
-`volumes_test`, and points the emulator at a fresh temporary directory. Your
-`.env` is never used by tests.
+The API suite needs PostgreSQL with a `volumes_test` database (`createdb volumes_test`;
+`VOLUMES_TEST_DATABASE_URL` points it elsewhere). `apps/api/test/setup.ts` runs first.
+It forces its own database, storage (the emulator in a fresh temporary directory),
+auth and quota settings, and migrates `volumes_test`. Bun still loads `.env`, so
+other keys (for example `PT_API_URL`) pass through, but tests never use Platinum
+unless the conformance suite below is enabled.
 
 ### What the API suites cover
 
@@ -21,7 +23,8 @@ The API suite needs PostgreSQL with a `volumes_test` database (`createdb volumes
 | `apps/api/test/e2e/versioning.test.ts` | Timeline grouping and paging, time travel reads, file versions across renames, file and drive compare, file / folder / drive restore with undo, checkpoints and the 100-tag budget, Recently deleted, reads after retention thinning |
 | `apps/api/test/e2e/sharing.test.ts` | Live vs pinned links, public access without a session, revoke, expiry, traversal on public paths |
 | `apps/api/test/e2e/account.test.ts` | Duplicate a workspace at a past version, admin quota changes, account deletion |
-| `apps/api/test/e2e/security.test.ts` | Cross-user workspace access, path traversal, active content served as attachment, CSRF origin and content-type checks |
+| `apps/api/test/e2e/security.test.ts` | Cross-user workspace access, path traversal, active content served as attachment, CSRF origin and content-type checks, dev sign-in only from this machine, client address rules |
+| `apps/api/test/e2e/integrity.test.ts` | Restores that never write the wrong bytes, undo guards, logical-byte quota and upload reservations, commit-time conflicts, retries and lost responses, upload slots, share links that follow their item, batch restore, dedup that never reveals other users' files |
 
 Every e2e test gets an empty database and its own emulator (`test/e2e/kit.ts`),
 so tests never share volumes. The emulator caps live volumes per process like
