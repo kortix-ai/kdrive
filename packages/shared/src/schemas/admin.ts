@@ -18,7 +18,11 @@ export type AdminUser = z.infer<typeof AdminUserSchema>;
 export const AdminUsersQuery = z.object({ q: z.string().trim().max(200).optional() });
 export type AdminUsersQuery = z.input<typeof AdminUsersQuery>;
 
-export const AdminUsersResponse = z.object({ users: z.array(AdminUserSchema) });
+export const AdminUsersResponse = z.object({
+  users: z.array(AdminUserSchema),
+  /** Storage's size cap for ONE workspace (volume): a quota above it only helps across several workspaces. */
+  workspaceCapBytes: z.number().optional(),
+});
 export type AdminUsersResponse = z.infer<typeof AdminUsersResponse>;
 
 export const SetQuotaRequest = z.object({
@@ -26,7 +30,11 @@ export const SetQuotaRequest = z.object({
 });
 export type SetQuotaRequest = z.input<typeof SetQuotaRequest>;
 
-export const AdminUserResponse = z.object({ user: AdminUserSchema });
+export const AdminUserResponse = z.object({
+  user: AdminUserSchema,
+  /** Set when the new quota is larger than one workspace can hold. */
+  warning: z.string().optional(),
+});
 export type AdminUserResponse = z.infer<typeof AdminUserResponse>;
 
 export const AdminAuditQuery = z.object({
