@@ -136,6 +136,10 @@ async function checkTransfer(ws: WorkspaceCtx, items: TransferItem[], overwrite:
     if (froms.some((f) => f !== it.from && isWithin(f, it.from))) {
       throw new ApiError(400, 'bad_request', `"${it.from}" is inside another selected folder.`, { path: it.from });
     }
+    // Replacing a folder that holds the source would take the source with it.
+    if (it.to !== it.from && isWithin(it.to, it.from)) {
+      throw new ApiError(400, 'bad_request', `"${basename(it.from)}" cannot replace a folder that contains it.`, { path: it.to });
+    }
     const st = await mustStat(ws, it.from);
     if (st.type === 'dir' && isWithin(it.from, it.to)) {
       throw new ApiError(400, 'bad_request', `A folder cannot be ${verb === 'move' ? 'moved' : 'copied'} into itself.`, { path: it.to });
