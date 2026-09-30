@@ -11,7 +11,7 @@ import { withWorkspaceLock } from '../lib/lock';
 import { getStore } from '../storage';
 import { isStoreError, type Ref } from '../storage/types';
 import { deleteWorkspaceLinks } from './links';
-import { assertQuota } from './quota';
+import { Hold } from './reservations';
 import { getWorkspaceForUser, listWorkspaces, toWorkspaceSummaries, volumeNameFor, workspaceUsage } from './workspaces';
 
 const WS_ID = /^[0-9a-z]{26}$/;
@@ -37,33 +37,11 @@ export async function listWorkspaceSummaries(userId: string): Promise<WorkspaceS
   return toWorkspaceSummaries(await listWorkspaces(userId));
 }
 
-/**
- * Every workspace is one volume in one shared Platinum org, so the org's volume
- * limit caps workspaces for the whole server. An extra workspace may not take
- * the last `reservedVolumes` slots: those stay free for new users' default
- * workspaces, or one person could lock everyone else out of signing up.
- */
-async function assertVolumeSlot(): Promise<void> {
-  const l = await getStore().limits();
-  const usable = Math.max(0, l.maxVolumes - env.reservedVolumes);
-  if (l.usedVolumes >= usable) {
-    throw new ApiError(409, 'storage_limit', 'No more workspaces can be created on this server right now.', {
-      max: l.maxVolumes,
-      used: l.usedVolumes,
-    });
-  }
-}
-
-/** One person may own at most env.maxWorkspacesPerUser live workspaces (the default and duplicates included). */
-async function assertWorkspaceAllowance(userId: string): Promise<void> {
-  const owned = (await listWorkspaces(userId)).length;
-  if (owned >= env.maxWorkspacesPerUser) {
-    throw new ApiError(409, 'storage_limit', `You can have at most ${env.maxWorkspacesPerUser} workspaces. Delete one to make another.`, {
-      max: env.maxWorkspacesPerUser,
-      used: owned,
-    });
-  }
-}
+// The workspace allowance (env.maxWorkspacesPerUser live workspaces a person,
+// the default and duplicates included) and the org's volume slots (the last
+// env.reservedVolumes stay free for new users' default workspaces) are
+// reserved atomically in services/reservations.ts, so requests made at once
+// cannot all pass against the same count.
 
 /** Soft-removes a row whose volume could not be created (keeps the unique volume name unused). */
 async function dropRow(id: string): Promise<void> {
@@ -72,9 +50,10 @@ async function dropRow(id: string): Promise<void> {
 
 /** POST /api/workspaces: a new empty workspace (volume limit checked first). */
 export async function createWorkspace(c: Context | null, userId: string, name: string): Promise<WorkspaceSummary> {
-  await assertWorkspaceAllowance(userId);
-  await assertVolumeSlot();
   const id = newId();
+  await using hold = new Hold(userId, 'workspace.create');
+  await hold.reserve({ workspaces: 1, workspaceId: id });
+  await hold.reserveVolume(id);
   const [row] = await db
     .insert(workspaces)
     .values({ id, userId, name, volumeName: volumeNameFor(id), isDefault: false })
@@ -114,10 +93,11 @@ export async function duplicateWorkspace(
   const store = getStore();
   // Resolve the ref once so the fork, the row and the audit all name one commit.
   const commit = await store.getCommit(src.volumeId, input.at ?? 'head');
-  await assertWorkspaceAllowance(userId);
-  await assertQuota(userId, commit.logicalBytes);
-  await assertVolumeSlot();
   const newWsId = newId();
+  // Slot, quota (the fork's full size) and volume, held until the fork is recorded.
+  await using hold = new Hold(userId, 'workspace.duplicate');
+  await hold.reserve({ workspaces: 1, workspaceId: newWsId, bytes: commit.logicalBytes });
+  await hold.reserveVolume(newWsId);
   const [row] = await db
     .insert(workspaces)
     .values({
