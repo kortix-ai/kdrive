@@ -1,0 +1,37 @@
+/* KDRIVE landing: nav, sections and footer styles (LANDING-SPEC §4, §6, §7). Owned by the SECTIONS builder. */
+
+.kd-nav {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 50;
+  height: var(--kd-nav-h);
+  transition: background-color var(--kd-t-mid), border-color var(--kd-t-mid);
+  border-bottom: 1px solid transparent;
+}
+.kd-nav.is-scrolled {
+  background: rgb(10 10 11 / .86);
+  backdrop-filter: blur(14px) saturate(1.2);
+  border-bottom-color: var(--kd-hair);
+}
+.kd-nav__inner { display: flex; align-items: center; justify-content: space-between; gap: 24px; height: 100%; }
+.kd-nav__brand { display: inline-flex; align-items: center; gap: 10px; color: var(--kd-text-1); text-decoration: none;
+  font: 600 15px/1 var(--kd-font-sans); letter-spacing: .08em; }
+.kd-nav__links { display: none; gap: 28px; font-size: 14px; }
+.kd-nav__links a { color: var(--kd-text-2); text-decoration: none; }
+.kd-nav__links a:hover { color: var(--kd-text-1); }
+@media (min-width: 960px) { .kd-nav__links { display: flex; } }
+.kd-nav__right { display: flex; align-items: center; gap: 20px; font-size: 14px; }
+.kd-nav__signin { color: var(--kd-text-2); text-decoration: none; }
+@media (max-width: 639px) { .kd-nav__signin { display: none; } .kd-nav .kd-btn { height: 36px; } }
+
+.kd-section { padding-block: var(--kd-section-pad); }
+.kd-section__head { margin-bottom: 56px; }
+.kd-section__head h2 {
+  margin-top: 16px;
+  max-width: 16ch;
+  font: 600 clamp(34px, 4.4vw, 60px)/1.04 var(--kd-font-sans);
+  letter-spacing: -.032em;
+  color: var(--kd-text-1);
+  text-wrap: balance;
+}
+.kd-footer { border-top: 1px solid var(--kd-hair); padding-block: 56px; font-size: 14px; }

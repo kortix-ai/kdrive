@@ -1,0 +1,51 @@
+/* KDRIVE landing: hero styles (LANDING-SPEC §5). Owned by the HERO builder. */
+
+.kd-hero {
+  position: relative;
+  min-height: clamp(640px, 100svh, 1000px);
+  display: grid;
+  place-items: center;
+  overflow: clip;
+  isolation: isolate;
+}
+.kd-hero__atmos {
+  position: absolute;
+  inset: 0;
+  z-index: -3;
+  background:
+    radial-gradient(130% 100% at 50% 45%, transparent 55%, rgb(0 0 0 / .55)),
+    radial-gradient(62% 52% at 50% 56%, rgb(76 56 150 / .20), transparent 70%),
+    radial-gradient(120% 80% at 50% 120%, var(--kd-violet-deep) 0%, transparent 60%);
+}
+.kd-hero__canvas { position: absolute; inset: 0; z-index: -1; }
+.kd-hero__canvas canvas { display: block; width: 100%; height: 100%; touch-action: pan-y; }
+.kd-hero__copy {
+  position: relative;
+  max-width: 880px;
+  padding: calc(var(--kd-nav-h) + 24px) var(--kd-pad) 64px;
+  text-align: center;
+  transform: translateY(-2vh);
+}
+.kd-wordmark {
+  display: block;
+  font: 700 clamp(64px, 12.5vw, 184px)/.9 var(--kd-font-sans);
+  letter-spacing: -.035em;
+}
+.kd-tagline {
+  display: block;
+  margin-top: 20px;
+  font: 600 clamp(28px, 3.4vw, 46px)/1.1 var(--kd-font-sans);
+  letter-spacing: -.03em;
+  color: var(--kd-text-1);
+}
+.kd-tagline em { font-style: normal; }
+.kd-hero__sub {
+  max-width: 44ch;
+  margin: 24px auto 0;
+  font-size: 18px;
+  line-height: 1.55;
+  text-wrap: balance;
+}
+.kd-hero__ctas { display: flex; gap: 12px; justify-content: center; margin-top: 28px; flex-wrap: wrap; }
+.kd-hero__agents { display: inline-block; margin-top: 20px; font: 12px/1.4 var(--kd-font-mono); color: var(--kd-text-3); }
+.kd-hero__mark { display: inline-block; width: .42em; height: .42em; margin-right: .18em; vertical-align: baseline; }
