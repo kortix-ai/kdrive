@@ -4,6 +4,7 @@ import { forwardRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeftRight, Bookmark, Copy, Ellipsis, Eye, RotateCcw, Undo2 } from 'lucide-react';
 import type { TimelineEntry as Entry } from '@volumes/shared';
+import { AgentBadge } from '@/components/agents/agent-badge';
 import { cx } from '@/components/ui/cx';
 import { actionText } from '@/lib/format';
 import type { MenuItem } from '@/components/ui/menu';
@@ -170,6 +171,7 @@ export const TimelineEntryRow = forwardRef<HTMLDivElement, TimelineEntryProps>(f
             </div>
           ) : null}
           <div className={cx('vx-meta mt-0.5 flex min-w-0 items-center gap-1.5', selected ? 'text-vx-past' : 'text-vx-text-3')}>
+            {e.agent ? <AgentBadge agent={e.agent} className="min-w-0 max-w-[45%]" /> : null}
             <span className="shrink-0">{plural(e.itemCount, 'item')}</span>
             <span aria-hidden>·</span>
             <Delta n={e.bytesDelta} className="shrink-0" />

@@ -1,11 +1,19 @@
 'use client';
 
-// /proposals/[id] — review one proposal (placeholder; built by its owner).
+// /proposals/[id] — review one proposal (MCP.md §14.7).
+import { useParams } from 'next/navigation';
+import { ProposalReview } from '@/components/proposals/proposal-review';
+
 export default function ProposalReviewPage() {
-  return (
-    <div className="p-6">
-      <h1 className="vx-h1">Review changes</h1>
-      <p className="vx-meta text-vx-text-3">Coming soon.</p>
-    </div>
-  );
+  const params = useParams<{ id?: string | string[] }>();
+  const raw = params?.id;
+  const id = Array.isArray(raw) ? raw[0] : raw;
+  if (!id) return null;
+  let decoded = id;
+  try {
+    decoded = decodeURIComponent(id);
+  } catch {
+    // keep the raw segment
+  }
+  return <ProposalReview key={decoded} id={decoded} />;
 }
