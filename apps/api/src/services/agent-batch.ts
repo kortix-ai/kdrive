@@ -158,17 +158,23 @@ interface SimNode {
   blocks?: string[];
 }
 
+/**
+ * One op as the simulation remembers it. `gross` is an upper bound of what the
+ * op put under every folder above its path: the content it wrote, copied or
+ * moved there and the folders it made.
+ */
 type SimOp =
-  | { op: 'write'; path: string; size: number; blocks?: string[] }
-  | { op: 'mkdir'; path: string }
+  | { op: 'write'; path: string; size: number; blocks?: string[]; gross: number }
+  | { op: 'mkdir'; path: string; gross: number }
   | { op: 'delete'; path: string }
-  | { op: 'move' | 'copy'; from: string; to: string };
+  | { op: 'move' | 'copy'; from: string; to: string; gross: number };
 
 const DIR_NODE: SimNode = { type: 'dir', size: 0, base: null };
 
 /** The tree at `head` plus the ops recorded so far (each op sees the ones before it). */
 class BatchSim {
   private readonly stats = new Map<string, Promise<FileStat | null>>();
+  private readonly footprints = new Map<string, Promise<{ size: number; logical: number }>>();
   readonly ops: SimOp[] = [];
 
   constructor(
@@ -183,6 +189,44 @@ class BatchSim {
       this.stats.set(p, s);
     }
     return s;
+  }
+
+  /** Bytes and logicalBytes of the entry at `p` in the head (cached; 0 when missing). */
+  headFootprint(p: string): Promise<{ size: number; logical: number }> {
+    let f = this.footprints.get(p);
+    if (!f) {
+      f = this.baseStat(p).then((st) => (st ? footprint(this.ws, st) : { size: 0, logical: 0 }));
+      this.footprints.set(p, f);
+    }
+    return f;
+  }
+
+  /**
+   * Upper bound of logicalBytes under the folder at `p` now: what the head
+   * holds at the path it comes from, plus everything an op of the batch put
+   * inside it since (followed through copies and moves). What an op removed is
+   * never credited. A folder the batch wrote into is still the head folder
+   * underneath, so its copy is never priced as an empty one.
+   */
+  async bound(p: string): Promise<number> {
+    let path = p;
+    let extra = 0;
+    for (let i = this.ops.length - 1; i >= 0; i--) {
+      const o = this.ops[i];
+      if (o.op === 'delete') {
+        if (isWithin(o.path, path)) return extra; // only what arrived later is there
+      } else if (o.op === 'write' || o.op === 'mkdir') {
+        if (isWithin(path, o.path)) extra += o.gross;
+      } else {
+        if (isWithin(o.to, path)) {
+          path = o.from + path.slice(o.to.length); // what landed there came from the source as it was then
+          continue;
+        }
+        if (o.op === 'move' && isWithin(o.from, path)) return extra;
+        if (isWithin(path, o.to)) extra += o.gross;
+      }
+    }
+    return extra + (await this.headFootprint(path)).logical;
   }
 
   /** What is at `p` now. */
@@ -285,7 +329,6 @@ export async function simulate(ws: WorkspaceCtx, head: string, ops: BatchOp[], h
   const steps: PlannedStep[] = [];
   let growth = 0;
   let peak = 0;
-  let gross = 0; // everything the batch has put anywhere so far (bounds a folder's copy)
   const grow = (n: number) => {
     growth += n;
     peak = Math.max(peak, growth);
@@ -304,29 +347,28 @@ export async function simulate(ws: WorkspaceCtx, head: string, ops: BatchOp[], h
       const size = o.bytes.length;
       const blocks = hashed?.get(index)?.blocks;
       const unchanged = !!n && !!blocks && (await holdsBlocks(ws, n, blocks, size));
+      const add = unchanged ? 0 : logicalSize(size) + DIR_BYTES * made.length;
       if (!unchanged) {
         for (const d of made) rows.push({ op: 'added', path: d, entryType: 'dir' });
-        const add = logicalSize(size) + DIR_BYTES * made.length;
         grow(add - (n ? logicalSize(n.size) : 0));
-        gross += add;
         rows.push({ op: n ? 'changed' : 'added', path, entryType: 'file', size, prevSize: n?.size, blockHashes: blocks, mtime: now });
       }
       steps.push({ index, op: 'write', path, fromPath: null, entryType: 'file', result: unchanged ? 'unchanged' : n ? 'replaced' : 'created', size, skip: unchanged, blocks });
-      sim.ops.push({ op: 'write', path, size, blocks });
+      sim.ops.push({ op: 'write', path, size, blocks, gross: add });
     } else if (o.op === 'mkdir') {
       const path = o.path;
       if (path === '/') throw fail(400, 'invalid_path', 'The root folder already exists.', { path, ...at });
       const n = await sim.node(path);
       if (n && n.type !== 'dir') throw fail(409, 'not_a_directory', `"${basename(path)}" is a file, not a folder.`, { path, ...at });
       const made = n ? [] : await sim.missingParents(path, index);
+      const add = n ? 0 : DIR_BYTES * (made.length + 1);
       if (!n) {
-        grow(DIR_BYTES * (made.length + 1));
-        gross += DIR_BYTES * (made.length + 1);
+        grow(add);
         for (const d of made) rows.push({ op: 'added', path: d, entryType: 'dir' });
         rows.push({ op: 'added', path, entryType: 'dir' });
       }
       steps.push({ index, op: 'mkdir', path, fromPath: null, entryType: 'dir', result: 'folder', size: null, skip: !!n });
-      sim.ops.push({ op: 'mkdir', path });
+      sim.ops.push({ op: 'mkdir', path, gross: add });
     } else if (o.op === 'move' || o.op === 'copy') {
       const { from, to } = o;
       const verb = o.op === 'move' ? 'moved' : 'copied';
@@ -342,18 +384,18 @@ export async function simulate(ws: WorkspaceCtx, head: string, ops: BatchOp[], h
       let size = src.size;
       let logical = logicalSize(src.size);
       if (src.type === 'dir') {
-        const fp = src.base ? await footprint(ws, src.base) : { size: 0, logical: DIR_BYTES };
-        size = fp.size;
-        logical = fp.logical + gross;
+        // The head folder underneath plus whatever the batch put inside it: a
+        // folder copy is charged for everything it duplicates.
+        size = src.base ? (await sim.headFootprint(src.base.path)).size : 0;
+        logical = Math.max(DIR_BYTES, await sim.bound(from));
       }
       const blocks = src.type === 'file' ? (src.blocks ?? (src.base ? await knownBlocks(ws, src.base) : undefined)) : undefined;
-      const add = (o.op === 'copy' ? logical : 0) + DIR_BYTES * made.length;
-      grow(add);
-      gross += add;
+      const dirs = DIR_BYTES * made.length;
+      grow((o.op === 'copy' ? logical : 0) + dirs);
       for (const d of made) rows.push({ op: 'added', path: d, entryType: 'dir' });
       rows.push({ op: verb, path: to, fromPath: from, entryType: src.type, size, blockHashes: blocks, mtime: src.base?.mtime });
       steps.push({ index, op: o.op, path: to, fromPath: from, entryType: src.type, result: verb, size: src.type === 'file' ? src.size : null, skip: false, blocks });
-      sim.ops.push({ op: o.op, from, to });
+      sim.ops.push({ op: o.op, from, to, gross: logical + dirs });
     } else {
       const path = o.path;
       if (path === '/') throw fail(400, 'bad_request', 'The root folder cannot be deleted.', { path, ...at });

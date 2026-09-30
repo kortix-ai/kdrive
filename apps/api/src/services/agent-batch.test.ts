@@ -14,6 +14,7 @@ import { buildTimeline } from './timeline';
 import { listTree } from './tree';
 import { undoAction } from './undo';
 import { readStream } from './versioning-util';
+import { getUsage } from './quota';
 import { getWorkspaceForUser } from './workspaces';
 
 let u: User;
@@ -136,6 +137,50 @@ describe('applyAgentBatch', () => {
     expect(e.code).toBe('quota_exceeded');
     expect(e.details).toMatchObject({ quotaBytes: 64 * 1024 });
     expect(await tree()).toEqual([]);
+  });
+
+  test('a folder the batch already changed is charged in full when copied', async () => {
+    await upload(u, { '/d/a.bin': new Uint8Array(1024 * 1024).fill(1), '/d/b.bin': new Uint8Array(1024 * 1024).fill(2), '/d/c.bin': new Uint8Array(1024 * 1024).fill(3), '/x.bin': new Uint8Array(512 * 1024).fill(4) });
+    const used = (await getUsage(u.userId)).usedBytes;
+    const quota = used + 1024 * 1024;
+    await db.insert(userSettings).values({ userId: u.userId, quotaBytes: quota }).onConflictDoUpdate({ target: userSettings.userId, set: { quotaBytes: quota } });
+    const before = await tree();
+    const refused = async (ops: BatchOp[]) => {
+      const e = await thrown(run(ops));
+      expect(e.code).toBe('quota_exceeded');
+    };
+    await refused([{ op: 'copy', from: '/d', to: '/plain' }]);
+    await refused([{ op: 'mkdir', path: '/d/t' }, { op: 'copy', from: '/d', to: '/b' }]);
+    await refused([{ op: 'write', path: '/d/n.txt', bytes: enc('n') }, { op: 'copy', from: '/d', to: '/b' }]);
+    await refused([{ op: 'copy', from: '/x.bin', to: '/y.bin' }, { op: 'move', from: '/y.bin', to: '/d/y.bin' }, { op: 'copy', from: '/d', to: '/b' }]);
+    await refused([{ op: 'move', from: '/x.bin', to: '/d/x.bin' }, { op: 'copy', from: '/d', to: '/b' }]);
+    // A folder copied, then written into, then copied again carries both.
+    await refused([{ op: 'copy', from: '/x.bin', to: '/e/x.bin' }, { op: 'write', path: '/e/n.txt', bytes: enc('n') }, { op: 'copy', from: '/e', to: '/f' }]);
+    expect(await tree()).toEqual(before);
+    expect((await getUsage(u.userId)).usedBytes).toBe(used);
+    // A small folder the batch changed still copies within the quota.
+    const small = await run([{ op: 'write', path: '/s/n.txt', bytes: enc('n') }, { op: 'copy', from: '/s', to: '/s2' }]);
+    expect(small.action.status).toBe('committed');
+  });
+
+  test('copies that double a folder within one batch are charged for every round', async () => {
+    await upload(u, { '/d/a.bin': new Uint8Array(3 * 1024 * 1024).fill(9) });
+    const used = (await getUsage(u.userId)).usedBytes;
+    const quota = used + 1024 * 1024;
+    await db.insert(userSettings).values({ userId: u.userId, quotaBytes: quota }).onConflictDoUpdate({ target: userSettings.userId, set: { quotaBytes: quota } });
+    const ops: BatchOp[] = [];
+    for (let i = 0; i < 4; i++) {
+      ops.push({ op: 'mkdir', path: `/d/t${i}` }, { op: 'copy', from: '/d', to: `/b${i}` }, { op: 'move', from: `/b${i}`, to: `/d/b${i}` });
+    }
+    const e = await thrown(run(ops));
+    expect(e.code).toBe('quota_exceeded');
+    expect(Number(e.details?.requestedBytes)).toBeGreaterThanOrEqual(15 * 3 * 1024 * 1024);
+    expect((await getUsage(u.userId)).usedBytes).toBe(used);
+    // The same batch through a proposal is refused when staged.
+    await db.update(userSettings).set({ quotaBytes: 10 * 1024 ** 3 }).where(eq(userSettings.userId, u.userId));
+    const { simulate } = await import('./agent-batch');
+    const sim = await simulate(ws, await headOf(ws), ops);
+    expect(sim.growth).toBeGreaterThanOrEqual(15 * 3 * 1024 * 1024);
   });
 
   test('identical writes end as a noop with result unchanged', async () => {
