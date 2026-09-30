@@ -289,6 +289,20 @@ describe('write tools (direct)', () => {
 });
 
 describe('review mode', () => {
+  test('a proposed folder move links each change to its row on the review page', async () => {
+    const key = await createAgentToken(u.userId, { scope: 'drive:propose', name: 'Mover agent' });
+    await upload(u, { '/docs/a.md': 'a' });
+    const head = (await call('open_workspace', {}, key)).structuredContent.head_commit_id;
+    const w = await call(
+      'write_changes',
+      { last_seen_commit_id: head, changes: [{ op: 'move', from: '/docs', to: '/archive/docs' }, { op: 'write', path: '/Documents/follow-ups.md', content: 'f' }] },
+      key,
+    );
+    const d = w.structuredContent;
+    expect(d.changes.map((c: Json) => c.url)).toEqual([`${d.proposal_url}&seq=0`, `${d.proposal_url}&seq=1`]);
+    expect(JSON.stringify(w.content)).not.toContain('/drive/');
+  });
+
   test('write_changes proposes; list_proposals follows the decision', async () => {
     const key = await createAgentToken(u.userId, { scope: 'drive:propose', name: 'Reviewer agent' });
     const tools = await mcpCall(makeApp(), key, 'tools/list');
@@ -298,6 +312,9 @@ describe('review mode', () => {
     expect(w.structuredContent.outcome).toBe('proposed');
     expect(w.structuredContent.proposal_url).toContain('/proposals/');
     expect(w.content[0].text).toBe('Proposed 1 change for review · waiting for the user');
+    // Nothing is in the drive yet: every link goes to the review page, never to a drive path.
+    expect(w.content.filter((c: Json) => c.type === 'resource_link').map((c: Json) => c.uri)).toEqual([w.structuredContent.proposal_url]);
+    expect(w.structuredContent.changes[0].url).toBe(`${w.structuredContent.proposal_url}&seq=0`);
     const nothing = await call('read_files', { paths: ['/plan.md'] }, key);
     expect(nothing.structuredContent.files[0].exists).toBe(false);
     const id = w.structuredContent.proposal_id;

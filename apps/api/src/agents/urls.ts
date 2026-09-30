@@ -34,8 +34,9 @@ export function driveUrl(wsId: string, path: string, type: 'file' | 'dir'): stri
   return withQuery(drivePath(dirname(path)), { ws: wsId, file: basename(path) });
 }
 
-export function proposalUrl(wsId: string, id: string): string {
-  return withQuery(`/proposals/${encodeURIComponent(id)}`, { ws: wsId });
+/** The review page of a proposal; with `seq`, that change is selected. */
+export function proposalUrl(wsId: string, id: string, seq?: number): string {
+  return withQuery(`/proposals/${encodeURIComponent(id)}`, seq === undefined ? { ws: wsId } : { ws: wsId, seq: String(seq) });
 }
 
 /** One file compared between two versions. */

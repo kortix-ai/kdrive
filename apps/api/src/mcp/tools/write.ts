@@ -166,19 +166,17 @@ async function propose(p: AgentPrincipal, ws: WorkspaceCtx, args: Args, ops: Bat
     checkpointName: args.checkpoint ? (args.checkpoint_name ?? null) : null,
   });
   const url = proposalUrl(ws.id, row.id);
-  const changes = ops.map((o, index) => {
-    const path = o.op === 'move' || o.op === 'copy' ? o.to : o.path;
-    const type = o.op === 'mkdir' ? 'dir' : o.op === 'write' ? 'file' : null;
-    return {
-      index,
-      op: o.op,
-      path,
-      from_path: o.op === 'move' || o.op === 'copy' ? o.from : null,
-      result: 'proposed' as const,
-      size: o.op === 'write' ? o.bytes.length : null,
-      url: o.op === 'delete' ? null : driveUrl(ws.id, path, type ?? 'file'),
-    };
-  });
+  // Nothing exists in the drive until the user accepts: each change links to
+  // its row on the review page, never to a drive path that is not there yet.
+  const changes = ops.map((o, index) => ({
+    index,
+    op: o.op,
+    path: o.op === 'move' || o.op === 'copy' ? o.to : o.path,
+    from_path: o.op === 'move' || o.op === 'copy' ? o.from : null,
+    result: 'proposed' as const,
+    size: o.op === 'write' ? o.bytes.length : null,
+    url: proposalUrl(ws.id, row.id, index),
+  }));
   const n = ops.length;
   const summary = `Proposed ${n.toLocaleString('en-US')} ${n === 1 ? 'change' : 'changes'} for review · waiting for the user`;
   const data: Out = {
@@ -197,7 +195,6 @@ async function propose(p: AgentPrincipal, ws: WorkspaceCtx, args: Args, ops: Bat
     summary,
   };
   const links: Link[] = [{ uri: url, name: 'Proposal', title: 'Review the proposal in Volumes' }];
-  for (const c of changes) if (c.url) links.push({ uri: c.url, name: basename(c.path) || c.path, title: c.path });
   return { data, links };
 }
 
