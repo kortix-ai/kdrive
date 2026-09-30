@@ -6,11 +6,12 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, mock, tes
 import type { ProposalDetailResponse, ProposalFile, ProposalSummary } from '@volumes/shared';
 
 const pushed: string[] = [];
+let search = new URLSearchParams();
 const router = { replace: (u: string) => void pushed.push(u), push: (u: string) => void pushed.push(u), prefetch: () => {}, back: () => {}, refresh: () => {} };
 mock.module('next/navigation', () => ({
   useRouter: () => router,
   usePathname: () => '/proposals',
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => search,
   useParams: () => ({ id: 'p1' }),
 }));
 
@@ -45,6 +46,7 @@ beforeAll(async () => {
 beforeEach(async () => {
   calls.length = 0;
   pushed.length = 0;
+  search = new URLSearchParams();
   handler = () => undefined;
   const { useVx } = await import('@/lib/store');
   useVx.setState({ workspaceId: 'ws1', toasts: [], me: null } as never);
@@ -345,6 +347,78 @@ describe('review', () => {
     await click(byText(host, 'button', 'Replace newer changes'));
     await until(() => accepts().length === 2);
     expect(accepts()[1].body).toEqual({ force: true });
+    await unmount();
+  });
+
+  test('a change that builds on another takes it along; a link to one change opens it', async () => {
+    search = new URLSearchParams('ws=ws1&seq=1');
+    handler = (c) => {
+      if (c.method === 'POST' && c.url.endsWith('/accept')) return { status: 200, body: { proposal: summary(), action } };
+      if (c.url.endsWith('/api/w/ws1/proposals/p1'))
+        return {
+          status: 200,
+          body: detail({
+            files: [
+              file(0, { change: 'added', baseSize: null, path: '/Projects/brief.md', inDrive: { path: false, from: null, folder: false } }),
+              file(1, { op: 'move', change: 'moved', fromPath: '/Projects/brief.md', path: '/Archive/brief.md', compare: null, requires: [0], inDrive: { path: false, from: false, folder: false } }),
+              file(2),
+            ],
+          }),
+        };
+      return undefined;
+    };
+    const { host, unmount } = await mount();
+    await until(() => !!host.querySelector('[data-view="move"]'));
+    expect(host.querySelector('[data-seq="1"]')?.getAttribute('aria-current')).toBe('true');
+    // Neither the source (made by change 0) nor the destination folder is in the drive yet.
+    expect(host.querySelector('[data-view="move"] a')).toBeNull();
+    expect(host.textContent).toContain('Also accepts: Added /Projects/brief.md');
+    await click(byText(host, 'button', 'Accept this file'));
+    await until(() => accepts().length > 0);
+    expect(accepts()[0].body).toEqual({ seqs: [0, 1], force: false });
+    await tick(20);
+    await click(host.querySelector('input[aria-label="Select /Projects/brief.md → /Archive/brief.md"]'));
+    expect((host.querySelector('input[aria-label="Select /Projects/brief.md"]') as HTMLInputElement).checked).toBe(true);
+    await click(host.querySelector('input[aria-label="Select /Projects/brief.md"]'));
+    expect((host.querySelector('input[aria-label="Select /Projects/brief.md → /Archive/brief.md"]') as HTMLInputElement).checked).toBe(false);
+    await unmount();
+  });
+
+  test('a refusal the conflict bar already shows nudges it and moves focus there', async () => {
+    handler = (c) => {
+      if (c.method === 'POST' && c.url.endsWith('/accept'))
+        return { status: 409, body: { error: { code: 'stale_base', message: '1 file changed.', details: { current_commit_id: 'vc_x', conflicts: [{ path: '/notes/f2.md', reason: 'changed', current: null }] } } } };
+      if (c.url.endsWith('/api/w/ws1/proposals/p1')) return { status: 200, body: detail({ conflicts: 1, files: [file(0), file(1), file(2, { conflict: { reason: 'changed', currentSize: 3 } })] }) };
+      return undefined;
+    };
+    const { host, unmount } = await mount();
+    await until(() => !!host.querySelector('[data-conflict-bar]'));
+    const bar = host.querySelector('[data-conflict-bar]') as HTMLElement;
+    expect(bar.hasAttribute('data-nudge')).toBe(false);
+    await click(byText(host, 'button', 'Accept all'));
+    await until(() => accepts().length > 0 && bar.hasAttribute('data-nudge'));
+    expect(bar.hasAttribute('data-nudge')).toBe(true);
+    expect(document.activeElement).toBe(bar);
+    await unmount();
+  });
+
+  test('decided rows link to the drive only when accepted and there', async () => {
+    handler = (c) =>
+      c.url.endsWith('/api/w/ws1/proposals/p1')
+        ? {
+            status: 200,
+            body: detail({
+              proposal: summary({ status: 'partial', pending: 0 }),
+              files: [file(0, { status: 'accepted', compare: null, inDrive: { path: true, from: null, folder: true } }), file(1, { status: 'discarded', compare: null, inDrive: { path: false, from: null, folder: true } })],
+            }),
+          }
+        : undefined;
+    const { host, unmount } = await mount();
+    await until(() => !!byText(host, 'a', 'Open in drive'));
+    expect(byText(host, 'a', 'Open in drive')?.getAttribute('href')).toBe('/drive/notes?file=f0.md');
+    await click(host.querySelector('[data-seq="1"]'));
+    expect(host.textContent).toContain('This change was discarded.');
+    expect(byText(host, 'a', 'Open in drive')).toBeUndefined();
     await unmount();
   });
 

@@ -7,7 +7,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { ArrowRight, Download, FolderPlus } from 'lucide-react';
 import { basename, dirname, formatBytes, TEXT_DIFF_MAX_BYTES, type ProposalFile } from '@volumes/shared';
-import { Button } from '@/components/ui/button';
+import { Button, buttonClass } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { FileIcon } from '@/components/ui/file-icon';
 import { Segmented } from '@/components/ui/segmented';
@@ -42,6 +42,10 @@ export function fileLink(path: string, isDir = false): string {
 function MoveFacts({ f }: { f: ProposalFile }) {
   const verb = f.op === 'move' ? 'Moves' : 'Copies';
   const from = f.fromPath ?? '';
+  // Link only to what is in the drive now: a source another change of this
+  // proposal makes, or a destination folder that does not exist yet, has no page.
+  const fromThere = f.inDrive?.from !== false;
+  const folderThere = f.inDrive?.folder !== false;
   return (
     <div className="p-5 max-[720px]:p-4">
       <div className="max-w-[560px] rounded-vx-md bg-vx-surface-2 p-4">
@@ -51,9 +55,13 @@ function MoveFacts({ f }: { f: ProposalFile }) {
         <dl className="mt-3 grid grid-cols-[72px_minmax(0,1fr)] gap-x-3 gap-y-2 text-[14px] leading-5">
           <dt className="text-vx-text-3">From</dt>
           <dd className="min-w-0">
-            <Link href={fileLink(from, f.entryType === 'dir')} className="vx-code break-all text-vx-accent hover:underline">
-              {from}
-            </Link>
+            {fromThere ? (
+              <Link href={fileLink(from, f.entryType === 'dir')} className="vx-code break-all text-vx-accent hover:underline">
+                {from}
+              </Link>
+            ) : (
+              <span className="vx-code break-all text-vx-text-1">{from}</span>
+            )}
           </dd>
           <dt className="text-vx-text-3">To</dt>
           <dd className="vx-code flex min-w-0 items-center gap-1.5 break-all text-vx-text-1">
@@ -64,10 +72,15 @@ function MoveFacts({ f }: { f: ProposalFile }) {
           <dd className="tabular-nums text-vx-text-2">{f.size !== null ? formatBytes(f.size) : f.baseSize !== null ? formatBytes(f.baseSize) : '—'}</dd>
         </dl>
         <p className="vx-meta mt-3 text-vx-text-3">
-          {f.op === 'move' ? 'The original goes away when you accept.' : 'The original stays where it is.'}{' '}
-          <Link href={driveHref(dirname(f.path) || '/')} className="text-vx-accent hover:underline">
-            Open the destination folder
-          </Link>
+          {f.op === 'move' ? 'The original goes away when you accept.' : 'The original stays where it is.'}
+          {folderThere ? (
+            <>
+              {' '}
+              <Link href={driveHref(dirname(f.path) || '/')} className="text-vx-accent hover:underline">
+                Open the destination folder
+              </Link>
+            </>
+          ) : null}
         </p>
       </div>
     </div>
@@ -80,8 +93,11 @@ export function ReviewPane({
   onDiscard,
   busy,
   phone,
+  alsoAccepts = [],
 }: {
   file: ProposalFile | null;
+  /** Waiting changes this one builds on ("Also accepts: …"). */
+  alsoAccepts?: string[];
   onAccept?: (seq: number) => void;
   onDiscard?: (seq: number) => void;
   /** An accept or discard is running (disables the footer). */
@@ -97,6 +113,8 @@ export function ReviewPane({
   const b = file.compare?.b ?? null;
   const name = basename(file.path) || file.path;
   const pending = file.status === 'pending';
+  const inDrive = file.inDrive?.path !== false;
+  const openHref = file.op === 'delete' ? null : fileLink(file.path, file.entryType === 'dir');
 
   let body: React.ReactNode;
   switch (view) {
@@ -153,11 +171,17 @@ export function ReviewPane({
     default:
       body = pending ? (
         <EmptyState className="flex-1" title="Nothing to compare." body="This change has no content to show." />
+      ) : file.status === 'discarded' ? (
+        <EmptyState className="flex-1" title="This change was discarded." body="Nothing was changed in your drive." />
       ) : (
         <EmptyState
           className="flex-1"
-          title="This change is decided."
-          body="Suggested content is kept only while a proposal waits for review. Open the file in your drive to see it now."
+          title="This change was accepted."
+          body={
+            inDrive
+              ? 'Suggested content is kept only while a proposal waits for review. Open it in your drive to see it now.'
+              : 'Suggested content is kept only while a proposal waits for review, and nothing is at this path any more.'
+          }
         />
       );
   }
@@ -235,8 +259,21 @@ export function ReviewPane({
         ) : null}
       </div>
       <div className="flex min-h-0 flex-1 flex-col">{body}</div>
-      {pending && (onAccept || onDiscard) ? (
+      {file.status === 'accepted' && inDrive && openHref ? (
         <footer className="flex shrink-0 items-center justify-end gap-2 border-t border-vx-hair px-5 py-3 max-[720px]:px-4">
+          <Link href={openHref} className={buttonClass('outline')}>
+            Open in drive
+          </Link>
+        </footer>
+      ) : null}
+      {pending && (onAccept || onDiscard) ? (
+        <footer className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-vx-hair px-5 py-3 max-[720px]:px-4">
+          {onAccept && alsoAccepts.length ? (
+            <p className="vx-meta mr-auto min-w-0 truncate text-vx-text-3" title={alsoAccepts.join('\n')}>
+              Also accepts: {alsoAccepts[0]}
+              {alsoAccepts.length > 1 ? ` and ${alsoAccepts.length - 1} more` : ''}
+            </p>
+          ) : null}
           {onDiscard ? (
             <Button variant="text" disabled={busy} onClick={() => onDiscard(file.seq)}>
               Discard this file

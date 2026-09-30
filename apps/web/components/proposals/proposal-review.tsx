@@ -5,7 +5,7 @@
 // list comes first and the pane opens as a full-screen sheet.
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, CircleAlert } from 'lucide-react';
 import { formatBytes } from '@volumes/shared';
 import { AgentBadge } from '@/components/agents/agent-badge';
@@ -21,7 +21,7 @@ import { useHotkeys } from '@/lib/keys';
 import { useVx } from '@/lib/store';
 import { errorText } from '@/lib/versioning/hooks';
 import { ConflictBar } from './conflict-bar';
-import { proposalTitle, statusBadge } from './format';
+import { CHANGE_LABEL, fileLabel, proposalTitle, statusBadge } from './format';
 import { AgentDisc } from './proposal-row';
 import { ReviewFileList } from './review-file-list';
 import { ReviewPane } from './review-pane';
@@ -41,10 +41,16 @@ function usePhone(): boolean {
 
 export function ProposalReview({ id }: { id: string }) {
   const router = useRouter();
+  const params = useSearchParams();
   const ws = useVx((s) => s.workspaceId);
   const { data, error, isLoading, mutate } = useProposal(id);
   const phone = usePhone();
-  const [selected, setSelected] = useState<number | null>(null);
+  // A link to one change (`?seq=`) opens with that row selected.
+  const [selected, setSelected] = useState<number | null>(() => {
+    const raw = params?.get('seq');
+    const n = raw !== null && raw !== undefined && /^\d+$/.test(raw) ? Number(raw) : NaN;
+    return Number.isInteger(n) ? n : null;
+  });
   const [checked, setChecked] = useState<Set<number>>(() => new Set());
   const [onlyConflicts, setOnlyConflicts] = useState(false);
   const [paneOpen, setPaneOpen] = useState(false);
@@ -52,7 +58,7 @@ export function ProposalReview({ id }: { id: string }) {
   const proposal = data?.proposal ?? null;
   const files = useMemo(() => data?.files ?? [], [data]);
   const after = useCallback(() => void mutate(), [mutate]);
-  const { busy, stale, quota, accept, discard, clearQuota } = useReviewActions(ws, proposal, after);
+  const { busy, stale, staleTick, quota, accept, discard, clearQuota } = useReviewActions(ws, proposal, after);
 
   // Keep the selection on a real row: the first one by default.
   useEffect(() => {
@@ -85,6 +91,21 @@ export function ProposalReview({ id }: { id: string }) {
   const ticked = [...checked].sort((x, y) => x - y);
   const seqs = ticked.length ? ticked : undefined;
   const current = files.find((f) => f.seq === selected) ?? null;
+  const bySeq = new Map(files.map((f) => [f.seq, f]));
+  /** The waiting rows a row builds on: they are accepted with it. */
+  const needs = (seq: number) => (bySeq.get(seq)?.requires ?? []).filter((q) => bySeq.get(q)?.status === 'pending');
+  /** Ticking a row ticks what it builds on; clearing one clears the rows that build on it. */
+  const check = (seq: number, on: boolean) =>
+    setChecked((cur) => {
+      const next = new Set(cur);
+      if (on) for (const q of [seq, ...needs(seq)]) next.add(q);
+      else {
+        next.delete(seq);
+        for (const f of files) if (f.requires?.includes(seq)) next.delete(f.seq);
+      }
+      return next;
+    });
+  const alsoAccepts = current ? needs(current.seq).map((q) => `${CHANGE_LABEL[bySeq.get(q)!.change]} ${fileLabel(bySeq.get(q)!)}`) : [];
 
   if (error && !data) {
     const gone = error instanceof ApiError && error.status === 404;
@@ -136,7 +157,8 @@ export function ProposalReview({ id }: { id: string }) {
       file={current}
       phone={phone}
       busy={!!busy}
-      onAccept={open ? (seq) => void accept([seq]) : undefined}
+      alsoAccepts={alsoAccepts}
+      onAccept={open ? (seq) => void accept([seq, ...needs(seq)].sort((x, y) => x - y)) : undefined}
       onDiscard={open ? (seq) => void discard([seq]) : undefined}
     />
   );
@@ -186,6 +208,7 @@ export function ProposalReview({ id }: { id: string }) {
           <ConflictBar
             count={conflictCount}
             showing={onlyConflicts}
+            nudge={staleTick}
             busy={busy === 'accept'}
             onShow={() => setOnlyConflicts((v) => !v)}
             onAcceptAnyway={() => void accept(seqs, true)}
@@ -217,14 +240,7 @@ export function ProposalReview({ id }: { id: string }) {
           selected={selected}
           onSelect={select}
           checked={checked}
-          onCheck={(seq, on) =>
-            setChecked((cur) => {
-              const next = new Set(cur);
-              if (on) next.add(seq);
-              else next.delete(seq);
-              return next;
-            })
-          }
+          onCheck={check}
           onCheckAll={open ? (on) => setChecked(on ? new Set(shown.filter((f) => f.status === 'pending').map((f) => f.seq)) : new Set()) : undefined}
         />
         {phone ? null : <div className="min-h-0 min-w-0">{pane}</div>}

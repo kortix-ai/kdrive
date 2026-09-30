@@ -349,6 +349,10 @@ button:disabled { cursor: not-allowed; }
 .vx-drain { transform-origin: left; animation: vxDrain linear forwards; }
 .vx-toast:hover .vx-drain { animation-play-state: paused; }
 
+/* A notice that is already on screen answers a repeated action by nudging once. */
+@keyframes vxNudge { 0%, 100% { transform: none; } 20% { transform: translateX(-4px); } 40% { transform: translateX(4px); } 60% { transform: translateX(-2px); } 80% { transform: translateX(2px); } }
+.vx-nudge { animation: vxNudge 360ms var(--vx-ease); }
+
 @keyframes vxSpin { to { transform: rotate(360deg); } }
 .vx-spin { animation: vxSpin 800ms linear infinite; }
 

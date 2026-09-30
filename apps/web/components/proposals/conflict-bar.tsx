@@ -17,6 +17,7 @@ export function ConflictBar({
   onAcceptAnyway,
   busy,
   showing,
+  nudge,
   className,
 }: {
   count: number;
@@ -25,10 +26,24 @@ export function ConflictBar({
   busy?: boolean;
   /** The list is filtered to the conflicts (the button then reads "Show all"). */
   showing?: boolean;
+  /** Bumped when an accept is refused again while the bar is showing: it nudges and takes focus. */
+  nudge?: number;
   className?: string;
 }) {
   const [armed, setArmed] = useState(false);
+  const [nudging, setNudging] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const bar = useRef<HTMLDivElement | null>(null);
+  const seen = useRef(nudge);
+
+  useEffect(() => {
+    if (nudge === seen.current) return;
+    seen.current = nudge;
+    bar.current?.focus();
+    setNudging(true);
+    const t = setTimeout(() => setNudging(false), 400);
+    return () => clearTimeout(t);
+  }, [nudge]);
 
   useEffect(
     () => () => {
@@ -51,10 +66,14 @@ export function ConflictBar({
   const files = count === 1 ? '1 file' : `${count.toLocaleString('en-US')} files`;
   return (
     <div
+      ref={bar}
       role="alert"
+      tabIndex={-1}
       data-conflict-bar=""
+      data-nudge={nudging ? '' : undefined}
       className={cx(
-        'flex flex-wrap items-center gap-x-4 gap-y-2 rounded-vx-md bg-vx-danger-wash px-3.5 py-3 shadow-[inset_0_0_0_1px_var(--vx-danger-edge)]',
+        'flex flex-wrap items-center gap-x-4 gap-y-2 rounded-vx-md bg-vx-danger-wash px-3.5 py-3 shadow-[inset_0_0_0_1px_var(--vx-danger-edge)] outline-none',
+        nudging && 'vx-nudge',
         className,
       )}
     >

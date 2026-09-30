@@ -38,6 +38,8 @@ export type ReviewBusy = 'accept' | 'discard' | null;
 export function useReviewActions(ws: string | null, proposal: ProposalSummary | null, after: () => void) {
   const [busy, setBusy] = useState<ReviewBusy>(null);
   const [stale, setStale] = useState<StaleInfo | null>(null);
+  /** Counts stale_base refusals, so a refusal the bar already shows still visibly answers the click. */
+  const [staleTick, setStaleTick] = useState(0);
   const [quota, setQuota] = useState<{ details: QuotaDetails | null; message: string } | null>(null);
 
   const fail = useCallback(
@@ -45,6 +47,7 @@ export function useReviewActions(ws: string | null, proposal: ProposalSummary | 
       const toast = useVx.getState().toast;
       if (e instanceof ApiError && e.code === 'stale_base') {
         setStale(staleFrom(e));
+        setStaleTick((n) => n + 1);
       } else if (e instanceof ApiError && e.code === 'proposal_closed') {
         toast({ kind: 'info', message: 'Already decided' });
       } else if (e instanceof ApiError && e.code === 'quota_exceeded') {
@@ -106,5 +109,5 @@ export function useReviewActions(ws: string | null, proposal: ProposalSummary | 
     [ws, proposal, busy, after, fail],
   );
 
-  return { busy, stale, quota, accept, discard, clearQuota: () => setQuota(null) };
+  return { busy, stale, staleTick, quota, accept, discard, clearQuota: () => setQuota(null) };
 }
