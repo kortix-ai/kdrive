@@ -2,6 +2,7 @@
 // Pure functions (no React), so they run in `bun test`.
 
 import { diffLines, diffWordsWithSpace, type ChangeObject } from 'diff';
+import { prettyJsonResult } from '../json-pretty';
 
 export type SegKind = 'same' | 'add' | 'del';
 export interface Seg {
@@ -46,15 +47,36 @@ export interface TextDiff {
 /** Word highlights are skipped on very long lines (minified files) to keep the diff fast. */
 const WORD_DIFF_MAX_LINE = 2000;
 
-/** CRLF/CR → LF; JSON is pretty-printed (2 spaces) when it parses, so formatting noise does not hide real changes. */
+/** Rows the compare view renders at a time; the rest is behind "Show more". */
+export const TEXT_COMPARE_MAX_ROWS = 5000;
+
+/**
+ * JSON is compared formatted only while that stays under this many lines (or the stored
+ * line count, if larger): a small file of many tiny values formats to hundreds of
+ * thousands of lines well within the preview's size budget.
+ */
+export const COMPARE_JSON_MAX_LINES = 50_000;
+
+function lineCount(t: string, stopAfter: number): number {
+  let n = 1;
+  for (let i = t.indexOf('\n'); i !== -1 && n <= stopAfter; i = t.indexOf('\n', i + 1)) n++;
+  return n;
+}
+
+/**
+ * CRLF/CR → LF; JSON is pretty-printed (2 spaces) when it parses and prints within the
+ * preview's bound, so formatting noise does not hide real changes.
+ */
 export function normalizeText(text: string, opts: { json?: boolean } = {}): string {
   let t = text.replace(/\r\n?/g, '\n');
   if (t.charCodeAt(0) === 0xfeff) t = t.slice(1);
   if (opts.json) {
-    try {
-      t = JSON.stringify(JSON.parse(t), null, 2) + '\n';
-    } catch {
-      /* not valid JSON: diff it as text */
+    // Bounded like the preview: deep nesting or long-printing numbers are diffed as stored,
+    // and so is a document whose formatted form would run to too many lines.
+    const r = prettyJsonResult(t);
+    if (r.status === 'pretty') {
+      const max = Math.max(COMPARE_JSON_MAX_LINES, lineCount(t, COMPARE_JSON_MAX_LINES));
+      if (lineCount(r.text, max) <= max) t = r.text + '\n';
     }
   }
   return t;

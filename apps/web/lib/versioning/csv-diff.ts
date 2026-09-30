@@ -20,8 +20,27 @@ export interface CsvRow {
   cells: CsvCell[];
 }
 
+/**
+ * A file can be small and still describe a huge table (a wide header with short rows).
+ * Compare builds cells for at most CSV_COMPARE_MAX_COLUMNS columns (changes past them still
+ * count) and shows at most CSV_COMPARE_MAX_ROWS rows, fewer when that would pass
+ * CSV_COMPARE_MAX_CELLS.
+ */
+export const CSV_COMPARE_MAX_ROWS = 5000;
+export const CSV_COMPARE_MAX_COLUMNS = 100;
+export const CSV_COMPARE_MAX_CELLS = 100_000;
+
+/** Rows to show for `columns` shown columns. */
+export function csvRowBudget(columns: number): number {
+  if (columns <= 0) return CSV_COMPARE_MAX_ROWS;
+  return Math.min(CSV_COMPARE_MAX_ROWS, Math.max(1, Math.floor(CSV_COMPARE_MAX_CELLS / columns)));
+}
+
 export interface CsvDiff {
+  /** the columns shown (at most `maxColumns`); every row's `cells` has one per column */
   columns: string[];
+  /** every column in either version */
+  totalColumns: number;
   headerChanged: boolean;
   keyedBy: 'first-column' | 'index';
   rows: CsvRow[];
@@ -41,51 +60,79 @@ export function parseCsv(text: string, opts: { delimiter?: string } = {}): strin
 
 const uniqueNonEmpty = (xs: string[]) => xs.every((x) => x.trim() !== '') && new Set(xs).size === xs.length;
 
-export function diffCsvRows(aRows: string[][], bRows: string[][]): CsvDiff {
+const widest = (rows: string[][], start: number) => {
+  let w = start;
+  for (const r of rows) if (r.length > w) w = r.length;
+  return w;
+};
+
+export function diffCsvRows(aRows: string[][], bRows: string[][], opts: { maxColumns?: number } = {}): CsvDiff {
   const ha = aRows[0] ?? [];
   const hb = bRows[0] ?? [];
   const aData = aRows.slice(1);
   const bData = bRows.slice(1);
 
   // Column alignment: by header name when both headers are clean, else by position.
-  let columns: string[];
+  let allColumns: string[];
   let aCol: (row: string[], c: number) => string | null;
   let bCol: (row: string[], c: number) => string | null;
+  // Cells that differ in a row pair, across every column; only looks at cells either row has.
+  let countChanged: (aRow: string[], bRow: string[]) => number;
   if (ha.length && hb.length && uniqueNonEmpty(ha) && uniqueNonEmpty(hb)) {
-    columns = [...hb, ...ha.filter((h) => !hb.includes(h))];
+    // Maps, not array scans: a clean header can be tens of thousands of names wide.
     const ai = new Map(ha.map((h, i) => [h, i]));
     const bi = new Map(hb.map((h, i) => [h, i]));
+    allColumns = [...hb, ...ha.filter((h) => !bi.has(h))];
     aCol = (row, c) => {
-      const i = ai.get(columns[c]);
+      const i = ai.get(allColumns[c]);
       return i === undefined ? null : (row[i] ?? '');
     };
     bCol = (row, c) => {
-      const i = bi.get(columns[c]);
+      const i = bi.get(allColumns[c]);
       return i === undefined ? null : (row[i] ?? '');
     };
+    countChanged = (aRow, bRow) => {
+      let n = 0;
+      const la = Math.min(aRow.length, ha.length);
+      for (let i = 0; i < la; i++) {
+        const j = bi.get(ha[i]);
+        if ((aRow[i] ?? '') !== (j === undefined ? '' : (bRow[j] ?? ''))) n++;
+      }
+      const lb = Math.min(bRow.length, hb.length);
+      for (let j = 0; j < lb; j++) {
+        const i = ai.get(hb[j]);
+        if (i !== undefined && i < la) continue; // compared above
+        if ((bRow[j] ?? '') !== '') n++;
+      }
+      return n;
+    };
   } else {
-    const width = Math.max(ha.length, hb.length, ...aData.map((r) => r.length), ...bData.map((r) => r.length), 0);
-    columns = Array.from({ length: width }, (_, i) => hb[i] ?? ha[i] ?? `Column ${i + 1}`);
+    const width = widest(bData, widest(aData, Math.max(ha.length, hb.length)));
+    allColumns = Array.from({ length: width }, (_, i) => hb[i] ?? ha[i] ?? `Column ${i + 1}`);
     aCol = (row, c) => row[c] ?? '';
     bCol = (row, c) => row[c] ?? '';
+    countChanged = (aRow, bRow) => {
+      let n = 0;
+      const l = Math.max(aRow.length, bRow.length);
+      for (let c = 0; c < l; c++) if ((aRow[c] ?? '') !== (bRow[c] ?? '')) n++;
+      return n;
+    };
   }
   const headerChanged = ha.length !== hb.length || ha.some((h, i) => h !== hb[i]);
+  const shown = Math.min(allColumns.length, Math.max(1, opts.maxColumns ?? CSV_COMPARE_MAX_COLUMNS));
+  const columns = allColumns.length > shown ? allColumns.slice(0, shown) : allColumns;
 
   const aKeys = aData.map((r) => aCol(r, 0) ?? '');
   const bKeys = bData.map((r) => bCol(r, 0) ?? '');
   const keyed = (aData.length > 0 || bData.length > 0) && uniqueNonEmpty(aKeys) && uniqueNonEmpty(bKeys);
 
-  const cellsOf = (aRow: string[] | null, bRow: string[] | null): { cells: CsvCell[]; changed: number } => {
-    let changed = 0;
-    const cells = columns.map((_, c) => {
+  // Cells are built on first read, and only for the shown columns: most rows are never drawn.
+  const cellsOf = (aRow: string[] | null, bRow: string[] | null): CsvCell[] =>
+    columns.map((_, c) => {
       const a = aRow ? aCol(aRow, c) : null;
       const b = bRow ? bCol(bRow, c) : null;
-      const diff = !!aRow && !!bRow && (a ?? '') !== (b ?? '');
-      if (diff) changed++;
-      return { a, b, changed: diff };
+      return { a, b, changed: !!aRow && !!bRow && (a ?? '') !== (b ?? '') };
     });
-    return { cells, changed };
-  };
 
   const rows: CsvRow[] = [];
   let addedRows = 0;
@@ -95,7 +142,6 @@ export function diffCsvRows(aRows: string[][], bRows: string[][]): CsvDiff {
   const pair = (ai: number | null, bi: number | null, key: string): CsvRow => {
     const aRow = ai === null ? null : aData[ai];
     const bRow = bi === null ? null : bData[bi];
-    const { cells, changed } = cellsOf(aRow, bRow);
     let status: CsvRowStatus;
     if (!aRow) {
       status = 'add';
@@ -103,12 +149,18 @@ export function diffCsvRows(aRows: string[][], bRows: string[][]): CsvDiff {
     } else if (!bRow) {
       status = 'del';
       removedRows++;
-    } else if (changed > 0) {
-      status = 'mod';
-      changedRows++;
-      changedCells += changed;
-    } else status = 'same';
-    return { status, key, aIndex: ai, bIndex: bi, cells };
+    } else {
+      const changed = countChanged(aRow, bRow);
+      if (changed > 0) {
+        status = 'mod';
+        changedRows++;
+        changedCells += changed;
+      } else status = 'same';
+    }
+    let cells: CsvCell[] | undefined;
+    const row = { status, key, aIndex: ai, bIndex: bi } as CsvRow;
+    Object.defineProperty(row, 'cells', { enumerable: true, get: () => (cells ??= cellsOf(aRow, bRow)) });
+    return row;
   };
 
   if (keyed) {
@@ -137,11 +189,11 @@ export function diffCsvRows(aRows: string[][], bRows: string[][]): CsvDiff {
     for (let i = 0; i < n; i++) rows.push(pair(i < aData.length ? i : null, i < bData.length ? i : null, String(i + 1)));
   }
 
-  return { columns, headerChanged, keyedBy: keyed ? 'first-column' : 'index', rows, addedRows, removedRows, changedRows, changedCells };
+  return { columns, totalColumns: allColumns.length, headerChanged, keyedBy: keyed ? 'first-column' : 'index', rows, addedRows, removedRows, changedRows, changedCells };
 }
 
-export function diffCsv(aText: string, bText: string, opts: { delimiter?: string } = {}): CsvDiff {
-  return diffCsvRows(parseCsv(aText, opts), parseCsv(bText, opts));
+export function diffCsv(aText: string, bText: string, opts: { delimiter?: string; maxColumns?: number } = {}): CsvDiff {
+  return diffCsvRows(parseCsv(aText, opts), parseCsv(bText, opts), opts);
 }
 
 const plural = (n: number, one: string, many = one + 's') => `${n} ${n === 1 ? one : many}`;

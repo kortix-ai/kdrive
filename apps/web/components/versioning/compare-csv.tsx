@@ -7,11 +7,10 @@ import { Button } from '@/components/ui/button';
 import { cx } from '@/components/ui/cx';
 import { EmptyState } from '@/components/ui/empty-state';
 import { errorText } from '@/lib/versioning/hooks';
-import { csvSummary, diffCsv, type CsvRow } from '@/lib/versioning/csv-diff';
+import { csvRowBudget, csvSummary, diffCsv, type CsvRow } from '@/lib/versioning/csv-diff';
 import { SummaryBar } from './compare-header';
 import { useSideText } from './compare-text';
 
-const MAX_ROWS = 5000;
 const MARK: Record<CsvRow['status'], string> = { same: '', add: '+', del: '−', mod: '~' };
 
 /** CSV/TSV: merged table with a status column; added / removed rows and changed cells ("old → new"). */
@@ -65,11 +64,14 @@ export function CompareCsv({ a, b, path, changesOnly }: { a: FileSide | null; b:
   if (!diff) return null;
 
   const cols = diff.columns;
-  const shown = rows.slice(0, MAX_ROWS);
+  const maxRows = csvRowBudget(cols.length);
+  const shown = rows.slice(0, maxRows);
+  const colsCut = diff.totalColumns > cols.length;
   const note = (
     <span className="vx-micro text-vx-text-3">
       {diff.keyedBy === 'first-column' ? `Rows matched by ${cols[0] ? `"${cols[0]}"` : 'the first column'}` : 'Rows matched by position'}
       {diff.headerChanged ? ' · header changed' : ''}
+      {colsCut ? ` · first ${cols.length.toLocaleString('en-US')} of ${diff.totalColumns.toLocaleString('en-US')} columns` : ''}
     </span>
   );
 
@@ -149,8 +151,17 @@ export function CompareCsv({ a, b, path, changesOnly }: { a: FileSide | null; b:
               ))}
             </tbody>
           </table>
-          {rows.length > MAX_ROWS ? (
-            <p className="vx-micro px-4 py-3 text-vx-text-3">Showing the first {MAX_ROWS.toLocaleString('en-US')} of {rows.length.toLocaleString('en-US')} rows.</p>
+          {rows.length > maxRows || colsCut ? (
+            <p className="vx-micro px-4 py-3 text-vx-text-3">
+              Showing the first{' '}
+              {[
+                rows.length > maxRows ? `${maxRows.toLocaleString('en-US')} of ${rows.length.toLocaleString('en-US')} rows` : '',
+                colsCut ? `${cols.length.toLocaleString('en-US')} of ${diff.totalColumns.toLocaleString('en-US')} columns` : '',
+              ]
+                .filter(Boolean)
+                .join(' and ')}
+              .
+            </p>
           ) : null}
         </div>
       )}

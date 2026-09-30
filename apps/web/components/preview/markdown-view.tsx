@@ -8,9 +8,19 @@ import { useTextContent } from './content';
 import { HighlightedSource } from './code-view';
 import { PreviewError, PreviewSkeleton } from './states';
 
+/**
+ * A reference definition is written once and can be used thousands of times, each use
+ * rendering the full URL. A link or image target longer than MARKDOWN_MAX_URL_CHARS is never
+ * followed, and the document's targets together stop at max(MARKDOWN_URL_BUDGET_MIN, twice
+ * the file); links past that are shown as text.
+ */
+export const MARKDOWN_MAX_URL_CHARS = 4096;
+export const MARKDOWN_URL_BUDGET_MIN = 512 * 1024;
+const TITLE_MAX_CHARS = 200;
+
 /** Only absolute http(s) / mailto links and in-page anchors are followed; anything else is shown as text. */
 export function safeHref(href: string | undefined | null): string | null {
-  if (!href) return null;
+  if (!href || href.length > MARKDOWN_MAX_URL_CHARS) return null;
   const h = href.trim();
   if (h.startsWith('#')) return h;
   if (/^https?:\/\//i.test(h) || /^mailto:/i.test(h)) return h;
@@ -19,9 +29,91 @@ export function safeHref(href: string | undefined | null): string | null {
 
 /** Only absolute http(s) images load (no referrer); relative or scriptable sources never do. */
 export function safeImageSrc(src: string | undefined | null): string | null {
-  if (!src) return null;
+  if (!src || src.length > MARKDOWN_MAX_URL_CHARS) return null;
   return /^https?:\/\//i.test(src.trim()) ? src.trim() : null;
 }
+
+/**
+ * GFM pads every table row to the header's width, so a small file with a wide header and
+ * short rows describes a huge table. Tables show at most this many columns, and the whole
+ * document at most this many cells; a note under a shortened table says what it left out.
+ */
+export const MARKDOWN_TABLE_MAX_COLUMNS = 50;
+export const MARKDOWN_TABLE_MAX_CELLS = 20_000;
+
+type MdNode = { type: string; children?: MdNode[]; align?: (string | null)[]; value?: string; data?: { hProperties?: Record<string, unknown> } };
+
+const n = (x: number) => x.toLocaleString('en-US');
+const mdNote = (text: string): MdNode => ({
+  type: 'paragraph',
+  data: { hProperties: { className: ['vx-meta', 'text-vx-text-3'] } },
+  children: [{ type: 'text', value: text }],
+});
+
+/** Remark plugin: cuts tables to MARKDOWN_TABLE_MAX_COLUMNS columns and the document to MARKDOWN_TABLE_MAX_CELLS cells. */
+export function remarkBoundTables() {
+  return (tree: MdNode) => {
+    let budget = MARKDOWN_TABLE_MAX_CELLS;
+    const walk = (node: MdNode) => {
+      const kids = node.children;
+      if (!kids) return;
+      for (let i = 0; i < kids.length; i++) {
+        const t = kids[i];
+        if (t.type !== 'table') {
+          walk(t);
+          continue;
+        }
+        const rows = t.children ?? [];
+        let columns = t.align?.length ?? 0;
+        for (const r of rows) columns = Math.max(columns, r.children?.length ?? 0);
+        const shownColumns = Math.min(columns, MARKDOWN_TABLE_MAX_COLUMNS);
+        const fit = shownColumns ? Math.floor(budget / shownColumns) : rows.length;
+        if (fit < 1) {
+          kids[i] = mdNote(`Table left out: this file has more table cells than the preview shows.`);
+          continue;
+        }
+        const keptRows = Math.min(rows.length, fit);
+        budget -= keptRows * shownColumns;
+        if (keptRows === rows.length && shownColumns === columns) continue;
+        t.align = (t.align ?? []).slice(0, shownColumns);
+        t.children = rows.slice(0, keptRows).map((r) => ({ ...r, children: (r.children ?? []).slice(0, shownColumns) }));
+        const parts: string[] = [];
+        if (keptRows < rows.length) parts.push(`${n(Math.max(0, keptRows - 1))} of ${n(rows.length - 1)} rows`);
+        if (shownColumns < columns) parts.push(`${n(shownColumns)} of ${n(columns)} columns`);
+        kids.splice(i + 1, 0, mdNote(`Table shortened: showing ${parts.join(' and ')}.`));
+        i++;
+      }
+    };
+    walk(tree);
+  };
+}
+
+type HastNode = { type: string; tagName?: string; properties?: Record<string, unknown>; children?: HastNode[] };
+
+/**
+ * Rehype plugin: drops link and image targets (href, src) that are too long, and every one
+ * after the document's targets add up to `budget` characters. Those render as text.
+ */
+export function rehypeBoundUrls(opts: { budget: number }) {
+  return (tree: HastNode) => {
+    let left = opts.budget;
+    const stack: HastNode[] = [tree];
+    while (stack.length) {
+      const node = stack.pop()!;
+      if (node.type === 'element' && node.properties) {
+        for (const prop of ['href', 'src'] as const) {
+          const v = node.properties[prop];
+          if (typeof v !== 'string') continue;
+          if (v.length > MARKDOWN_MAX_URL_CHARS || v.length > left) delete node.properties[prop];
+          else left -= v.length;
+        }
+      }
+      if (node.children) for (let i = node.children.length - 1; i >= 0; i--) stack.push(node.children[i]);
+    }
+  };
+}
+
+const clip = (s: string | undefined | null) => (s && s.length > TITLE_MAX_CHARS ? s.slice(0, TITLE_MAX_CHARS) + '…' : (s ?? undefined));
 
 const components: Components = {
   h1: ({ children }) => <h1 className="mb-3 mt-7 text-[24px] font-bold leading-8 tracking-[-0.02em] text-vx-text-1 first:mt-0">{children}</h1>,
@@ -33,7 +125,7 @@ const components: Components = {
   p: ({ children }) => <p className="my-3 first:mt-0 last:mb-0">{children}</p>,
   a: ({ href, children }) => {
     const safe = safeHref(href);
-    if (!safe) return <span className="text-vx-text-1 underline decoration-vx-hair-strong decoration-dashed underline-offset-2" title={href ?? undefined}>{children}</span>;
+    if (!safe) return <span className="text-vx-text-1 underline decoration-vx-hair-strong decoration-dashed underline-offset-2" title={clip(href)}>{children}</span>;
     const external = !safe.startsWith('#');
     return (
       <a
@@ -102,7 +194,12 @@ const components: Components = {
 export function MarkdownBody({ text, className }: { text: string; className?: string }) {
   return (
     <div className={'min-w-0 break-words text-[15px] leading-6 text-vx-text-2 ' + (className ?? '')}>
-      <ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml components={components}>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm, remarkBoundTables]}
+        rehypePlugins={[[rehypeBoundUrls, { budget: Math.max(MARKDOWN_URL_BUDGET_MIN, text.length * 2) }]]}
+        skipHtml
+        components={components}
+      >
         {text}
       </ReactMarkdown>
     </div>
