@@ -7,7 +7,8 @@ import { lastAgentAction } from '../../services/ledger';
 import { auditAs } from '../../services/restore-request';
 import { undoAction } from '../../services/undo';
 import { UNDO_DESCRIPTION } from '../descriptions';
-import { ok, withTool, type ToolCtx } from '../result';
+import { afterCommit, ok, withTool, type ToolCtx } from '../result';
+import { headCommit } from './util';
 import { UndoInput, UndoOutput } from '../schemas';
 
 type Args = { workspace_id?: string; action_id?: string };
@@ -36,15 +37,17 @@ export function registerUndoTool(server: McpServer, p: AgentPrincipal, ctx: Tool
         }
         const action = await undoAction(actx, target);
         await auditAs(actx, { kind: 'agent.undo', target, meta: { actionId: action.id, undone: target, credential: p.credential } });
+        const committed = action.status === 'committed';
+        const summary = committed ? action.summary : 'Nothing to put back: the files are already as they were.';
         const data = {
-          outcome: 'committed' as const,
-          action_id: action.id,
+          outcome: committed ? ('committed' as const) : ('unchanged' as const),
+          action_id: committed ? action.id : null,
           undone_action_id: target,
-          summary: action.summary,
-          head_commit_id: action.headCommitId,
+          summary,
+          head_commit_id: (committed ? action.headCommitId : null) ?? (await afterCommit('reading the head', () => headCommit(ws), null)),
         };
         return ok({
-          summary: action.summary,
+          summary,
           links: [{ uri: driveUrl(ws.id, '/', 'dir'), name: ws.name, title: ws.name }],
           data,
         });

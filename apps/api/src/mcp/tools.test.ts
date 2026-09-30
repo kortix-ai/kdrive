@@ -185,6 +185,38 @@ describe('write tools (direct)', () => {
     expect(okd.structuredContent.base_commit_id).toBe(r.structuredContent.commit_id);
   });
 
+  test('a checkpoint that cannot be saved never reports the landed change as not committed', async () => {
+    const { getStore } = await import('../storage');
+    const { getWorkspaceForUser } = await import('../services/workspaces');
+    const ws = (await getWorkspaceForUser(u.userId, u.ws))!;
+    await upload(u, { '/a.txt': 'a' });
+    for (let i = 0; i < 100; i++) await getStore().putTag(ws.volumeId, `cp-fill${i}`, 'head');
+    const head = (await call('open_workspace')).structuredContent.head_commit_id;
+    const w = await call('write_changes', { last_seen_commit_id: head, checkpoint: true, checkpoint_name: 'cp', changes: [{ op: 'write', path: '/b.txt', content: 'b' }] });
+    expect(w.isError).toBeUndefined();
+    const d = w.structuredContent;
+    expect(d.outcome).toBe('committed');
+    expect(d.action_id).toMatch(/^[0-9a-z]{26}$/);
+    expect(d.checkpoint).toBeNull();
+    expect(d.checkpoint_error).toContain('checkpoints and pinned links are in use');
+    expect(d.summary).toContain('checkpoint not saved');
+    const r = await call('read_files', { paths: ['/b.txt'] });
+    expect(r.structuredContent.files[0].content).toBe('b');
+  });
+
+  test('restore and undo that change nothing say so and name no action', async () => {
+    await upload(u, { '/a.txt': 'a' });
+    const head = (await call('open_workspace')).structuredContent.head_commit_id;
+    for (const args of [{ at: head, paths: ['/a.txt'] }, { at: head }]) {
+      const r = await call('restore', args);
+      expect(r.isError).toBeUndefined();
+      expect(r.structuredContent).toMatchObject({ outcome: 'unchanged', action_id: null, head_commit_id: head });
+      expect(r.content[0].text).toContain('Already at that version');
+    }
+    const h = await call('get_history', { limit: 5 });
+    expect(h.structuredContent.head_commit_id).toBe(head);
+  });
+
   test('argument validation carries the op index and writes nothing', async () => {
     const head = (await call('open_workspace')).structuredContent.head_commit_id;
     const e1 = errorOf(

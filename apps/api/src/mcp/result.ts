@@ -38,6 +38,20 @@ export function ok<T extends Record<string, unknown>>(r: { summary: string; link
   return { content, structuredContent: r.data };
 }
 
+/**
+ * A step that runs after a change has landed (reading it back, a link, a
+ * checkpoint): a failure is logged and yields `fallback`, so a committed
+ * change is never reported as not committed.
+ */
+export async function afterCommit<T>(what: string, fn: () => Promise<T>, fallback: T): Promise<T> {
+  try {
+    return await fn();
+  } catch (e) {
+    console.warn(`[mcp] ${what} after a committed change failed`, e instanceof Error ? e.message : e);
+    return fallback;
+  }
+}
+
 /** Tools that change the drive (their errors carry details.outcome). */
 const WRITE_TOOLS = new Set<McpToolName>(['write_changes', 'create_checkpoint', 'restore', 'undo']);
 

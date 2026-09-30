@@ -252,6 +252,8 @@ export const WriteChangesOutput = {
     }),
   ),
   checkpoint: z.object({ id: z.string(), name: z.string(), commit_id: z.string() }).nullable(),
+  /** Why the checkpoint asked for was not saved (the change itself landed). */
+  checkpoint_error: z.string().nullable().optional(),
   summary: z.string(),
 };
 
@@ -321,8 +323,9 @@ export const RestoreInput = {
   paths: z.array(DrivePath).max(1000).optional().describe('Omit to restore the whole drive.'),
 };
 export const RestoreOutput = {
-  outcome: z.literal('committed'),
-  action_id: z.string(),
+  /** unchanged: the paths were already at that version (no action, nothing to undo). */
+  outcome: z.enum(['committed', 'unchanged']),
+  action_id: z.string().nullable(),
   summary: z.string(),
   head_commit_id: z.string().nullable(),
   restored_to: z.string().nullable(),
@@ -336,8 +339,9 @@ export const UndoInput = {
   action_id: IdSchema.optional().describe("Change to undo. Default: this connection's most recent change."),
 };
 export const UndoOutput = {
-  outcome: z.literal('committed'),
-  action_id: z.string(),
+  /** unchanged: undoing put nothing back (no action). */
+  outcome: z.enum(['committed', 'unchanged']),
+  action_id: z.string().nullable(),
   undone_action_id: z.string(),
   summary: z.string(),
   head_commit_id: z.string().nullable(),

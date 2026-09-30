@@ -16,7 +16,7 @@ import { getStore } from '../../storage';
 import type { WorkspaceCtx } from '../../types';
 import { writeChangesDescription } from '../descriptions';
 import { DIFF_CARD_URI } from '../diff-card';
-import { ok, withTool, type Link, type ToolCtx } from '../result';
+import { afterCommit, ok, withTool, type Link, type ToolCtx } from '../result';
 import { WriteChangesInput, WriteChangesOutput, type ChangeOp } from '../schemas';
 import { badRequest, toPath } from './util';
 
@@ -110,14 +110,22 @@ async function direct(p: AgentPrincipal, ws: WorkspaceCtx, args: Args, ops: Batc
     summary: agentBatchSummary(ops, args.message),
     meta: { message: args.message, ops: ops.length },
   });
-  const row = await getAction(ws.id, action.id);
-  const head = action.headCommitId ?? (await getStore().getVolume(ws.volumeId)).headCommitId;
+  // The batch has landed: nothing below may turn this into a "not committed" result.
+  const row = await afterCommit('reading the action', () => getAction(ws.id, action.id), null);
+  const head =
+    action.headCommitId ?? (await afterCommit('reading the head', async () => (await getStore().getVolume(ws.volumeId)).headCommitId, null));
   await auditAs(actx, { kind: 'agent.write', target: action.id, meta: { actionId: action.id, ops: ops.length, credential: p.credential } });
   let checkpoint: Out['checkpoint'] = null;
+  let checkpointError: string | null = null;
   if (args.checkpoint && args.checkpoint_name) {
-    const cp = await createCheckpoint(actx, { name: args.checkpoint_name, note: args.message, at: head });
-    checkpoint = { id: cp.id, name: cp.name, commit_id: cp.commitId };
-    await auditAs(actx, { kind: 'agent.checkpoint', target: cp.id, meta: { name: cp.name, commitId: cp.commitId, credential: p.credential } });
+    try {
+      const cp = await createCheckpoint(actx, { name: args.checkpoint_name, note: args.message, ...(head ? { at: head } : {}) });
+      checkpoint = { id: cp.id, name: cp.name, commit_id: cp.commitId };
+      await auditAs(actx, { kind: 'agent.checkpoint', target: cp.id, meta: { name: cp.name, commitId: cp.commitId, credential: p.credential } });
+    } catch (e) {
+      checkpointError = e instanceof ApiError ? e.message : 'The checkpoint could not be saved.';
+      if (!(e instanceof ApiError)) console.warn('[mcp] checkpoint after write_changes failed', e instanceof Error ? e.message : e);
+    }
   }
   const changes = results.map((r) => ({
     index: r.index,
@@ -128,7 +136,8 @@ async function direct(p: AgentPrincipal, ws: WorkspaceCtx, args: Args, ops: Batc
     size: r.size,
     url: r.result === 'deleted' ? null : driveUrl(ws.id, r.path, r.entryType),
   }));
-  const summary = writeSummary(results, checkpoint?.name ?? null);
+  let summary = writeSummary(results, checkpoint?.name ?? null);
+  if (checkpointError) summary += ` · checkpoint not saved: ${checkpointError}`;
   const data: Out = {
     outcome: action.status === 'committed' ? 'committed' : 'unchanged',
     workspace_id: ws.id,
@@ -142,6 +151,7 @@ async function direct(p: AgentPrincipal, ws: WorkspaceCtx, args: Args, ops: Batc
     expires_at: null,
     changes,
     checkpoint,
+    ...(checkpointError ? { checkpoint_error: checkpointError } : {}),
     summary,
   };
   const links = changes.filter((c) => c.url).map((c) => ({ uri: c.url!, name: basename(c.path) || c.path, title: c.path }));
