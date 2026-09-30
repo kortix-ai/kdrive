@@ -44,6 +44,10 @@ export function TokenDialog({ open, onClose }: { open: boolean; onClose: () => v
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<{ token: AgentToken; secret: string } | null>(null);
+  /** The secret was copied (a Copy button, or a copy from the field). */
+  const [copied, setCopied] = useState(false);
+  /** Closing was asked for before anything was copied: the next close goes through. */
+  const [leaving, setLeaving] = useState(false);
 
   // Every opening starts clean, and closing forgets the secret.
   useEffect(() => {
@@ -55,6 +59,8 @@ export function TokenDialog({ open, onClose }: { open: boolean; onClose: () => v
     setBusy(false);
     setError(null);
     setCreated(null);
+    setCopied(false);
+    setLeaving(false);
   }, [open]);
 
   const close = () => {
@@ -90,29 +96,59 @@ export function TokenDialog({ open, onClose }: { open: boolean; onClose: () => v
 
   if (created) {
     const url = config?.mcp.url ?? `${typeof window === 'undefined' ? '' : window.location.origin}/mcp`;
+    const didCopy = () => {
+      setCopied(true);
+      setLeaving(false);
+    };
+    // The secret cannot be shown again: a stray click on the scrim, Esc or ↵ never closes
+    // this step, and closing before anything was copied asks once more.
+    const done = () => {
+      if (copied || leaving) close();
+      else setLeaving(true);
+    };
     return (
       <Dialog
         open={open}
-        onClose={close}
+        onClose={done}
+        dismissible={false}
         title="Copy your token"
         description={created.token.name}
-        onSubmit={close}
         footer={
-          <Button variant="primary" onClick={close}>
-            Done
+          <Button variant={leaving ? 'danger' : 'primary'} onClick={done}>
+            {leaving ? 'Close without copying' : 'Done'}
           </Button>
         }
       >
         <div className="flex flex-col gap-4">
-          <p className="flex items-start gap-2 rounded-vx-sm bg-vx-surface-2 px-3 py-2 text-[13px] leading-5 text-vx-text-2">
+          <p
+            role={leaving ? 'alert' : undefined}
+            className={
+              leaving
+                ? 'flex items-start gap-2 rounded-vx-sm bg-vx-danger-wash px-3 py-2 text-[13px] leading-5 text-vx-del-fg'
+                : 'flex items-start gap-2 rounded-vx-sm bg-vx-surface-2 px-3 py-2 text-[13px] leading-5 text-vx-text-2'
+            }
+          >
             <CircleAlert size={16} strokeWidth={1.75} className="mt-0.5 shrink-0" aria-hidden />
-            <span>You won&apos;t see it again. Store it somewhere safe.</span>
+            <span>
+              {leaving
+                ? "You haven't copied the token. Once you close this, it can't be shown again."
+                : "You won't see it again. Store it somewhere safe."}
+            </span>
           </p>
           <div className="flex items-end gap-2">
-            <Input label="Agent token" readOnly mono value={created.secret} onFocus={(e) => e.currentTarget.select()} className="min-w-0 flex-1" data-secret />
-            <CopyButton text={created.secret} className="mb-1.5" />
+            <Input
+              label="Agent token"
+              readOnly
+              mono
+              value={created.secret}
+              onFocus={(e) => e.currentTarget.select()}
+              onCopy={didCopy}
+              className="min-w-0 flex-1"
+              data-secret
+            />
+            <CopyButton text={created.secret} className="mb-1.5" onCopied={didCopy} />
           </div>
-          <Snippet label="MCP client configuration with this token" text={mcpConfigSnippet(url, created.secret)} />
+          <Snippet label="MCP client configuration with this token" text={mcpConfigSnippet(url, created.secret)} onCopied={didCopy} />
         </div>
       </Dialog>
     );

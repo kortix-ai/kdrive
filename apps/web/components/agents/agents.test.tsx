@@ -115,6 +115,18 @@ describe('snippets', () => {
     expect(document.querySelector('pre')?.textContent).toContain('Bearer <your token>');
     expect(document.querySelector('pre')?.textContent).toContain(MCP_URL);
   });
+
+  test('a snippet wraps instead of hiding text under its Copy button', async () => {
+    await mount(<mod.connect.Snippet label="Command line example" text={`your-agent mcp add --transport http volumes ${MCP_URL}`} />);
+    const pre = document.querySelector('pre')!;
+    expect(pre.className).toContain('whitespace-pre-wrap');
+    expect(pre.className).not.toContain('overflow-x-auto');
+    // Copy sits in the head row above the code, never over it.
+    const copy = byText('Copy')!;
+    expect(pre.contains(copy)).toBe(false);
+    expect(copy.compareDocumentPosition(pre) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(copy.closest('.absolute')).toBeNull();
+  });
 });
 
 describe('access options', () => {
@@ -161,7 +173,19 @@ describe('token dialog', () => {
     expect(document.querySelector<HTMLInputElement>('input[data-secret]')?.value).toBe(SECRET);
     expect(document.querySelector('pre')?.textContent).toContain(`Bearer ${SECRET}`);
 
+    // A stray click on the scrim, Esc or Enter never drops the one-time secret.
+    const scrim = document.querySelector('[role=dialog]')!.parentElement!;
+    await act(async () => void scrim.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })));
+    await act(async () => void window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+    await act(async () => void document.querySelector('[role=dialog]')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })));
+    await tick();
+    expect(document.querySelector<HTMLInputElement>('input[data-secret]')?.value).toBe(SECRET);
+    // Closing before copying asks once more.
     await click(byText('Done'));
+    await tick();
+    expect(document.querySelector<HTMLInputElement>('input[data-secret]')?.value).toBe(SECRET);
+    expect(document.body.textContent).toContain("You haven't copied the token.");
+    await click(byText('Close without copying'));
     await tick();
     expect(document.body.innerHTML).not.toContain(SECRET);
     await act(async () => setOpen(true));
@@ -169,6 +193,23 @@ describe('token dialog', () => {
     expect(document.body.innerHTML).not.toContain(SECRET);
     expect(document.body.textContent).toContain('New agent token');
     expect(document.querySelector<HTMLInputElement>('input[placeholder="Research agent"]')?.value).toBe('');
+  });
+
+  test('once the token was copied, Done closes right away', async () => {
+    function Host() {
+      const [open, set] = React.useState(true);
+      return <mod.dialog.TokenDialog open={open} onClose={() => set(false)} />;
+    }
+    await mount(<Host />);
+    await tick();
+    await act(async () => typeInto(document.querySelector<HTMLInputElement>('input[placeholder="Research agent"]')!, 'Copied agent'));
+    await click(byText('Create token'));
+    await tick();
+    const field = document.querySelector<HTMLInputElement>('input[data-secret]')!;
+    await act(async () => void field.dispatchEvent(new Event('copy', { bubbles: true })));
+    await click(byText('Done'));
+    await tick();
+    expect(document.body.innerHTML).not.toContain(SECRET);
   });
 
   test('name rules', () => {
@@ -202,6 +243,19 @@ describe('consent card', () => {
     expect(document.querySelector('[aria-label="Workspace: My Drive"]')).not.toBeNull();
   });
 
+  test('an app asking for every scope starts at "Suggest changes"; the copy says what review mode cannot do', async () => {
+    consentInfo = { ...base, requested: { scope: 'drive:write', identity: ['offline_access'] } };
+    expect(mod.consent.initialChoice(consentInfo).access).toEqual({ scope: 'drive:propose', mode: 'review' });
+    expect(mod.consent.initialChoice({ ...base, requested: { scope: 'drive:read', identity: [] } }).access.scope).toBe('drive:read');
+    await mount(<mod.consent.ConsentCard oauthQuery="client_id=c1&sig=s" />);
+    await tick();
+    expect(radio('Suggest changes')?.getAttribute('aria-checked')).toBe('true');
+    expect(radio('Make changes')?.disabled).toBe(false);
+    const { SCOPE_COPY, MODE_COPY } = await import('@volumes/shared');
+    expect(SCOPE_COPY['drive:write'].line).toContain('Applying directly also lets it restore versions and undo');
+    expect(MODE_COPY.review.line).toContain('cannot restore, undo or save checkpoints');
+  });
+
   test('an existing grant preselects its choices, clamped to the request', () => {
     const init = mod.consent.initialChoice({
       ...base,
@@ -216,6 +270,18 @@ describe('consent card', () => {
     expect(signedQueryUsable(new URLSearchParams('client_id=a'))).toBe(false);
     expect(signedQueryUsable(new URLSearchParams('sig=x&exp=1'))).toBe(false);
     expect(signedQueryUsable(new URLSearchParams(`sig=x&exp=${Math.floor(Date.now() / 1000) + 600}`))).toBe(true);
+  });
+});
+
+describe('change access', () => {
+  test('says what it does: lower access, or choose how changes land', async () => {
+    const { ChangeAccessDialog } = await import('./apps-list');
+    const app = { id: 'g1', clientId: 'c1', name: 'Helper app', redirectHost: null, scope: 'drive:write' as const, mode: 'review' as const, workspaceId: null, workspaceName: null, createdAt: '2026-09-30T10:00:00Z', lastUsedAt: null };
+    await mount(<ChangeAccessDialog app={app} onClose={() => {}} />);
+    await tick();
+    expect(document.body.textContent).toContain('Lower its access, or choose whether its changes wait for your review.');
+    expect(document.body.textContent).not.toContain('You can lower its access here.');
+    expect(radio('Apply directly')?.disabled).toBe(false);
   });
 });
 

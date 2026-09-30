@@ -32,7 +32,7 @@ export async function copyText(text: string): Promise<boolean> {
 }
 
 /** Copy state: flips to "Copied" for 1.2 s (no toast). */
-export function useCopied(): [boolean | 'failed', (text: string) => Promise<void>, () => void] {
+export function useCopied(): [boolean | 'failed', (text: string) => Promise<boolean>, () => void] {
   const [state, setState] = useState<boolean | 'failed'>(false);
   const t = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => {
@@ -43,6 +43,7 @@ export function useCopied(): [boolean | 'failed', (text: string) => Promise<void
     setState(ok ? true : 'failed');
     if (t.current) clearTimeout(t.current);
     t.current = setTimeout(() => setState(false), 1200);
+    return ok;
   };
   const flash = () => {
     setState(true);
@@ -59,8 +60,11 @@ export function CopyButton({
   variant = 'outline',
   size = 'sm',
   flashOnMount,
+  onCopied,
 }: {
   text: string;
+  /** Called after the text reached the clipboard. */
+  onCopied?: () => void;
   className?: string;
   variant?: 'outline' | 'text';
   size?: 'xs' | 'sm';
@@ -77,7 +81,7 @@ export function CopyButton({
     <Button
       size={size}
       variant={copied === true ? 'ok' : copied === 'failed' ? 'danger-text' : variant}
-      onClick={() => void copy(text)}
+      onClick={() => void copy(text).then((ok) => ok && onCopied?.())}
       aria-live="polite"
       icon={copied === true ? <Check size={iconSize} strokeWidth={2} aria-hidden /> : variant === 'outline' ? <Copy size={iconSize} strokeWidth={1.75} aria-hidden /> : undefined}
       className={cx('min-w-[88px]', className)}

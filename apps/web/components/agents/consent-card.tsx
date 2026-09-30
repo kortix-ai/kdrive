@@ -30,7 +30,11 @@ function ErrorRow({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** Initial choices: the existing grant's (clamped to what is requested now), else the requested level in review mode on the default workspace. */
+/**
+ * Initial choices: the existing grant's (clamped to what is requested now). Otherwise at most
+ * "Suggest changes" in review mode on the default workspace: most apps ask for every scope,
+ * so more than suggesting is something the user picks, never the default.
+ */
 export function initialChoice(info: OAuthConsentInfo): { access: AccessValue; workspaceId: string | null } {
   const max: AgentScope = info.requested.scope;
   if (info.existing) {
@@ -39,7 +43,8 @@ export function initialChoice(info: OAuthConsentInfo): { access: AccessValue; wo
     return { access: normalizeAccess({ scope, mode: info.existing.mode }), workspaceId: ws };
   }
   const def = info.workspaces.find((w) => w.isDefault) ?? info.workspaces[0];
-  return { access: { scope: max, mode: 'review' }, workspaceId: def ? def.id : null };
+  const scope: AgentScope = scopeAtMost('drive:propose', max) ? 'drive:propose' : max;
+  return { access: { scope, mode: 'review' }, workspaceId: def ? def.id : null };
 }
 
 function errorText(e: unknown): string {

@@ -23,16 +23,21 @@ export function cliSnippet(url: string): string {
   return `your-agent mcp add --transport http volumes ${url}`;
 }
 
-/** A mono block on surface-2 (r12) with a copy button at its top right. */
-export function Snippet({ text, label }: { text: string; label: string }) {
+/**
+ * A mono block on surface-2 (r12): a head row with its label and Copy, then the code,
+ * wrapped so every character stays readable (a long URL is never hidden under the button
+ * or behind a sideways scroll).
+ */
+export function Snippet({ text, label, onCopied }: { text: string; label: string; onCopied?: () => void }) {
   return (
-    <div className="relative min-w-0 rounded-vx-md bg-vx-surface-2">
-      <pre aria-label={label} className="vx-code overflow-x-auto whitespace-pre px-4 py-3 pr-28 !text-[13px] !leading-5 text-vx-text-1">
+    <div className="min-w-0 rounded-vx-md bg-vx-surface-2">
+      <div className="flex items-center justify-between gap-3 border-b border-vx-hair-soft py-1.5 pl-4 pr-2">
+        <span className="vx-micro truncate text-vx-text-3">{label}</span>
+        <CopyButton text={text} size="xs" variant="text" onCopied={onCopied} />
+      </div>
+      <pre aria-label={label} className="vx-code whitespace-pre-wrap break-all px-4 py-3 !text-[13px] !leading-5 text-vx-text-1">
         {text}
       </pre>
-      <div className="absolute right-2 top-2">
-        <CopyButton text={text} />
-      </div>
     </div>
   );
 }

@@ -34,10 +34,10 @@ export function effectiveMode(scope: AgentScope, mode: AgentMode): AgentMode {
 export const SCOPE_COPY: Record<AgentScope, { title: string; line: string }> = {
   'drive:read': { title: 'Read only', line: 'See your files, folders, versions and history.' },
   'drive:propose': { title: 'Suggest changes', line: 'Read, and propose changes that wait for your review.' },
-  'drive:write': { title: 'Make changes', line: 'Read, and change files: write, move, delete, restore and undo.' },
+  'drive:write': { title: 'Make changes', line: 'Read, and write, move and delete files. Applying directly also lets it restore versions and undo.' },
 };
 
 export const MODE_COPY: Record<AgentMode, { title: string; line: string }> = {
-  review: { title: 'Changes need my review', line: 'Every change waits in Proposals until you accept it.' },
-  direct: { title: 'Apply directly', line: 'Changes land in your drive right away. Each one can be undone.' },
+  review: { title: 'Changes need my review', line: 'Every change waits in Proposals until you accept it. It cannot restore, undo or save checkpoints.' },
+  direct: { title: 'Apply directly', line: 'Changes land in your drive right away, each one undoable. It can also restore versions and undo.' },
 };

@@ -29,6 +29,11 @@ export interface DialogProps {
   onSubmit?: () => void;
   busy?: boolean;
   error?: string | null;
+  /**
+   * false: a click on the scrim or Esc does not close it (only its own buttons do), for a
+   * dialog that holds something that cannot be shown again.
+   */
+  dismissible?: boolean;
   className?: string;
 }
 
@@ -47,7 +52,22 @@ const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:n
  * right-aligned footer. ↵ submits, Esc closes, focus is trapped and returned.
  * Below 720 px it becomes a bottom sheet with stacked full-width buttons.
  */
-export function Dialog({ open, onClose, title, description, icon, width = 480, children, footer, note, onSubmit, busy, error, className }: DialogProps) {
+export function Dialog({
+  open,
+  onClose,
+  title,
+  description,
+  icon,
+  width = 480,
+  children,
+  footer,
+  note,
+  onSubmit,
+  busy,
+  error,
+  dismissible = true,
+  className,
+}: DialogProps) {
   const ref = useRef<HTMLDivElement>(null);
   const footerRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
@@ -56,9 +76,9 @@ export function Dialog({ open, onClose, title, description, icon, width = 480, c
   // render); the open effect must not re-run for them, or each re-render (data arriving, an
   // SWR revalidate) would hand focus back to the opener and then to the dialog, and a ↵ meant
   // for a focused Cancel would land on the dialog and submit.
-  const live = useRef({ onClose, onSubmit, busy });
+  const live = useRef({ onClose, onSubmit, busy, dismissible });
   useLayoutEffect(() => {
-    live.current = { onClose, onSubmit, busy };
+    live.current = { onClose, onSubmit, busy, dismissible };
   });
   useEffect(() => {
     if (!open) return;
@@ -75,11 +95,11 @@ export function Dialog({ open, onClose, title, description, icon, width = 480, c
     }, 0);
     const onKeyUp = (e: KeyboardEvent) => gate.keyup(e);
     const onKey = (e: KeyboardEvent) => {
-      const { onClose, onSubmit, busy } = live.current;
+      const { onClose, onSubmit, busy, dismissible } = live.current;
       if (e.key === 'Escape') {
         e.stopPropagation();
         e.preventDefault();
-        if (!busy) onClose();
+        if (!busy && dismissible) onClose();
       } else if (e.key === 'Enter' && onSubmit) {
         const box = ref.current;
         const target = e.target instanceof HTMLElement ? e.target : null;
@@ -133,7 +153,7 @@ export function Dialog({ open, onClose, title, description, icon, width = 480, c
   return createPortal(
     <div
       className="dlg-fade fixed inset-0 z-50 flex items-start justify-center bg-vx-scrim px-4 pt-[12vh] max-[720px]:items-end max-[720px]:px-0 max-[720px]:pt-0"
-      onMouseDown={(e) => e.target === e.currentTarget && !busy && onClose()}
+      onMouseDown={(e) => e.target === e.currentTarget && !busy && dismissible && onClose()}
     >
       <div
         ref={ref}

@@ -60,7 +60,7 @@ export function ChangeAccessDialog({ app, onClose }: { app: ConnectedApp | null;
       open={!!app}
       onClose={onClose}
       title={app ? `Change access for ${app.name}` : 'Change access'}
-      description="You can lower its access here. To give it more, connect it again from the app."
+      description="Lower its access, or choose whether its changes wait for your review. To give it more access, connect it again from the app."
       onSubmit={() => void save()}
       busy={busy}
       error={error}
