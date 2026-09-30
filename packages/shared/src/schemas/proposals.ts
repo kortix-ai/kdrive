@@ -90,6 +90,10 @@ export const ProposalFileSchema = z.object({
       tooLargeForDiff: z.boolean(),
     })
     .nullable(),
+  /** Pending rows: the waiting rows this one builds on (accepting it accepts them too). */
+  requires: z.array(z.number()).optional(),
+  /** What the drive holds now: the path itself, the source of a move / copy, the folder the path is in. */
+  inDrive: z.object({ path: z.boolean(), from: z.boolean().nullable(), folder: z.boolean() }).optional(),
 });
 export type ProposalFile = z.infer<typeof ProposalFileSchema>;
 

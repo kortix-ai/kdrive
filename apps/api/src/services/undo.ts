@@ -91,7 +91,7 @@ async function assertNothingLater(
       count: paths.length,
     });
   };
-  const runs = await foreignRuns(ws, target, now);
+  const runs = await foreignRuns(ws, target.baseCommitId, target.commitIds, now);
   if (!runs) throw refuse();
   if (!runs.length) return now;
   const roots =
@@ -111,21 +111,21 @@ async function assertNothingLater(
 const MAX_OWN_COMMITS = 1000;
 
 /**
- * The stretches [from, to] of history between the action's base and `now`
- * that other writers made: the action's own commits (on the head chain, in
- * order) cut the history into the parts before, between and after them. A
- * `merged` result's hidden side commit is skipped: its merge commit is the one
- * on the head chain. null when the history cannot be told apart.
+ * The stretches [from, to] of history between `base` and `now` that other
+ * writers made: `ownCommitIds` (on the head chain, in order) cut the history
+ * into the parts before, between and after them. A `merged` result's hidden
+ * side commit is skipped: its merge commit is the one on the head chain. null
+ * when the history cannot be told apart.
  */
-async function foreignRuns(ws: WorkspaceCtx, target: ActionRow, now: string): Promise<[string, string][] | null> {
-  if (!target.baseCommitId || !target.commitIds.length || target.commitIds.length > MAX_OWN_COMMITS) return null;
+export async function foreignRuns(ws: WorkspaceCtx, base: string | null, ownCommitIds: string[], now: string): Promise<[string, string][] | null> {
+  if (!base || !ownCommitIds.length || ownCommitIds.length > MAX_OWN_COMMITS) return null;
   const store = getStore();
-  const own = (await mapLimit(target.commitIds, 8, (id) => store.getCommit(ws.volumeId, id)))
+  const own = (await mapLimit(ownCommitIds, 8, (id) => store.getCommit(ws.volumeId, id)))
     .filter((c) => c.onHead && c.kind !== 'side')
     .sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0) || a.createdAt.localeCompare(b.createdAt));
   if (!own.length) return null;
   const runs: [string, string][] = [];
-  let at = target.baseCommitId;
+  let at = base;
   for (const c of own) {
     if (!c.parentId) return null;
     if (c.parentId !== at) runs.push([at, c.parentId]);

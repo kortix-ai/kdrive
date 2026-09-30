@@ -185,6 +185,94 @@ describe('accept and discard', () => {
     expect(new TextDecoder().decode(bytes)).toBe('agent');
   });
 
+  test("accepting part of a proposal never makes the rest conflict with the proposal's own changes", async () => {
+    await upload(u, { '/notes.md': 'n', '/d/x.txt': 'x' });
+    const row = await propose([
+      { op: 'write', path: '/notes.md', bytes: enc('n2') },
+      { op: 'copy', from: '/notes.md', to: '/notes-copy.md' },
+      { op: 'write', path: '/d/x.txt', bytes: enc('x2') },
+      { op: 'delete', path: '/d' },
+    ]);
+    await acceptProposal(ctx(), row.id, { seqs: [0, 2] });
+    const d = await getProposalDetail(ws, u.userId, row.id);
+    expect(d.conflicts).toBe(0);
+    expect(d.files.filter((f) => f.conflict)).toEqual([]);
+    const r = await acceptProposal(ctx(), row.id, { seqs: [1, 3] });
+    expect(r.proposal.status).toBe('accepted');
+    expect(await tree()).toEqual(['/notes-copy.md', '/notes.md']);
+    const copy = await readStream((await getStore().read(ws.volumeId, '/notes-copy.md')).body);
+    expect(new TextDecoder().decode(copy)).toBe('n2');
+  });
+
+  test("a folder an accepted change made is not a conflict for the proposal's own mkdir; someone else's edit still is", async () => {
+    await upload(u, { '/Documents/settings.json': '{}', '/other.txt': 'o' });
+    const row = await propose([
+      { op: 'write', path: '/Documents/Minutes/a.md', bytes: enc('a') },
+      { op: 'mkdir', path: '/Documents/Minutes' },
+      { op: 'write', path: '/other.txt', bytes: enc('agent') },
+    ]);
+    await acceptProposal(ctx(), row.id, { seqs: [0] });
+    await upload(u, { '/other.txt': 'user edit' });
+    const d = await getProposalDetail(ws, u.userId, row.id);
+    expect(d.files.map((f) => f.conflict?.reason ?? null)).toEqual([null, null, 'changed']);
+    const e = await thrown(acceptProposal(ctx(), row.id, {}));
+    expect(e.code).toBe('stale_base');
+    expect((e.details?.conflicts as { path: string }[]).map((c) => c.path)).toEqual(['/other.txt']);
+    expect(e.message).toContain('since the agent read it');
+    const ok = await acceptProposal(ctx(), row.id, { seqs: [1] });
+    expect(ok.proposal.pending).toBe(1);
+  });
+
+  test('a change goes only with the waiting changes it builds on', async () => {
+    const row = await propose([
+      { op: 'write', path: '/Projects/brief.md', bytes: enc('b') },
+      { op: 'move', from: '/Projects/brief.md', to: '/Archive/brief.md' },
+      { op: 'write', path: '/solo.txt', bytes: enc('s') },
+    ]);
+    const d = await getProposalDetail(ws, u.userId, row.id);
+    expect(d.files.map((f) => f.requires)).toEqual([[], [0], []]);
+    expect(d.files[1].inDrive).toEqual({ path: false, from: false, folder: false });
+    const e = await thrown(acceptProposal(ctx(), row.id, { seqs: [1] }));
+    expect(e.status).toBe(409);
+    expect(e.code).toBe('conflict');
+    expect(e.message).toContain('Added /Projects/brief.md');
+    expect(e.details?.requires).toEqual([0]);
+    await acceptProposal(ctx(), row.id, { seqs: [0] });
+    const r = await acceptProposal(ctx(), row.id, { seqs: [1] });
+    expect(r.action?.status).toBe('committed');
+    expect(await tree()).toEqual(['/Archive', '/Archive/brief.md', '/Projects']);
+
+    const row2 = await propose([
+      { op: 'write', path: '/n/new.md', bytes: enc('n') },
+      { op: 'move', from: '/n/new.md', to: '/n/moved.md' },
+    ]);
+    await discardProposal(ctx(), row2.id, { seqs: [0] });
+    const gone = await thrown(acceptProposal(ctx(), row2.id, {}));
+    expect(gone.code).toBe('conflict');
+    expect(gone.message).toContain('builds on a change you discarded');
+  });
+
+  test('a proposal whose base is no longer kept is checked per file and can always be accepted anyway', async () => {
+    await upload(u, { '/keep.txt': 'k', '/edit.txt': 'e' });
+    const row = await propose([
+      { op: 'write', path: '/new.txt', bytes: enc('n') },
+      { op: 'write', path: '/keep.txt', bytes: enc('k2') },
+      { op: 'write', path: '/edit.txt', bytes: enc('agent') },
+    ]);
+    await upload(u, { '/edit.txt': 'user edit' });
+    await db.update(proposals).set({ baseCommitId: 'vc_0000000000000000000000000Z' }).where(eq(proposals.id, row.id));
+    const d = await getProposalDetail(ws, u.userId, row.id);
+    expect(d.files.map((f) => f.conflict?.reason ?? null)).toEqual([null, null, 'changed']);
+    const clean = await acceptProposal(ctx(), row.id, { seqs: [0, 1] });
+    expect(clean.action?.status).toBe('committed');
+    const e = await thrown(acceptProposal(ctx(), row.id, {}));
+    expect(e.code).toBe('stale_base');
+    expect(e.message).toContain('no longer kept');
+    expect(e.message).not.toContain('open_workspace');
+    const forced = await acceptProposal(ctx(), row.id, { force: true });
+    expect(forced.proposal.status).toBe('accepted');
+  });
+
   test('a tampered staged block is refused and nothing is written', async () => {
     const row = await propose([{ op: 'write', path: '/t.txt', bytes: enc('trusted') }]);
     await db.update(proposalBlocks).set({ bytes: enc('evil!!!') }).where(eq(proposalBlocks.userId, u.userId));

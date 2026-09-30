@@ -33,8 +33,16 @@ export interface BatchInput {
   ops: BatchOp[];
   /** The guard base (last_seen_commit_id, or the proposal's base). */
   baseCommitId: string;
-  /** Accept "anyway": skip the guard (still validates against head). */
+  /** Accept "anyway": skip the base check and the guard (still validates against head). */
   force?: boolean;
+  /**
+   * Replaces the default guard (the base must exist; paths the batch touches
+   * must not have changed between it and the head). Runs under the workspace
+   * lock with the head the batch is checked against.
+   */
+  guard?: (head: string) => Promise<Conflict[]>;
+  /** The refusal text for these conflicts (default: addressed to the agent). */
+  conflictMessage?: (conflicts: Conflict[]) => string;
   kind: 'agent.batch' | 'proposal.accept';
   /** Timeline text. */
   summary: string;
@@ -76,7 +84,7 @@ export function partialActionOf(e: unknown): string | null {
 // ── stats ───────────────────────────────────────────────────────────────────
 
 /** stat, or null when absent (a path under a file is absent too). */
-async function statSafe(ws: Pick<WorkspaceCtx, 'volumeId'>, path: string, at: string): Promise<FileStat | null> {
+export async function statSafe(ws: Pick<WorkspaceCtx, 'volumeId'>, path: string, at: string): Promise<FileStat | null> {
   try {
     return await statOrNull(ws, path, at);
   } catch (e) {
@@ -86,7 +94,7 @@ async function statSafe(ws: Pick<WorkspaceCtx, 'volumeId'>, path: string, at: st
 }
 
 const kindOf = (st: Pick<FileStat, 'type'>): 'file' | 'dir' => (st.type === 'dir' ? 'dir' : 'file');
-const currentOf = (st: FileStat | null): Conflict['current'] => (st ? { type: kindOf(st), size: st.size, version: st.version } : null);
+export const currentOf = (st: FileStat | null): Conflict['current'] => (st ? { type: kindOf(st), size: st.size, version: st.version } : null);
 
 // ── guard ───────────────────────────────────────────────────────────────────
 
@@ -125,6 +133,20 @@ export async function guardConflicts(ws: WorkspaceCtx, base: string, head: strin
     const reason: Conflict['reason'] = !a ? 'created' : !b ? 'deleted' : kindOf(a) !== kindOf(b) ? 'type' : 'changed';
     return { path, reason, current: currentOf(b) };
   });
+}
+
+/**
+ * guardConflicts over several stretches of history (the parts of base..head
+ * that someone else wrote): a path conflicts when any stretch changed it. The
+ * reason is the first stretch's; `current` is what the head holds.
+ */
+export async function guardRuns(ws: WorkspaceCtx, runs: [string, string][], head: string, ops: GuardOp[]): Promise<Conflict[]> {
+  const byPath = new Map<string, Conflict>();
+  for (const [a, b] of runs) {
+    for (const c of await guardConflicts(ws, a, b, ops)) if (!byPath.has(c.path)) byPath.set(c.path, c);
+  }
+  const list = [...byPath.values()].sort((x, y) => (x.path < y.path ? -1 : x.path > y.path ? 1 : 0));
+  return mapLimit(list, 8, async (c) => ({ ...c, current: currentOf(await statSafe(ws, c.path, head)) }));
 }
 
 /** The 409 `stale_base` refusal. */
@@ -494,10 +516,11 @@ export async function applyAgentBatch(ctx: ActionCtx, input: BatchInput): Promis
       ctx,
       async () => {
         const head = (await getStore().getVolume(ctx.ws.volumeId)).headCommitId;
-        const base = await assertBase(ctx.ws, input.baseCommitId, head);
         if (!input.force) {
-          const conflicts = await guardConflicts(ctx.ws, base, head, input.ops.map(toGuardOp));
-          if (conflicts.length) throw staleBase(head, conflicts);
+          const conflicts = input.guard
+            ? await input.guard(head)
+            : await guardConflicts(ctx.ws, await assertBase(ctx.ws, input.baseCommitId, head), head, input.ops.map(toGuardOp));
+          if (conflicts.length) throw staleBase(head, conflicts, input.conflictMessage?.(conflicts));
         }
         const sim = await simulate(ctx.ws, head, input.ops, hashed);
         await hold.reserve({ bytes: sim.growth });

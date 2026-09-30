@@ -5,6 +5,8 @@
 import { and, asc, desc, eq, inArray, lt, ne, sql } from 'drizzle-orm';
 import {
   basename,
+  dirname,
+  isWithin,
   mimeFor,
   PROPOSAL_OPEN_MAX,
   PROPOSAL_STAGED_MAX,
@@ -23,31 +25,37 @@ import {
 import type { AgentPrincipal } from '../agents/principal';
 import { proposalUrl } from '../agents/urls';
 import { db } from '../db/client';
-import { proposalBlocks, proposalFiles, proposals, type ProposalFileRow, type ProposalRow } from '../db/schema';
+import { actions, proposalBlocks, proposalFiles, proposals, type ProposalFileRow, type ProposalRow } from '../db/schema';
 import { audit } from '../lib/audit';
 import { ApiError } from '../lib/http';
 import { newId } from '../lib/ids';
 import { withKeyLock } from '../lib/lock';
 import { getStore } from '../storage';
+import { isStoreError } from '../storage/types';
 import type { WorkspaceCtx } from '../types';
 import {
   agentBatchSummary,
   applyAgentBatch,
   assertBase,
+  currentOf,
   guardConflicts,
+  guardRuns,
   hashWrites,
   opFrom,
   opPath,
   simulate,
   staleBase,
+  statSafe,
   toGuardOp,
   type BatchOp,
+  type Conflict,
 } from './agent-batch';
 import { createCheckpoint } from './checkpoints';
 import type { ActionCtx } from './ledger';
 import { sha256Hex } from './proven-blocks';
 import { assertQuota } from './quota';
 import { mapLimit } from './versioning-util';
+import { foreignRuns } from './undo';
 import { compareKind, fileSideAt } from './versions';
 
 export interface CreateProposalInput {
@@ -348,6 +356,126 @@ function guardOpOf(f: ProposalFileRow) {
   return f.op === 'move' || f.op === 'copy' ? { op: f.op, path: f.path, from: f.fromPath ?? undefined } : { op: f.op, path: f.path };
 }
 
+// ── drift and dependencies ──────────────────────────────────────────────────
+
+/** Whether the commit the agent read is still kept. */
+async function baseKept(ws: WorkspaceCtx, base: string): Promise<boolean> {
+  try {
+    await getStore().getCommit(ws.volumeId, base);
+    return true;
+  } catch (e) {
+    if (isStoreError(e) && e.status < 500) return false;
+    throw e;
+  }
+}
+
+/**
+ * The stretches of history between the proposal's base and `head` that
+ * someone other than this proposal wrote: the commits of its own accepts are
+ * cut out, so accepting part of a proposal never makes the rest conflict with
+ * it. The whole range when they cannot be told apart.
+ */
+async function foreignRanges(ws: WorkspaceCtx, row: ProposalRow, head: string): Promise<[string, string][]> {
+  if (row.baseCommitId === head) return [];
+  const whole: [string, string][] = [[row.baseCommitId, head]];
+  if (!row.acceptedActionIds.length) return whole;
+  const acts = await db
+    .select({ commitIds: actions.commitIds })
+    .from(actions)
+    .where(and(eq(actions.workspaceId, ws.id), inArray(actions.id, row.acceptedActionIds)));
+  const own = acts.flatMap((a) => a.commitIds);
+  if (!own.length) return whole;
+  try {
+    return (await foreignRuns(ws, row.baseCommitId, own, head)) ?? whole;
+  } catch (e) {
+    if (isStoreError(e) && e.status < 500) return whole; // an own commit is no longer kept
+    throw e;
+  }
+}
+
+/**
+ * Drift of one row when the base is no longer kept: its paths now against
+ * what the drive held when the proposal was made (version and size captured
+ * then). What cannot be checked that way (a folder's contents, the source of a
+ * move or copy) counts as changed, so it needs "Accept anyway".
+ */
+async function baselineConflicts(ws: WorkspaceCtx, head: string, f: ProposalFileRow): Promise<Conflict[]> {
+  const out: Conflict[] = [];
+  const now = await statSafe(ws, f.path, head);
+  const add = (path: string, reason: Conflict['reason'], st: Awaited<ReturnType<typeof statSafe>>) => out.push({ path, reason, current: currentOf(st) });
+  const existed = f.baseVersion !== null || f.baseSize !== null;
+  if (f.op === 'mkdir') {
+    if (now && now.type !== 'dir') add(f.path, 'type', now);
+  } else if (f.op === 'write' || f.op === 'delete') {
+    if (f.op === 'delete' && f.entryType === 'dir') add(f.path, 'changed', now);
+    else if (!existed) {
+      if (now) add(f.path, now.type === 'dir' ? 'type' : 'created', now);
+    } else if (!now) add(f.path, 'deleted', null);
+    else if (now.type === 'dir') add(f.path, 'type', now);
+    else if (now.version !== f.baseVersion || now.size !== f.baseSize) add(f.path, 'changed', now);
+  } else {
+    if (f.fromPath) add(f.fromPath, 'changed', await statSafe(ws, f.fromPath, head));
+    if (now) add(f.path, 'created', now);
+  }
+  return out;
+}
+
+/** What changed in the drive under each row since the agent read it (not counting this proposal's own accepts). */
+async function driftOf(ws: WorkspaceCtx, row: ProposalRow, files: ProposalFileRow[], head: string): Promise<{ perRow: Conflict[][]; baseGone: boolean }> {
+  if (!(await baseKept(ws, row.baseCommitId))) {
+    return { perRow: await mapLimit(files, 8, (f) => baselineConflicts(ws, head, f)), baseGone: true };
+  }
+  const runs = await foreignRanges(ws, row, head);
+  if (!runs.length) return { perRow: files.map(() => []), baseGone: false };
+  return { perRow: await mapLimit(files, 8, (f) => guardRuns(ws, runs, head, [guardOpOf(f)])), baseGone: false };
+}
+
+/** The same drift for a set of rows at once (one conflict per path). */
+async function driftAll(ws: WorkspaceCtx, row: ProposalRow, files: ProposalFileRow[], head: string): Promise<{ conflicts: Conflict[]; baseGone: boolean }> {
+  if (!(await baseKept(ws, row.baseCommitId))) {
+    const byPath = new Map<string, Conflict>();
+    for (const l of await mapLimit(files, 8, (f) => baselineConflicts(ws, head, f))) for (const c of l) if (!byPath.has(c.path)) byPath.set(c.path, c);
+    return { conflicts: [...byPath.values()].sort((a, b) => (a.path < b.path ? -1 : 1)), baseGone: true };
+  }
+  const runs = await foreignRanges(ws, row, head);
+  return { conflicts: runs.length ? await guardRuns(ws, runs, head, files.map(guardOpOf)) : [], baseGone: false };
+}
+
+const overlaps = (a: string, b: string) => isWithin(a, b) || isWithin(b, a);
+const touched = (f: Pick<ProposalFileRow, 'path' | 'fromPath'>) => (f.fromPath ? [f.path, f.fromPath] : [f.path]);
+
+/**
+ * For each row, the earlier rows it builds on, transitively: an earlier op
+ * that touches the same path, one inside it or one above it. Accepting a row
+ * without them would fail (a move of a file the proposal writes) or land
+ * something other than what the agent proposed.
+ */
+export function prerequisitesOf(files: Pick<ProposalFileRow, 'seq' | 'path' | 'fromPath'>[]): Map<number, number[]> {
+  const sorted = [...files].sort((a, b) => a.seq - b.seq);
+  const out = new Map<number, number[]>();
+  sorted.forEach((f, i) => {
+    const mine = touched(f);
+    const all = new Set<number>();
+    for (const g of sorted.slice(0, i)) {
+      if (!touched(g).some((p) => mine.some((q) => overlaps(p, q)))) continue;
+      all.add(g.seq);
+      for (const x of out.get(g.seq) ?? []) all.add(x);
+    }
+    out.set(f.seq, [...all].sort((a, b) => a - b));
+  });
+  return out;
+}
+
+const CHANGE_WORD: Record<ProposalChange, string> = {
+  added: 'Added',
+  modified: 'Changed',
+  removed: 'Deleted',
+  moved: 'Moved',
+  copied: 'Copied',
+  folder: 'New folder',
+};
+const describeRow = (f: ProposalFileRow) => `${CHANGE_WORD[changeOf(f)]} ${f.path}`;
+
 export function proposedContentUrl(wsId: string, id: string, seq: number, download = false): string {
   return `/api/w/${encodeURIComponent(wsId)}/proposals/${encodeURIComponent(id)}/files/${seq}/content${download ? '?download=1' : ''}`;
 }
@@ -357,22 +485,25 @@ export async function getProposalDetail(ws: WorkspaceCtx, userId: string, id: st
   const row = await loadProposal(ws, userId, id);
   const files = await proposalFilesOf(id);
   const head = (await getStore().getVolume(ws.volumeId)).headCommitId;
-  let base = row.baseCommitId;
-  let baseOk = true;
-  try {
-    base = await assertBase(ws, row.baseCommitId, head);
-  } catch {
-    baseOk = false; // the version the agent read is gone: every pending row counts as changed
+  const waiting = row.status === 'open' ? files.filter((f) => f.status === 'pending') : [];
+  const drift = new Map<number, Conflict>();
+  if (waiting.length) {
+    const { perRow } = await driftOf(ws, row, waiting, head);
+    waiting.forEach((f, i) => {
+      if (perRow[i][0]) drift.set(f.seq, perRow[i][0]);
+    });
   }
+  const prereqs = prerequisitesOf(files);
+  const pendingSeqs = new Set(waiting.map((f) => f.seq));
   const out = await mapLimit(files, 8, async (f) => {
     let conflict: ProposalDetailResponse['files'][number]['conflict'] = null;
-    if (f.status === 'pending' && row.status === 'open') {
-      if (!baseOk) conflict = { reason: 'changed', currentSize: null };
-      else {
-        const c = (await guardConflicts(ws, base, head, [guardOpOf(f)]))[0];
-        if (c) conflict = { reason: c.reason, currentSize: c.current?.size ?? null };
-      }
-    }
+    const c = drift.get(f.seq);
+    if (c) conflict = { reason: c.reason, currentSize: c.current?.size ?? null };
+    const [atPath, atFrom, atFolder] = await Promise.all([
+      statSafe(ws, f.path, head),
+      f.fromPath ? statSafe(ws, f.fromPath, head) : null,
+      dirname(f.path) === '/' ? Promise.resolve({ type: 'dir' }) : statSafe(ws, dirname(f.path), head),
+    ]);
     let compare: ProposalDetailResponse['files'][number]['compare'] = null;
     // Staged bytes are dropped once a proposal closes, so only an open one can
     // offer a "proposed" side to compare against.
@@ -408,6 +539,8 @@ export async function getProposalDetail(ws: WorkspaceCtx, userId: string, id: st
       status: f.status,
       conflict,
       compare,
+      requires: f.status === 'pending' ? (prereqs.get(f.seq) ?? []).filter((q) => pendingSeqs.has(q)) : [],
+      inDrive: { path: !!atPath, from: f.fromPath ? !!atFrom : null, folder: !!atFolder && atFolder.type === 'dir' },
     };
   });
   return {
@@ -507,6 +640,20 @@ export async function acceptProposal(ctx: Ctx, id: string, opts: { seqs?: number
     const row = await loadOpen(ws, userId, id);
     const files = await proposalFilesOf(id);
     const chosen = choose(files, opts.seqs);
+    // A change that builds on another waiting change of the proposal goes with it, never alone.
+    const bySeq = new Map(files.map((f) => [f.seq, f]));
+    const picked = new Set(chosen.map((f) => f.seq));
+    const prereqs = prerequisitesOf(files);
+    const missing = [...new Set(chosen.flatMap((f) => prereqs.get(f.seq) ?? []))]
+      .filter((q) => !picked.has(q) && bySeq.get(q)?.status === 'pending')
+      .sort((a, b) => a - b);
+    if (missing.length) {
+      const names = missing.slice(0, 3).map((q) => describeRow(bySeq.get(q)!));
+      const more = missing.length > 3 ? ` and ${missing.length - 3} more` : '';
+      throw new ApiError(409, 'conflict', `This change builds on another change in this proposal (${names.join(', ')}${more}). Accept that one too.`, {
+        requires: missing,
+      });
+    }
     const ops: BatchOp[] = [];
     for (const f of chosen) {
       if (f.op === 'write') ops.push({ op: 'write', path: f.path, bytes: await proposedBytes(userId, f) });
@@ -514,6 +661,7 @@ export async function acceptProposal(ctx: Ctx, id: string, opts: { seqs?: number
       else ops.push({ op: f.op, path: f.path });
     }
     const seqs = chosen.map((f) => f.seq);
+    let baseGone = false;
     const { action } = await applyAgentBatch(
       { ws, userId, actor: { kind: 'agent', name: row.agentName, credential: row.agentCredential, proposalId: id } },
       {
@@ -523,8 +671,32 @@ export async function acceptProposal(ctx: Ctx, id: string, opts: { seqs?: number
         kind: 'proposal.accept',
         summary: `Accepted from ${row.agentName}: ${agentBatchSummary(ops, row.message)}`,
         meta: { proposalId: id, seqs, message: row.message },
+        // Only what someone else changed since the agent read the drive counts, never this proposal's own accepts.
+        guard: async (head) => {
+          const r = await driftAll(ws, row, chosen, head);
+          baseGone = r.baseGone;
+          return r.conflicts;
+        },
+        conflictMessage: (c) =>
+          baseGone
+            ? 'The version the agent read is no longer kept, so these changes cannot be checked against newer ones. Review them, then accept anyway.'
+            : c.length === 1
+              ? '1 file changed in the drive since the agent read it.'
+              : `${c.length.toLocaleString('en-US')} files changed in the drive since the agent read them.`,
       },
-    );
+    ).catch((e: unknown) => {
+      // A change that fails because a change it builds on was discarded says so.
+      const index = e instanceof ApiError ? Number(e.details?.index) : NaN;
+      const f = Number.isInteger(index) ? chosen[index] : undefined;
+      const gone = f ? (prereqs.get(f.seq) ?? []).filter((q) => bySeq.get(q)?.status === 'discarded') : [];
+      if (e instanceof ApiError && e.status < 500 && e.code !== 'stale_base' && e.code !== 'quota_exceeded' && gone.length) {
+        throw new ApiError(409, 'conflict', `This change builds on a change you discarded (${describeRow(bySeq.get(gone[0])!)}), so it cannot be applied.`, {
+          index,
+          discarded: gone,
+        });
+      }
+      throw e;
+    });
     const updated = await settle(row, chosen, 'accepted', action);
     if (updated.status === 'accepted' && updated.checkpointName) {
       try {
