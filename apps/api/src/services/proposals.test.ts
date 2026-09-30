@@ -4,7 +4,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import { MiB, PROPOSAL_OPEN_MAX, PROPOSAL_STAGED_MAX } from '@volumes/shared';
 import type { AgentPrincipal } from '../agents/principal';
 import { db } from '../db/client';
-import { actions, checkpoints, proposalBlocks, proposals } from '../db/schema';
+import { actions, checkpoints, proposalBlocks, proposalFiles, proposals } from '../db/schema';
 import { ApiError } from '../lib/http';
 import { newId } from '../lib/ids';
 import { getStore } from '../storage';
@@ -215,6 +215,42 @@ describe('housekeeping', () => {
     expect((await db.select().from(proposalBlocks)).length).toBe(0);
     const closed = await listProposals(ws, u.userId, { status: 'open', limit: 10 });
     expect(closed.proposals).toHaveLength(0);
+  });
+
+  test('block GC waits for a proposal being created, so a shared block is never lost', async () => {
+    const shared = new Uint8Array(randomBytes(64 * 1024));
+    const a = await propose([{ op: 'write', path: '/a.bin', bytes: shared }]);
+    await db.update(proposals).set({ status: 'discarded' }).where(eq(proposals.id, a.id));
+    const [block] = await db.select().from(proposalBlocks);
+    let collected = false;
+    await db.transaction(async (tx) => {
+      // What createProposal holds while its rows are not visible yet.
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(${0x50524f50}, hashtext(${u.userId}))`);
+      const gc = gcProposalBlocks(u.userId).then(() => {
+        collected = true;
+      });
+      await Bun.sleep(200);
+      expect(collected).toBe(false);
+      const id = newId();
+      await tx.insert(proposals).values({
+        id,
+        workspaceId: ws.id,
+        userId: u.userId,
+        agentName: 'Prop agent',
+        agentCredential: 'pat:prop-token',
+        message: '',
+        status: 'open',
+        baseCommitId: await headOf(ws),
+        opCount: 1,
+        bytesTotal: shared.length,
+        expiresAt: new Date(Date.now() + 86_400_000),
+      });
+      await tx.insert(proposalFiles).values({ proposalId: id, seq: 0, op: 'write', path: '/b.bin', entryType: 'file', size: shared.length, blockHashes: [block.sha256] });
+      void gc;
+    });
+    for (let i = 0; i < 50 && !collected; i++) await Bun.sleep(20);
+    expect(collected).toBe(true);
+    expect((await db.select().from(proposalBlocks)).map((b) => b.sha256)).toEqual([block.sha256]);
   });
 
   test('listing pages by id cursor and filters by credential', async () => {

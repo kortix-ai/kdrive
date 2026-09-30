@@ -150,12 +150,20 @@ export function statusOf(files: Pick<ProposalFileRow, 'status'>[]): ProposalStat
 
 // ── housekeeping ────────────────────────────────────────────────────────────
 
-/** Deletes staged blocks no open proposal of the user still needs. */
+/**
+ * Deletes staged blocks no open proposal of the user still needs. It takes the
+ * lock createProposal holds while it inserts a proposal and its blocks, so a
+ * proposal being created (whose rows are not visible yet) never loses a block
+ * it shares with one that just closed.
+ */
 export async function gcProposalBlocks(userId: string): Promise<void> {
-  await db.execute(sql`
-    DELETE FROM proposal_blocks b WHERE b.user_id = ${userId} AND NOT EXISTS (
-      SELECT 1 FROM proposal_files f JOIN proposals p ON p.id = f.proposal_id
-      WHERE p.user_id = ${userId} AND p.status = 'open' AND f.status = 'pending' AND b.sha256 = ANY (f.block_hashes))`);
+  await db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(${LOCK_PROPOSALS}, hashtext(${userId}))`);
+    await tx.execute(sql`
+      DELETE FROM proposal_blocks b WHERE b.user_id = ${userId} AND NOT EXISTS (
+        SELECT 1 FROM proposal_files f JOIN proposals p ON p.id = f.proposal_id
+        WHERE p.user_id = ${userId} AND p.status = 'open' AND f.status = 'pending' AND b.sha256 = ANY (f.block_hashes))`);
+  });
 }
 
 /** Open proposals past their expiry become `expired` (and their blocks are collected). */
