@@ -67,6 +67,12 @@ export class TokenBucket {
     return Math.max(1, Math.ceil((cost - b.tokens) / this.refillPerSec));
   }
 
+  /** Gives back `cost` tokens taken for a request that turned out not to count. */
+  refund(key: string, cost = 1): void {
+    const b = this.buckets.get(key);
+    if (b) b.tokens = Math.min(this.capacity, b.tokens + cost);
+  }
+
   reset(): void {
     this.buckets.clear();
   }
@@ -116,6 +122,11 @@ export function checkRateLimitKey(o: Omit<RateLimitOptions, 'key'>, key: string)
   }
 }
 
+/** Gives back the token checkRateLimitKey took for `key` (a request that should not count). */
+export function refundRateLimitKey(o: Omit<RateLimitOptions, 'key'>, key: string): void {
+  registry.get(o.name)?.refund(key);
+}
+
 export function rateLimit(o: RateLimitOptions): MiddlewareHandler {
   return async (c, next) => {
     checkRateLimit(o, c);
@@ -134,8 +145,14 @@ export const limits = {
   linkOpenIpToken: { name: 'link-open-ip', capacity: 60, refillPerSec: 1 },
   linkOpenToken: { name: 'link-open-token', capacity: 600, refillPerSec: 10 },
   user: { name: 'user', capacity: 600, refillPerSec: 10 },
-  /** Per agent credential on /mcp: 120 requests/min, burst 60. */
+  /**
+   * Per client address on /mcp, before the credential is looked up: every
+   * attempt takes a token and a successful one gives it back, so only failed
+   * authentication is limited (30/min, burst 60).
+   */
+  mcpAuthIp: { name: 'mcp-auth-ip', capacity: 60, refillPerSec: 0.5 },
+  /** Per agent grant on /mcp: 120 requests/min, burst 60. */
   mcp: { name: 'mcp', capacity: 60, refillPerSec: 2 },
-  /** Per agent credential: write_changes calls, 30/min. */
+  /** Per agent grant: write_changes calls, 30/min. */
   mcpWrite: { name: 'mcp-write', capacity: 10, refillPerSec: 0.5 },
 } as const;

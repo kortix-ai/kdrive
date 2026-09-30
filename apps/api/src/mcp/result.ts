@@ -1,6 +1,6 @@
 // Success results and the per-tool wrapper.
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
-import type { AgentPrincipal } from '../agents/principal';
+import { rateKeyOf, type AgentPrincipal } from '../agents/principal';
 import { env } from '../env';
 import { ApiError } from '../lib/http';
 import { checkRateLimitKey, limits } from '../middleware/rate-limit';
@@ -77,7 +77,7 @@ export function withTool<A>(
       if (!toolsForScope(p.scope, p.mode).includes(name)) {
         throw new ApiError(403, 'insufficient_scope', 'This connection does not allow that tool.');
       }
-      if (name === 'write_changes') checkRateLimitKey(limits.mcpWrite, `mcpw|${p.credential}`);
+      if (name === 'write_changes') checkRateLimitKey(limits.mcpWrite, `mcpw|${rateKeyOf(p)}`);
       const res = await fn(args);
       logCall(ctx, p, name, 'ok', Date.now() - t0);
       return res;

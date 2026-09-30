@@ -3,12 +3,12 @@
 // transport per request (no sessions, no SSE streams).
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import type { Context } from 'hono';
-import { isPrincipalFailure, resolvePrincipal } from '../agents/principal';
+import { isPrincipalFailure, rateKeyOf, resolvePrincipal } from '../agents/principal';
 import { AGENT_SCOPES } from '../agents/scopes';
 import { PRM_URL } from '../agents/urls';
 import { env } from '../env';
 import { ApiError } from '../lib/http';
-import { checkRateLimitKey, clientIp, limits } from '../middleware/rate-limit';
+import { checkRateLimitKey, clientIp, limits, refundRateLimitKey } from '../middleware/rate-limit';
 import type { AppEnv } from '../types';
 import { buildMcpServer } from './server';
 
@@ -57,6 +57,19 @@ async function readCapped(req: Request, max: number): Promise<Uint8Array | null>
   return out;
 }
 
+/** Runs a rate-limit check; a 429 becomes the JSON error response (else null). */
+function rateLimited(check: () => void): Response | null {
+  try {
+    check();
+    return null;
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 429) {
+      return jsonError(429, 'rate_limited', e.message, e.headers ?? { 'Retry-After': '1' });
+    }
+    throw e;
+  }
+}
+
 export async function handleMcp(req: Request, c: Context<AppEnv>): Promise<Response> {
   if (!env.mcpEnabled) return jsonError(404, 'not_found', 'No such route.');
   const reqId = c.get('reqId') ?? '-';
@@ -80,23 +93,23 @@ export async function handleMcp(req: Request, c: Context<AppEnv>): Promise<Respo
     return withId(jsonError(413, 'payload_too_large', 'Request body is too large (at most 34 MiB).'));
   }
 
-  // 4. Auth: bearer only (cookies are never looked at).
+  // 4. Auth: bearer only (cookies are never looked at). Each lookup costs a
+  // hash and a query or a signature check, so failed attempts are limited per
+  // client address before the lookup; a successful one gives its token back.
   const ip = clientIp(c);
+  const authKey = `mcpa|${ip}`;
+  const limited = rateLimited(() => checkRateLimitKey(limits.mcpAuthIp, authKey));
+  if (limited) return withId(limited);
   const p = await resolvePrincipal(req.headers.get('authorization'), { ip });
   if (isPrincipalFailure(p)) {
     const header = authHeader(p.code === 'insufficient_scope' ? 'insufficient_scope' : undefined);
     return withId(jsonError(p.status, p.code, p.message, { 'www-authenticate': header }));
   }
+  refundRateLimitKey(limits.mcpAuthIp, authKey);
 
-  // 5. Per-credential rate limit.
-  try {
-    checkRateLimitKey(limits.mcp, `mcp|${p.credential}`);
-  } catch (e) {
-    if (e instanceof ApiError && e.status === 429) {
-      return withId(jsonError(429, 'rate_limited', e.message, e.headers ?? { 'Retry-After': '1' }));
-    }
-    throw e;
-  }
+  // 5. Per-grant rate limit (a token, or one user's grant to an OAuth client).
+  const throttled = rateLimited(() => checkRateLimitKey(limits.mcp, `mcp|${rateKeyOf(p)}`));
+  if (throttled) return withId(throttled);
 
   const body = await readCapped(req, MCP_MAX_BODY);
   if (!body) return withId(jsonError(413, 'payload_too_large', 'Request body is too large (at most 34 MiB).'));

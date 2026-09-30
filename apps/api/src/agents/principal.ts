@@ -190,6 +190,15 @@ export async function resolvePrincipal(
   return unauthorized(WRONG_TOKEN);
 }
 
+/**
+ * The rate-limit key of a principal: its token, or its user's grant for an
+ * OAuth client. A client id is public and shared by every user of the app, so
+ * one user's traffic must never drain another user's budget.
+ */
+export function rateKeyOf(p: Pick<AgentPrincipal, 'kind' | 'grantId'>): string {
+  return p.kind === 'token' ? `pat:${p.grantId}` : `grant:${p.grantId}`;
+}
+
 export function agentRef(p: AgentPrincipal): AgentRef {
   return { kind: p.kind, name: p.name, credential: p.credential };
 }
