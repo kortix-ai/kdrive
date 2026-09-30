@@ -2,11 +2,13 @@
 // registerTool takes them). Frozen contract: builders may add optional output
 // fields only. Tool arguments are snake_case.
 import { z } from 'zod';
-import { AgentModeSchema, AgentScopeSchema, IdSchema, RefSchema } from '@volumes/shared';
+import { AgentModeSchema, AgentScopeSchema, IdSchema } from '@volumes/shared';
 
 const WorkspaceId = IdSchema.optional().describe('Workspace to use. Default: the connected workspace, else the default one.');
 const DrivePath = z.string().min(1).max(8192);
 const EntryKind = z.enum(['file', 'dir', 'other']);
+/** A version: a commit id (vc_…) or a checkpoint's name or id. */
+const VersionRef = z.string().trim().min(1).max(128);
 
 export const AccessShape = z.object({
   scope: AgentScopeSchema,
@@ -55,7 +57,7 @@ export const OpenWorkspaceOutput = {
 export const ReadFilesInput = {
   workspace_id: WorkspaceId,
   paths: z.array(DrivePath).min(1).max(50).describe('Files or folders to read (at most 50).'),
-  at: RefSchema.optional().describe('Version to read: a commit id (vc_…) or checkpoint tag. Default: now.'),
+  at: VersionRef.optional().describe('Version to read: a commit_id (vc_…) or a checkpoint name. Default: now.'),
   offset: z.number().int().min(0).default(0).describe('Byte offset in a file, or entry offset in a folder; only with exactly one path.'),
   max_bytes: z.number().int().min(1).max(1_048_576).default(65_536).describe('Total text budget for this call.'),
   encoding: z.enum(['auto', 'base64']).default('auto').describe('auto: text for text files; base64: raw bytes.'),
@@ -92,7 +94,7 @@ export const ReadFilesOutput = {
 export const SearchFilesInput = {
   workspace_id: WorkspaceId,
   query: z.string().min(1).max(200).describe('Part of a file or folder name (case-insensitive).'),
-  at: RefSchema.optional().describe('Version to search: a commit id or checkpoint tag. Default: now.'),
+  at: VersionRef.optional().describe('Version to search: a commit_id or a checkpoint name. Default: now.'),
   limit: z.number().int().min(1).max(200).default(50),
 };
 export const SearchFilesOutput = {
@@ -159,8 +161,8 @@ const CommitPoint = z.object({ commit_id: z.string(), created_at: z.string() });
 
 export const DiffInput = {
   workspace_id: WorkspaceId,
-  from: z.string().min(1).max(128).describe('commit id, checkpoint tag, "now" or "latest_checkpoint"'),
-  to: z.string().min(1).max(128).default('now').describe('commit id, checkpoint tag, "now" or "latest_checkpoint"'),
+  from: VersionRef.describe('a commit_id, a checkpoint name, "now" or "latest_checkpoint"'),
+  to: VersionRef.default('now').describe('a commit_id, a checkpoint name, "now" or "latest_checkpoint"'),
   paths: z.array(DrivePath).max(50).optional().describe('Limit the diff to these files or folders.'),
   include_text: z.boolean().default(true).describe('Include unified text diffs for small text files.'),
   context_lines: z.number().int().min(0).max(20).default(3),
@@ -307,7 +309,7 @@ export const CreateCheckpointInput = {
   workspace_id: WorkspaceId,
   name: z.string().trim().min(1).max(80).describe('Short name, e.g. "Draft ready".'),
   note: z.string().max(500).default(''),
-  at: RefSchema.optional().describe('Version to checkpoint (default: now).'),
+  at: VersionRef.optional().describe('Version to checkpoint: a commit_id or a checkpoint name (default: now).'),
 };
 export const CreateCheckpointOutput = {
   checkpoint: z.object({ id: z.string(), name: z.string(), note: z.string(), commit_id: z.string(), created_at: z.string() }),
@@ -319,7 +321,7 @@ export const CreateCheckpointOutput = {
 
 export const RestoreInput = {
   workspace_id: WorkspaceId,
-  at: RefSchema.describe('Commit id (vc_…) or checkpoint tag to go back to.'),
+  at: VersionRef.describe('The commit_id (vc_…) or checkpoint name to go back to.'),
   paths: z.array(DrivePath).max(1000).optional().describe('Omit to restore the whole drive.'),
 };
 export const RestoreOutput = {

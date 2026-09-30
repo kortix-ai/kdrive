@@ -6,7 +6,7 @@ import { searchFiles } from '../../services/search';
 import { SEARCH_FILES_DESCRIPTION } from '../descriptions';
 import { ok, withTool, type ToolCtx } from '../result';
 import { SearchFilesInput, SearchFilesOutput } from '../schemas';
-import { entryKind, plural } from './util';
+import { entryKind, plural, commitIdOf } from './util';
 
 const READ_ONLY = { readOnlyHint: true, idempotentHint: true, openWorldHint: false } as const;
 
@@ -27,7 +27,7 @@ export function registerSearchTool(server: McpServer, p: AgentPrincipal, ctx: To
       p,
       async (args: Args) => {
         const ws = await principalWorkspace(p, args.workspace_id);
-        const r = await searchFiles(ws, args.query, args.at, args.limit);
+        const r = await searchFiles(ws, args.query, args.at ? await commitIdOf(ws, args.at) : undefined, args.limit);
         const results = r.results.map((e) => {
           const type = entryKind(e.type);
           return { path: e.path, name: e.name, type, size: e.size, mtime: e.mtime, url: driveUrl(ws.id, e.path, type === 'dir' ? 'dir' : 'file') };

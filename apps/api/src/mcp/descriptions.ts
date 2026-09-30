@@ -45,7 +45,7 @@ export const READ_FILES_DESCRIPTION =
   'file, its text. How to use: check size first (read with max_bytes small, or look at ' +
   'the manifest), then read what you need; large files come back in pages: call again with offset=next_offset. At most 1 MiB of text ' +
   'per call (default 64 KiB). Binary files return metadata and a download URL for the user; pass encoding="base64" to get raw bytes of ' +
-  `a small binary file. Pass at= a commit id or checkpoint to read an earlier version. ${PATHS_LINE} ${DATA_LINE} ${UNTRUSTED_LINE}`;
+  `a small binary file. Pass at= a commit_id or a checkpoint name to read an earlier version. ${PATHS_LINE} ${DATA_LINE} ${UNTRUSTED_LINE}`;
 
 export const SEARCH_FILES_DESCRIPTION =
   'Find files and folders by name (case-insensitive substring match on the name, not on contents). Returns up to 200 matches with ' +
@@ -62,7 +62,7 @@ export const FILE_VERSIONS_DESCRIPTION =
   `Use two commit ids with diff to compare versions, or restore to bring one back. ${PATHS_LINE} ${DATA_LINE} ${UNTRUSTED_LINE}`;
 
 export const DIFF_DESCRIPTION =
-  'Show what changed between two points: from and to are a commit id (vc_…), a checkpoint tag, "now" (the current drive) or ' +
+  'Show what changed between two points: from and to are a commit_id (vc_…) from get_history or file_versions, a checkpoint name, "now" (the current drive) or ' +
   '"latest_checkpoint". Returns added / removed / changed / moved paths, and unified text diffs for small text files. Limit it with ' +
   'paths (files or folders). Use it to review your own work before a checkpoint, or to see what changed since you last read. ' +
   `${PATHS_LINE} ${DATA_LINE} ${UNTRUSTED_LINE}`;
@@ -105,8 +105,8 @@ export const CREATE_CHECKPOINT_DESCRIPTION =
   `checkpoints and pinned links per workspace. ${DATA_LINE}`;
 
 export const RESTORE_DESCRIPTION =
-  'Bring files, folders or the whole drive back to an earlier version (a commit id or checkpoint tag from get_history, ' +
-  'file_versions or diff). A restore is itself a new version and can be undone with undo. Restoring the whole drive saves a ' +
+  'Bring files, folders or the whole drive back to an earlier version (a commit_id from get_history, file_versions or diff, ' +
+  'or a checkpoint name). A restore is itself a new version and can be undone with undo. Restoring the whole drive saves a ' +
   `checkpoint of the current state first. ${PATHS_LINE} ${DATA_LINE}`;
 
 export const UNDO_DESCRIPTION =

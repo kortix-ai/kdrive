@@ -98,7 +98,7 @@ describe('read tools', () => {
     const seen: string[] = [];
     let offset: number | null = 0;
     for (let i = 0; i < 20 && offset !== null; i++) {
-      const page = (await call('read_files', { paths: ['/a'], offset })).structuredContent.files[0];
+      const page: Json = (await call('read_files', { paths: ['/a'], offset })).structuredContent.files[0];
       expect(page.offset).toBe(offset);
       seen.push(...page.entries.map((e: Json) => e.name));
       offset = page.next_offset;
@@ -242,6 +242,31 @@ describe('write tools (direct)', () => {
     }
     const h = await call('get_history', { limit: 5 });
     expect(h.structuredContent.head_commit_id).toBe(head);
+  });
+
+  test('checkpoint names and ids work wherever a version is asked for', async () => {
+    await upload(u, { '/r.md': 'draft one' });
+    const cp = (await call('create_checkpoint', { name: 'Research summary draft' })).structuredContent.checkpoint;
+    await upload(u, { '/r.md': 'draft two' });
+    for (const ref of ['Research summary draft', cp.id, cp.commit_id]) {
+      const d = await call('diff', { from: ref, paths: ['/r.md'] });
+      expect(d.isError).toBeUndefined();
+      expect(d.structuredContent.from.commit_id).toBe(cp.commit_id);
+      const r = await call('read_files', { paths: ['/r.md'], at: ref });
+      expect(r.structuredContent.files[0].content).toBe('draft one');
+    }
+    const again = await call('create_checkpoint', { name: 'Pinned again', at: 'Research summary draft' });
+    expect(again.structuredContent.checkpoint.commit_id).toBe(cp.commit_id);
+    const s = await call('search_files', { query: 'r.md', at: 'Research summary draft' });
+    expect(s.structuredContent.commit_id).toBe(cp.commit_id);
+    const re = await call('restore', { at: 'Research summary draft', paths: ['/r.md'] });
+    expect(re.structuredContent.outcome).toBe('committed');
+    expect((await call('read_files', { paths: ['/r.md'] })).structuredContent.files[0].content).toBe('draft one');
+    const unknown = errorOf(await call('diff', { from: 'No such checkpoint' }));
+    expect(unknown.code).toBe('not_found');
+    expect(unknown.message).toContain('No version called');
+    const traversal = errorOf(await call('read_files', { paths: ['/r.md'], at: '../../etc' }));
+    expect(traversal.code).toBe('not_found');
   });
 
   test('argument validation carries the op index and writes nothing', async () => {

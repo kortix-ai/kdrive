@@ -28,15 +28,15 @@ export function registerRestoreTool(server: McpServer, p: AgentPrincipal, ctx: T
         const ws = await principalWorkspace(p, args.workspace_id);
         const actx = { ws, userId: p.user.id, actor: { kind: 'agent' as const, name: p.name, credential: p.credential }, email: p.user.email, ip: ctx.ip };
         const paths = args.paths?.length ? toPaths(args.paths) : [];
+        const at = await commitIdOf(ws, args.at);
         let r;
         if (!paths.length || (paths.length === 1 && paths[0] === '/')) {
-          r = await runRestore(actx, { scope: 'drive', at: args.at });
+          r = await runRestore(actx, { scope: 'drive', at });
         } else if (paths.length === 1) {
-          const at = await commitIdOf(ws, args.at);
           const st = await safeStat(ws, paths[0], at);
           r = await runRestore(actx, { scope: st?.type === 'dir' ? 'folder' : 'file', path: paths[0], at });
         } else {
-          r = await runRestore(actx, { scope: 'folder', paths, at: args.at });
+          r = await runRestore(actx, { scope: 'folder', paths, at });
         }
         const a = r.action;
         const committed = a.status === 'committed';

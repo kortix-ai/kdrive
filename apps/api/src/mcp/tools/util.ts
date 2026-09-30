@@ -2,6 +2,9 @@
 import { basename, isTextLike, normalizePath } from '@volumes/shared';
 import type { z } from 'zod';
 import type { AgentPrincipal } from '../../agents/principal';
+import { and, desc, eq, or, sql } from 'drizzle-orm';
+import { db } from '../../db/client';
+import { checkpoints } from '../../db/schema';
 import { ApiError } from '../../lib/http';
 import { getStore } from '../../storage';
 import { isStoreError, type FileStat } from '../../storage/types';
@@ -39,9 +42,39 @@ export async function headCommit(ws: Pick<WorkspaceCtx, 'volumeId'>): Promise<st
   return (await getStore().getVolume(ws.volumeId)).headCommitId;
 }
 
-/** Resolves a version ref (commit id or tag) to its commit id; unknown → 404 `not_found`-style store errors pass through. */
-export async function commitIdOf(ws: Pick<WorkspaceCtx, 'volumeId'>, ref: string): Promise<string> {
-  return (await getStore().getCommit(ws.volumeId, ref)).id;
+const COMMIT_REF = /^vc_[0-9A-Za-z]{26}$/;
+/** What the store may be asked to resolve itself (never a free-form name). */
+const STORE_REF = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+
+const unknownVersion = (ref: string) =>
+  new ApiError(404, 'not_found', `No version called ${JSON.stringify(ref.slice(0, 80))} in this workspace. Use a commit_id from get_history or a checkpoint name.`, {
+    ref: ref.slice(0, 128),
+  });
+
+/**
+ * Resolves a version reference to its commit id: a commit id (vc_…), "head",
+ * or one of the workspace's checkpoints by id or by name (the newest of that
+ * name). An unknown name is 404 `not_found`; a commit id that is no longer kept
+ * is 410 `version_gone`.
+ */
+export async function commitIdOf(ws: Pick<WorkspaceCtx, 'id' | 'volumeId'>, ref: string): Promise<string> {
+  const r = ref.trim();
+  if (!r) throw unknownVersion(ref);
+  if (COMMIT_REF.test(r) || r === 'head') return (await getStore().getCommit(ws.volumeId, r)).id;
+  const [cp] = await db
+    .select({ commitId: checkpoints.commitId })
+    .from(checkpoints)
+    .where(and(eq(checkpoints.workspaceId, ws.id), or(eq(checkpoints.id, r), eq(checkpoints.name, r))))
+    .orderBy(sql`${checkpoints.id} = ${r} DESC`, desc(checkpoints.createdAt))
+    .limit(1);
+  if (cp) return (await getStore().getCommit(ws.volumeId, cp.commitId)).id;
+  if (!STORE_REF.test(r)) throw unknownVersion(ref);
+  try {
+    return (await getStore().getCommit(ws.volumeId, r)).id;
+  } catch (e) {
+    if (isStoreError(e, 'not_found')) throw unknownVersion(ref);
+    throw e;
+  }
 }
 
 /** Reads a whole small file at a commit. */

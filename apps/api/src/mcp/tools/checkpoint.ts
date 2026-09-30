@@ -6,6 +6,7 @@ import { createCheckpoint } from '../../services/checkpoints';
 import { auditAs } from '../../services/restore-request';
 import { tagBudget } from '../../services/tags';
 import { CREATE_CHECKPOINT_DESCRIPTION } from '../descriptions';
+import { commitIdOf } from './util';
 import { ok, withTool, type ToolCtx } from '../result';
 import { CreateCheckpointInput, CreateCheckpointOutput } from '../schemas';
 
@@ -31,7 +32,8 @@ export function registerCheckpointTool(server: McpServer, p: AgentPrincipal, ctx
       async (args: Args) => {
         const ws = await principalWorkspace(p, args.workspace_id);
         const actx = { ws, userId: p.user.id, actor: { kind: 'agent' as const, name: p.name, credential: p.credential }, email: p.user.email, ip: ctx.ip };
-        const cp = await createCheckpoint(actx, { name: args.name, note: args.note, at: args.at });
+        const at = args.at ? await commitIdOf(ws, args.at) : undefined;
+        const cp = await createCheckpoint(actx, { name: args.name, note: args.note, at });
         await auditAs(actx, { kind: 'agent.checkpoint', target: cp.id, meta: { name: cp.name, commitId: cp.commitId, credential: p.credential } });
         const b = await tagBudget(ws);
         const url = checkpointsUrl(ws.id);
