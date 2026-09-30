@@ -10,6 +10,7 @@ import { actionPaths, actions, uploads, workspaces, type ActionPathRow, type Act
 import { newId } from '../lib/ids';
 import { withWorkspaceLock } from '../lib/lock';
 import { getStore } from '../storage';
+import { notFromOpenPlan } from './proven-blocks';
 import { isStoreError, type CommitResult, type FileStat } from '../storage/types';
 import type { WorkspaceCtx } from '../types';
 
@@ -414,6 +415,8 @@ export async function exactBlockLists(wsId: string, stats: FileStat[]): Promise<
           isNotNull(actionPaths.blockHashes),
           ne(actions.status, 'failed'),
           sql`${actions.commitIds} && ${sql.param(commitIds)}::text[]`,
+          // A plan row whose own upload never committed is a claim, not content.
+          notFromOpenPlan(actionPaths.actionId, actionPaths.path),
         ),
       );
     const want = new Map(chunk.map((s) => [s.path, s]));

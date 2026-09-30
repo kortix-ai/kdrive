@@ -175,6 +175,11 @@ export type UploadRowPlan = {
   baseCommitId?: string;
   /** Head right before the first commit attempt (recognises a commit whose response was lost). */
   commitHead?: string;
+  /**
+   * Blocks this user had not proven they hold when the plan was made (sorted,
+   * unique). Each must arrive through this upload's block PUTs before it commits.
+   */
+  required?: string[];
 };
 
 export const uploads = pgTable(

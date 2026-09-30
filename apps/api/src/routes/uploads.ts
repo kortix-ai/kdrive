@@ -21,9 +21,20 @@ import { newId } from '../lib/ids';
 import { withWorkspaceLock } from '../lib/lock';
 import { checkRateLimit, limits } from '../middleware/rate-limit';
 import { actionPaths } from '../db/schema';
-import { actionsByCommits, appendPaths, attachCommit, finalize, getAction, isAmbiguousFailure, recordIntent, toSummary } from '../services/ledger';
-import { missingForUser } from '../services/proven-blocks';
+import { appendPaths, attachCommit, finalize, getAction, isAmbiguousFailure, recordIntent, toSummary } from '../services/ledger';
+import {
+  forgetUpload,
+  markReceived,
+  missingForUser,
+  sha256Hex,
+  trackRequired,
+  unprovenBlocks,
+  unreceivedBlocks,
+} from '../services/proven-blocks';
+import { findLandedUpload, recordLandedUpload } from '../services/lost-commits';
+import { planGrowth } from '../services/footprint';
 import { assertQuota } from '../services/quota';
+import { Hold, reserveQuota } from '../services/reservations';
 import { statOrNull } from '../services/tree';
 import { resolveUploadPlan, type ResolvedUploadPlan } from '../services/upload-plan';
 import { getStore } from '../storage';
@@ -100,6 +111,17 @@ async function loadUpload(ws: WorkspaceCtx, userId: string, id: string): Promise
   return row;
 }
 
+/** An upload row without its plan JSON (a block PUT needs none of it). */
+async function loadUploadForBlocks(ws: WorkspaceCtx, userId: string, id: string) {
+  if (!UPLOAD_ID.test(id)) throw new ApiError(404, 'not_found', 'Upload not found.');
+  const [row] = await db
+    .select({ id: uploads.id, actionId: uploads.actionId, ptUploadId: uploads.ptUploadId, status: uploads.status, expiresAt: uploads.expiresAt })
+    .from(uploads)
+    .where(and(eq(uploads.id, id), eq(uploads.workspaceId, ws.id), eq(uploads.userId, userId)));
+  if (!row) throw new ApiError(404, 'not_found', 'Upload not found.');
+  return row;
+}
+
 async function setStatus(id: string, status: UploadRow['status'], extra: Partial<UploadRow> = {}): Promise<void> {
   await db
     .update(uploads)
@@ -128,7 +150,8 @@ async function failActionIfEmpty(actionId: string | null, reason: string): Promi
 }
 
 /** Store 404 `not_found` on an upload means Platinum dropped the plan (15 min idle). */
-async function expired(row: UploadRow): Promise<never> {
+async function expired(row: Pick<UploadRow, 'id' | 'actionId'>): Promise<never> {
+  forgetUpload(row.id);
   await setStatus(row.id, 'expired');
   await failActionIfEmpty(row.actionId, 'upload expired');
   throw new ApiError(404, 'not_found', 'This upload expired. Start it again.', { uploadId: row.id });
@@ -184,7 +207,32 @@ uploadsRoutes.post('/uploads', async (c) => {
 
   // The head the conflicts are resolved against: a commit onto a newer head re-checks them.
   const head = (await getStore().getVolume(ws.volumeId)).headCommitId;
-  const resolved = await resolveUploadPlan(ws, req);
+  const resolved = await resolveUploadPlan(ws, req, head);
+  if (joined && resolved.plan.files.length) {
+    // One file per path per action: the ledger row of a path is then the block
+    // list of exactly one plan (what a re-plan, a restore and proof all read).
+    const [dup] = await db
+      .select({ path: actionPaths.path })
+      .from(actionPaths)
+      .where(
+        and(
+          eq(actionPaths.actionId, joined.id),
+          eq(actionPaths.entryType, 'file'),
+          inArray(
+            actionPaths.path,
+            resolved.plan.files.map((f) => f.path),
+          ),
+        ),
+      )
+      .limit(1);
+    if (dup) throw new ApiError(400, 'bad_request', `"${dup.path}" is already part of this upload.`, { path: dup.path });
+  }
+  // Blocks this user must send whatever the store holds: every planned block
+  // their own committed content does not already list.
+  const required = await unprovenBlocks(
+    user.id,
+    resolved.plan.files.flatMap((f) => f.blocks),
+  );
   // Quota is checked before anything is recorded or sent (413 with QuotaDetails),
   // counting what other in-flight uploads reserved. Checking and reserving happen
   // under one per-user lock, so two plans made at once cannot both fit.
@@ -217,8 +265,9 @@ uploadsRoutes.post('/uploads', async (c) => {
   };
 
   let actionId = '';
-  await withWorkspaceLock(`quota:${user.id}`, async () => {
-    await assertQuota(user.id, resolved.addedBytes);
+  {
+    // Reserved for the user in the database (any API process); once the upload row exists it carries the bytes.
+    await using _quota = await reserveQuota(user.id, resolved.addedBytes, 'upload.plan');
     actionId = await recordPlan();
     await db.insert(uploads).values({
       id,
@@ -233,29 +282,28 @@ uploadsRoutes.post('/uploads', async (c) => {
         overwrite: resolved.plan.overwrite,
         renamed: resolved.renamed,
         baseCommitId: head,
+        required,
       },
       totalBytes: resolved.totalBytes,
       addedBytes: Math.max(0, resolved.addedBytes),
       missingCount: 0,
       expiresAt: new Date(Date.now() + PLAN_TTL_MS),
     });
-  });
+  }
+  trackRequired(id, required);
 
   let planned;
   try {
     planned = await getStore().planUpload(ws.volumeId, resolved.plan);
   } catch (e) {
+    forgetUpload(id);
     await setStatus(id, 'failed');
     if (!joined) await finalize(actionId, 'failed', e instanceof Error ? e.message.slice(0, 500) : String(e));
     throw e;
   }
   const expiresAt = new Date(planned.expiresAt);
   // Never reveal what OTHER users store: only blocks this user already holds are skipped.
-  const missing = await missingForUser(
-    user.id,
-    resolved.plan.files.flatMap((f) => f.blocks),
-    planned.missing,
-  );
+  const missing = missingForUser(required, planned.missing);
   await setStatus(id, 'planned', {
     ptUploadId: planned.uploadId,
     missingCount: missing.length,
@@ -286,18 +334,21 @@ uploadsRoutes.put('/uploads/:id/blocks/:sha', async (c) => {
   const ws = c.get('ws');
   const sha = c.req.param('sha');
   if (!SHA.test(sha)) throw new ApiError(400, 'bad_request', 'A block is addressed by its lowercase sha256 hex digest.');
-  const row = await loadUpload(ws, c.get('user').id, c.req.param('id'));
+  const row = await loadUploadForBlocks(ws, c.get('user').id, c.req.param('id'));
   if (row.status !== 'planned' && row.status !== 'uploading') {
     throw new ApiError(409, 'conflict', `This upload is ${row.status}; no more blocks are accepted.`, { status: row.status });
   }
   if (!row.ptUploadId) throw new ApiError(409, 'conflict', 'This upload is not ready for blocks yet.');
   const bytes = await readBody(c.req.raw, BLOCK_SIZE);
+  // The bytes are the proof of possession: check them here, whatever the store does.
+  if (sha256Hex(bytes) !== sha) throw new ApiError(400, 'bad_request', 'These bytes do not match the block hash.');
   try {
     await getStore().putBlock(ws.volumeId, row.ptUploadId, sha, bytes);
   } catch (e) {
     if (isStoreError(e, 'not_found')) await expired(row);
     throw e;
   }
+  await markReceived(row.id, sha);
   const now = Date.now();
   if (row.status === 'planned' || !row.expiresAt || row.expiresAt.getTime() < now + PLAN_TTL_MS - RENEW_EVERY_MS) {
     await setStatus(row.id, 'uploading', { expiresAt: new Date(now + PLAN_TTL_MS) });
@@ -365,6 +416,23 @@ uploadsRoutes.post('/uploads/:id/commit', async (c) => {
     // Re-check under the lock: a concurrent commit of the same upload may have won.
     const [fresh] = await db.select().from(uploads).where(eq(uploads.id, row.id));
     if (fresh?.status === 'committed') return null;
+    // An earlier attempt whose response was lost may have landed: storage decides.
+    if (fresh?.plan.commitHead) {
+      const landed = await findLandedUpload(ws, fresh, (await store.getVolume(ws.volumeId)).headCommitId);
+      if (landed) {
+        await recordLandedUpload(fresh, landed);
+        return null;
+      }
+    }
+    // Proof of possession: every block this user had not proven at plan time
+    // must have arrived through this upload. The plan stays alive; the browser
+    // sends what is listed and commits again.
+    const required = fresh?.plan.required ?? row.plan.required;
+    const left = await unreceivedBlocks(row.id, required);
+    if (left === null) {
+      throw new ApiError(409, 'conflict', 'This upload was started before an update. Start it again.', { uploadId: row.id });
+    }
+    if (left.length) throw new ApiError(409, 'conflict', 'Some blocks are still missing.', { missing: left, uploadId: row.id });
     let ptUploadId = fresh?.ptUploadId ?? row.ptUploadId!;
     const head = (await store.getVolume(ws.volumeId)).headCommitId;
     const planBase = row.plan.baseCommitId;
@@ -381,11 +449,23 @@ uploadsRoutes.post('/uploads/:id/commit', async (c) => {
         );
       }
     }
-    // Quota again, against what is committed now (copies and restores do not reserve).
+    // Quota again, against what is committed and reserved now (this upload
+    // excluded: its row still holds its bytes). The plan's estimate is only
+    // good for the head it was made on: on a newer head (a replaced file moved
+    // away, a folder deleted...) the growth is measured again, and what it adds
+    // beyond the row's bytes is reserved until the commit lands.
+    const held = fresh?.addedBytes ?? row.addedBytes;
+    const growth = planBase && head !== planBase ? await planGrowth(ws, head, row.plan.files, row.plan.dirs) : held;
     try {
-      await assertQuota(user.id, row.addedBytes, { excludeUploadId: row.id });
+      if (growth > held) {
+        // Reserve the difference atomically, then let the row carry the whole growth (a retried commit keeps it).
+        await using more = new Hold(user.id, 'upload.commit');
+        await more.reserve({ bytes: growth - held });
+        await db.update(uploads).set({ addedBytes: growth }).where(eq(uploads.id, row.id));
+      } else await assertQuota(user.id, growth, { excludeUploadId: row.id });
     } catch (e) {
       store.releaseUpload(ptUploadId);
+      forgetUpload(row.id);
       await setStatus(row.id, 'failed');
       await failActionIfEmpty(actionId, 'over quota at commit');
       throw e;
@@ -396,7 +476,9 @@ uploadsRoutes.post('/uploads/:id/commit', async (c) => {
       // commit plus a `merge` head that retention thins). Every block is stored
       // by now, so a fresh plan on the current head commits at once, fast.
       const plan = await storePlanOf(row);
-      if (plan) {
+      // Re-plan only a plan whose every block is proven: received now, or held before.
+      const unproven = plan ? await unprovenBlocks(user.id, plan.files.flatMap((f) => f.blocks), required) : [];
+      if (plan && unproven.length === 0) {
         try {
           const fresh2 = await store.planUpload(ws.volumeId, plan, { waitMs: 0 });
           store.releaseUpload(ptUploadId);
@@ -432,14 +514,17 @@ uploadsRoutes.post('/uploads/:id/commit', async (c) => {
           uploadId: row.id,
         });
       }
-      // A timeout / 5xx (or a plan gone after one) may have committed anyway: the
-      // lock means a head that moved since the first attempt, claimed by no other
-      // action, is this upload.
+      // A timeout / 5xx (or a plan gone after one) may have committed anyway: a
+      // commit after the first attempt's head that no action claims and that
+      // holds exactly this plan's writes is this upload. When the head cannot be
+      // read either, the next look at the ledger records it once storage shows it.
       if (isAmbiguousFailure(e) || isStoreError(e, 'not_found')) {
         const now = await store.getVolume(ws.volumeId).then((v) => v.headCommitId).catch(() => null);
-        if (now && now !== firstHead && !(await actionsByCommits(ws.id, [now])).has(now)) {
-          r = { commitId: now, headCommitId: now, outcome: 'fast', overwritten: [], skipped: [], files: fileCount };
-          return finish(r);
+        const planNow = { ...(fresh?.plan ?? row.plan), commitHead: firstHead };
+        const landed = now ? await findLandedUpload(ws, { id: row.id, plan: planNow, actionId }, now) : null;
+        if (landed) {
+          await recordLandedUpload(row, landed);
+          return null;
         }
       }
       // Retryable (write ceiling, commit_failed, storage unreachable): keep the plan, the
@@ -447,6 +532,7 @@ uploadsRoutes.post('/uploads/:id/commit', async (c) => {
       if (isStoreError(e, 'rate_limited') || isStoreError(e, 'commit_failed') || isStoreError(e, 'unavailable')) throw e;
       if (isStoreError(e, 'not_found')) await expired(row);
       store.releaseUpload(ptUploadId);
+      forgetUpload(row.id);
       await setStatus(row.id, 'failed');
       await failActionIfEmpty(actionId, e instanceof Error ? e.message.slice(0, 500) : String(e));
       throw e;
@@ -454,6 +540,7 @@ uploadsRoutes.post('/uploads/:id/commit', async (c) => {
     return finish(r);
 
     async function finish(res: CommitResult & { files: number }) {
+      forgetUpload(row.id);
       await setStatus(row.id, 'committed');
       await attachCommit(actionId, res);
       // `queued` (merge still running): the action stays pending; reconciliation attaches the merge.
@@ -478,6 +565,7 @@ uploadsRoutes.delete('/uploads/:id', async (c) => {
   if (row.status === 'planned' || row.status === 'uploading') {
     // Platinum keeps the plan (and its org slot) until it expires; so do we.
     if (row.ptUploadId) getStore().releaseUpload(row.ptUploadId);
+    forgetUpload(row.id);
     await setStatus(row.id, 'aborted');
     await failActionIfEmpty(row.actionId, 'aborted');
   }
