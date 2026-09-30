@@ -80,7 +80,7 @@ function Versions({ path }: { path: string }) {
     try {
       const r = await api.versioning.restore(ws, { scope: 'file', path, at: v.commitId });
       setConfirming(null);
-      registerUndo({ label: `Restored ${name} to ${formatTimeTravelLabel(v.createdAt)}`, actionId: r.action.id });
+      registerUndo({ label: `Restored ${name} to ${formatTimeTravelLabel(v.createdAt)}`, actionId: r.action.id, workspaceId: ws });
       refresh();
       void mutate();
     } catch (e) {

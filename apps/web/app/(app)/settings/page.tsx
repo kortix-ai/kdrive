@@ -3,7 +3,6 @@
 // Settings (DESIGN-v2 §6.17): cards for profile, appearance, storage, workspaces, activity, shortcuts, session, danger zone.
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { mutate } from 'swr';
 import { Check, LogOut } from 'lucide-react';
 import { ActivitySection } from '@/components/settings/activity-section';
 import { DangerZone } from '@/components/settings/danger-zone';
@@ -16,7 +15,7 @@ import { ThemeSegmented } from '@/components/shell/theme-toggle';
 import { Button } from '@/components/ui/button';
 import { cx } from '@/components/ui/cx';
 import { Kbd } from '@/components/ui/kbd';
-import { signOut } from '@/lib/auth-client';
+import { signOutAndEnd } from '@/lib/session';
 import { useVx } from '@/lib/store';
 import { THEME_LABEL, THEME_PREFS, type ResolvedTheme, type ThemePref } from '@/lib/theme';
 import { useThemePref } from '@/lib/use-theme';
@@ -143,13 +142,11 @@ function ShortcutsSection() {
 
 function SessionSection() {
   const router = useRouter();
-  const setMe = useVx((s) => s.setMe);
   const [busy, setBusy] = useState(false);
   const out = async () => {
     setBusy(true);
-    await signOut().catch(() => {});
-    setMe(null);
-    await mutate(() => true, undefined, { revalidate: false });
+    // The same session end as the account menu: uploads, prompts, store and every cache.
+    await signOutAndEnd();
     router.replace('/signin');
   };
   return (

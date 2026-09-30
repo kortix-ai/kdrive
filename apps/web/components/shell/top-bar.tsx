@@ -11,8 +11,8 @@ import { Kbd } from '@/components/ui/kbd';
 import { Menu, type MenuItem } from '@/components/ui/menu';
 import { Tooltip } from '@/components/ui/tooltip';
 import { cx } from '@/components/ui/cx';
-import { signOut } from '@/lib/auth-client';
 import { formatTimeTravelLabel } from '@/lib/format';
+import { signOutAndEnd } from '@/lib/session';
 import { sendShellIntent } from '@/lib/shell-intents';
 import { useVx } from '@/lib/store';
 import { THEME_LABEL, type ThemePref } from '@/lib/theme';
@@ -83,7 +83,6 @@ const THEME_ICON = { light: Sun, dark: Moon, system: Monitor } as const;
 export function AccountMenu({ size = 32 }: { size?: number }) {
   const router = useRouter();
   const me = useVx((s) => s.me);
-  const setMe = useVx((s) => s.setMe);
   const [pref, setPref] = useThemePref();
   const displayName = me?.user.name || me?.user.email || '';
   const items: MenuItem[] = [
@@ -101,8 +100,7 @@ export function AccountMenu({ size = 32 }: { size?: number }) {
       label: 'Sign out',
       icon: <LogOut size={18} strokeWidth={1.75} />,
       onSelect: async () => {
-        await signOut().catch(() => {});
-        setMe(null);
+        await signOutAndEnd();
         router.replace('/signin');
       },
     },

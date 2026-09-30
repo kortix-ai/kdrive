@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import CheckpointDialog from '@/components/versioning/checkpoint-dialog';
 import DuplicateDialog from '@/components/workspaces/duplicate-dialog';
 import GlobalDropZone from '@/components/drive/global-drop-zone';
@@ -17,6 +17,7 @@ import { cx } from '@/components/ui/cx';
 import { isApiError } from '@/lib/api/client';
 import { useMe } from '@/lib/api/hooks';
 import { useHotkeys } from '@/lib/keys';
+import { endSession } from '@/lib/session';
 import { useVx } from '@/lib/store';
 import { LeftRail } from './left-rail';
 import { NewFab } from './new-button';
@@ -65,10 +66,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [drawer]);
 
   const unauthorized = isApiError(error) && error.status === 401;
+  const ending = useRef(false);
   useEffect(() => {
     if (!unauthorized) return;
     const next = typeof window !== 'undefined' ? window.location.pathname + window.location.search : pathname;
-    router.replace(`/signin?next=${encodeURIComponent(next)}`);
+    // The session ended outside this tab (signed out elsewhere, or expired): forget the
+    // user here as well before leaving, or the stale identity still cached next to the 401
+    // would send the sign-in page straight back.
+    // Ending clears the cached 401 too, so this effect is not re-run by it; the navigation
+    // happens whether or not the shell is still mounted by then.
+    if (ending.current) return;
+    ending.current = true;
+    void endSession().finally(() => {
+      ending.current = false;
+      router.replace(`/signin?next=${encodeURIComponent(next)}`);
+    });
   }, [unauthorized, router, pathname]);
 
   useHotkeys(

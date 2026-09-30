@@ -342,6 +342,31 @@ describe('upload engine', () => {
     expect(h.plans.at(-1)!.actionId).toBe('act1');
   });
 
+  test('reset (sign-out) cancels every job; a commit that lands afterwards registers no undo, toast or refresh', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const { h, engine } = harness({
+      commit: async () => {
+        await gate;
+        h.commits++;
+        return { action: { id: 'act1', kind: 'upload', summary: 'Uploaded', status: 'committed', headCommitId: 'vc_2', baseCommitId: 'vc_1', createdAt: '', itemCount: 1, bytesDelta: 1, undoable: true }, files: 1 };
+      },
+    });
+    engine.start({ workspaceId: 'ws', basePath: '/', sources: { files: [{ file: file('a.txt', 'aaa'), relPath: 'a.txt' }], dirs: [] } });
+    const queued = engine.start({ workspaceId: 'ws', basePath: '/', sources: { files: [{ file: file('b.txt', 'b'), relPath: 'b.txt' }], dirs: [] } });
+    const third = engine.start({ workspaceId: 'ws', basePath: '/', sources: { files: [{ file: file('c.txt', 'c'), relPath: 'c.txt' }], dirs: [] } })!;
+    for (let i = 0; i < 100 && h.plans.length < 2; i++) await new Promise((r) => setTimeout(r, 2));
+    engine.reset();
+    release();
+    await settle(engine);
+    expect(queued).not.toBeNull();
+    expect(h.undos).toEqual([]);
+    expect(h.refreshes).toBe(0);
+    expect(h.toasts).toEqual([]);
+    expect(engine.isBusy()).toBe(false);
+    expect(engine.info(third)).toBeNull(); // forgotten
+  });
+
   test('nothing valid to send → no job', () => {
     const { h, engine } = harness();
     expect(engine.start({ workspaceId: 'ws', basePath: '/', sources: { files: [], dirs: [] } })).toBeNull();

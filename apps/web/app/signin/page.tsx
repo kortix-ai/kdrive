@@ -87,14 +87,17 @@ function SignIn() {
   const params = useSearchParams();
   const next = safeNext(params.get('next'));
   const { data: config, error: configError } = useConfig();
-  const { data: me } = useMe();
+  const { data: me, error: meError } = useMe();
   const [email, setEmail] = useState('dev@volumes.local');
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(params.get('error') ? 'Sign-in was cancelled or failed. Try again.' : null);
 
+  // Only a session the server still accepts leaves this page: a cached identity next to a
+  // 401 is a session that already ended.
+  const signedIn = !!me && !meError;
   useEffect(() => {
-    if (me) router.replace(next);
-  }, [me, next, router]);
+    if (signedIn) router.replace(next);
+  }, [signedIn, next, router]);
 
   const social = async (provider: NonNullable<typeof config>['providers'][number]) => {
     setBusy(provider);

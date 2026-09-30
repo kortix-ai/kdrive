@@ -28,6 +28,7 @@
     "zustand": "^5"
   },
   "devDependencies": {
+    "@happy-dom/global-registrator": "15",
     "@tailwindcss/postcss": "^4",
     "@types/bun": "^1.4.2",
     "@types/node": "^20",

@@ -1,14 +1,15 @@
 'use client';
 
-import { useEffect } from 'react';
-import useSWR, { type SWRConfiguration } from 'swr';
+import { useEffect, useRef } from 'react';
+import useSWR, { unstable_serialize, useSWRConfig, type SWRConfiguration } from 'swr';
 import useSWRInfinite from 'swr/infinite';
 import type { TimelineResponse } from '@volumes/shared';
 import { useVx } from '../store';
 import { ApiError } from './client';
 import { api } from './endpoints';
 
-import { registerInfinite } from './swr';
+import { listingFor } from './listing';
+import { registerInfinite, sessionBound } from './swr';
 
 export { revalidateAll } from './swr';
 
@@ -46,10 +47,34 @@ type LsKey = [string, string, string, string | null];
 export function useListing(path: string) {
   const ws = useVx((s) => s.workspaceId);
   const at = useVx((s) => s.timeTravel?.commitId ?? null);
-  return useSWR(ws ? (['ls', ws, path, at] as LsKey) : null, ([, w, p, a]: LsKey) => api.files.list(w, { path: p, at: a }), {
+  const key = ws ? (['ls', ws, path, at] as LsKey) : null;
+  const res = useSWR(key, ([, w, p, a]: LsKey) => api.files.list(w, { path: p, at: a }), {
     ...noRetryOn4xx,
     keepPreviousData: true,
   });
+  // keepPreviousData keeps the previous folder on screen while the next loads, but never
+  // across a workspace switch: remember which workspace the shown data was fetched for (the
+  // current key's own data, or the last key that had some).
+  const { cache } = useSWRConfig();
+  const dataWs = useRef<string | null>(null);
+  if (key && cache.get(unstable_serialize(key))?.data !== undefined) dataWs.current = ws;
+  const shownWs = dataWs.current;
+  // Getters keep SWR's per-field render tracking.
+  return {
+    get data() {
+      return listingFor(res.data, shownWs, ws);
+    },
+    get error() {
+      return res.error;
+    },
+    get isValidating() {
+      return res.isValidating;
+    },
+    get isLoading() {
+      return res.isLoading;
+    },
+    mutate: res.mutate,
+  };
 }
 
 /** The listing of `path` at head, as the baseline for "gone now / added later": its own key, always fresh. */
@@ -82,7 +107,7 @@ export function useTimeline(pageSize = 50) {
       if (!prev?.nextCursor) return null;
       return ['timeline', ws, pageSize, prev.nextCursor];
     },
-    (key: [string, string, number, string | null]) => api.versioning.timeline(key[1], { limit: key[2], before: key[3] }),
+    sessionBound((key: [string, string, number, string | null]) => api.versioning.timeline(key[1], { limit: key[2], before: key[3] })),
     { ...noRetryOn4xx, revalidateFirstPage: true },
   );
   // revalidateAll() cannot reach infinite keys by filter; let it call ours.

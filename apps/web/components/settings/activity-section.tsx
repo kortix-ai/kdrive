@@ -5,6 +5,7 @@ import type { AuditEvent, AuditListResponse } from '@volumes/shared';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api/endpoints';
+import { sessionBound } from '@/lib/api/swr';
 import { formatWhen } from '@/components/preview/names';
 import { isoTitle } from '@/lib/format';
 import { auditDetail, auditLabel, auditTone } from './audit-labels';
@@ -56,7 +57,7 @@ export function ActivitySection() {
       const before = nextBefore(prev);
       return before ? ['me-audit', before] : null;
     },
-    (key: [string, number | null]) => api.me.audit({ before: key[1], limit: PAGE }),
+    sessionBound((key: [string, number | null]) => api.me.audit({ before: key[1], limit: PAGE })),
     { revalidateOnFocus: false, shouldRetryOnError: false },
   );
   const events = data?.flatMap((p) => p.events) ?? [];

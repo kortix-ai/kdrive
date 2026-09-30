@@ -44,3 +44,8 @@ export function startUpload(opts: Omit<StartOptions, 'workspaceId'> & { workspac
   }
   return getUploadEngine().start({ workspaceId: ws, basePath: opts.basePath, sources: opts.sources });
 }
+
+/** Sign-out: cancels and forgets every upload in this tab (the engine is kept for the next user). */
+export function endUploads(): void {
+  engine?.reset();
+}

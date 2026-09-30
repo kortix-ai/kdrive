@@ -45,3 +45,10 @@ export function showQuota(d: QuotaDetails, fileCount: number): void {
 export function closeQuota(): void {
   useUploadPrompts.setState({ quota: null });
 }
+
+/** Sign-out: closes both questions; an upload waiting on the conflict answer is cancelled. */
+export function resetUploadPrompts(): void {
+  const cur = useUploadPrompts.getState().conflict;
+  useUploadPrompts.setState({ conflict: null, quota: null });
+  cur?.resolve(null);
+}

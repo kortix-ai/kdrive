@@ -296,6 +296,8 @@ interface Runtime {
   conflictMode?: ConflictAnswer['choice'];
   action: ActionSummary | null;
   flushTimer: ReturnType<typeof setTimeout> | null;
+  /** The engine was reset (sign-out): the job no longer belongs to anyone in this tab. */
+  detached?: boolean;
 }
 
 const retryable = (e: unknown) =>
@@ -422,7 +424,9 @@ export function createUploadEngine(deps: EngineDeps) {
   async function resolveConflicts(rt: Runtime, batch: PlanBatch, conflicts: string[]): Promise<ConflictAnswer['choice']> {
     const set = new Set(conflicts);
     setStatus(rt, batch.files.filter((f) => set.has(f.path)).map((f) => f.id), 'conflict');
+    if (rt.controller.signal.aborted) throw new CancelledError();
     const answer = await deps.askConflict(conflicts);
+    if (rt.controller.signal.aborted) throw new CancelledError();
     if (!answer) throw new CancelledError();
     if (answer.all) rt.conflictMode = answer.choice;
     return answer.choice;
@@ -455,6 +459,7 @@ export function createUploadEngine(deps: EngineDeps) {
             const d = e.details as Partial<QuotaDetails> & { limit?: string };
             // The person's own quota carries the numbers for the dialog; a storage-side
             // limit (a workspace's size cap, a full history) has only its message.
+            if (rt.controller.signal.aborted) throw new CancelledError();
             if (typeof d.usedBytes === 'number' && typeof d.quotaBytes === 'number') {
               deps.showQuota(
                 {
@@ -540,6 +545,8 @@ export function createUploadEngine(deps: EngineDeps) {
       const todo = rt.entries.filter((f) => rt.files[rt.index.get(f.id)!].status !== 'done');
       const batches = splitIntoPlans(todo, rt.dirsDone ? [] : rt.dirs);
       for (const b of batches) await runBatch(rt, b);
+      // Signed out while the last commit was in flight: nothing more is said to anyone.
+      if (rt.detached) throw new CancelledError();
       flush(rt);
       setJob(rt, { status: 'done' });
       if (rt.action?.undoable && rt.action.status === 'committed') {
@@ -561,6 +568,7 @@ export function createUploadEngine(deps: EngineDeps) {
         { error: message },
       );
       setJob(rt, { status: cancelled ? 'cancelled' : 'error' });
+      if (rt.detached) return;
       if (!cancelled && !(e instanceof HandledError)) store.toast({ kind: 'error', message: `Upload failed: ${message}` });
       if (rt.files.some((f) => f.status === 'done')) store.refresh();
     } finally {
@@ -642,6 +650,17 @@ export function createUploadEngine(deps: EngineDeps) {
     cancelAll(): void {
       for (const rt of [...queue]) this.cancel(rt.job.id);
       for (const rt of [...active]) this.cancel(rt.job.id);
+    },
+
+    /**
+     * Sign-out: cancels every job (queued and running) and forgets them all. A job whose
+     * commit lands afterwards registers no undo, shows no toast and refreshes nothing.
+     */
+    reset(): void {
+      for (const rt of runtimes.values()) rt.detached = true;
+      for (const rt of [...queue, ...active]) rt.detached = true;
+      this.cancelAll();
+      runtimes.clear();
     },
 
     /** Re-runs a failed or cancelled job (hashes are kept; committed plans are skipped). */
