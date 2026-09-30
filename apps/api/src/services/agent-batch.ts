@@ -135,16 +135,25 @@ export function staleBase(head: string, conflicts: Conflict[], message?: string)
   return new ApiError(409, 'stale_base', text, { current_commit_id: head, conflicts: conflicts.slice(0, 100) });
 }
 
-/** `base` must be a version of this workspace; returns its commit id. */
+/**
+ * `base` must be a commit id of this workspace; returns it. A name that
+ * resolves to a commit ("head", a checkpoint tag) is refused: it would follow
+ * the drive and turn the guard off.
+ */
 export async function assertBase(ws: WorkspaceCtx, base: string, head: string): Promise<string> {
+  let id: string;
   try {
-    return (await getStore().getCommit(ws.volumeId, base)).id;
+    id = (await getStore().getCommit(ws.volumeId, base)).id;
   } catch (e) {
     if (isStoreError(e) && e.status < 500) {
       throw staleBase(head, [], 'last_seen_commit_id is not a version of this workspace. Call open_workspace.');
     }
     throw e;
   }
+  if (id !== base) {
+    throw new ApiError(400, 'bad_request', 'last_seen_commit_id must be the commit id you read (vc_…), not a name such as "head".', { current_commit_id: head });
+  }
+  return id;
 }
 
 // ── simulation ──────────────────────────────────────────────────────────────

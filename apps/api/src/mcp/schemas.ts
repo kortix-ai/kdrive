@@ -223,7 +223,7 @@ export const WriteChangesInput = {
     .string()
     .min(1)
     .max(128)
-    .describe('head_commit_id from open_workspace, or commit_id from read_files, when you read.'),
+    .describe('The commit id (vc_…) you read: head_commit_id from open_workspace, or commit_id from read_files.'),
   message: z.string().max(500).default('').describe('One line saying what and why; shown to the user.'),
   changes: z.array(ChangeOp).min(1).max(200).describe('Ordered ops: write, mkdir, move, copy, delete.'),
   checkpoint: z.boolean().default(false).describe('Save a named checkpoint after the change.'),

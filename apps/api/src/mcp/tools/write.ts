@@ -31,6 +31,18 @@ type Args = {
 type Out = z.infer<z.ZodObject<typeof WriteChangesOutput>>;
 
 const BASE64 = /^[A-Za-z0-9+/]*={0,2}$/;
+/** A concrete commit id. Names such as "head" or a checkpoint would move with the drive and turn the guard off. */
+export const COMMIT_ID = /^vc_[0-9A-Za-z]{26}$/;
+
+/** last_seen_commit_id must name the exact version the agent read. */
+export function checkBase(id: string): string {
+  if (!COMMIT_ID.test(id)) {
+    throw badRequest('last_seen_commit_id must be the commit id (vc_…) you read: head_commit_id from open_workspace or commit_id from read_files. Names such as "head" are not accepted.', {
+      last_seen_commit_id: id.slice(0, 128),
+    });
+  }
+  return id;
+}
 
 /** A path argument checked like an upload's (root refused, every segment a valid name); errors carry the op index. */
 function argPath(p: string, index: number, what: string): string {
@@ -196,6 +208,7 @@ export function registerWriteTool(server: McpServer, p: AgentPrincipal, ctx: Too
       p,
       async (args: Args) => {
         if (args.checkpoint && !args.checkpoint_name) throw badRequest('checkpoint_name is required when checkpoint is true.');
+        checkBase(args.last_seen_commit_id);
         const ops = decodeChanges(args.changes);
         const ws = await principalWorkspace(p, args.workspace_id);
         // Review mode can never reach the batch engine: it only stages a proposal.

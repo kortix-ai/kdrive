@@ -227,6 +227,13 @@ describe('guard', () => {
     expect(e2.code).toBe('path_not_found');
   });
 
+  test('a base named by reference ("head", a tag) is refused', async () => {
+    await upload(u, { '/r.txt': 'r' });
+    const e = await thrown(run([{ op: 'write', path: '/r.txt', bytes: enc('x') }], 'head'));
+    expect(e.code).toBe('bad_request');
+    expect(await readText('/r.txt')).toBe('r');
+  });
+
   test('a partial failure names the action that landed', async () => {
     await upload(u, { '/p.txt': 'p' });
     const store = getStore();

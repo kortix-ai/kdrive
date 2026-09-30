@@ -166,6 +166,25 @@ describe('write tools (direct)', () => {
     expect(same.structuredContent.changes[0].result).toBe('unchanged');
   });
 
+  test('last_seen_commit_id must be a commit id: "head" or a checkpoint never skips the guard', async () => {
+    await upload(u, { '/plan.md': 'v1' });
+    const head0 = (await call('open_workspace')).structuredContent.head_commit_id;
+    await call('create_checkpoint', { name: 'Draft' });
+    await upload(u, { '/plan.md': 'user edit' });
+    const stale = errorOf(await call('write_changes', { last_seen_commit_id: head0, changes: [{ op: 'write', path: '/plan.md', content: 'agent' }] }));
+    expect(stale.code).toBe('stale_base');
+    for (const ref of ['head', 'Draft', 'HEAD']) {
+      const e = errorOf(await call('write_changes', { last_seen_commit_id: ref, changes: [{ op: 'write', path: '/plan.md', content: 'agent' }] }));
+      expect(e.code).toBe('bad_request');
+      expect(e.details.outcome).toBe('not_committed');
+      expect(e.message).toContain('commit id');
+    }
+    const r = await call('read_files', { paths: ['/plan.md'] });
+    expect(r.structuredContent.files[0].content).toBe('user edit');
+    const okd = await call('write_changes', { last_seen_commit_id: r.structuredContent.commit_id, changes: [{ op: 'write', path: '/plan.md', content: 'merged' }] });
+    expect(okd.structuredContent.base_commit_id).toBe(r.structuredContent.commit_id);
+  });
+
   test('argument validation carries the op index and writes nothing', async () => {
     const head = (await call('open_workspace')).structuredContent.head_commit_id;
     const e1 = errorOf(
@@ -176,7 +195,7 @@ describe('write tools (direct)', () => {
     expect(e2.details.index).toBe(0);
     const e3 = errorOf(await call('write_changes', { last_seen_commit_id: head, changes: [{ op: 'delete', path: '/missing' }] }));
     expect(e3).toMatchObject({ code: 'path_not_found', details: { index: 0 } });
-    const e4 = errorOf(await call('write_changes', { last_seen_commit_id: 'vc_nope', changes: [{ op: 'mkdir', path: '/y' }] }));
+    const e4 = errorOf(await call('write_changes', { last_seen_commit_id: 'vc_00000000000000000000000000', changes: [{ op: 'mkdir', path: '/y' }] }));
     expect(e4.code).toBe('stale_base');
     const e5 = errorOf(await call('write_changes', { last_seen_commit_id: head, checkpoint: true, changes: [{ op: 'mkdir', path: '/y' }] }));
     expect(e5.code).toBe('bad_request');
