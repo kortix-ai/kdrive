@@ -36,6 +36,10 @@ const Raw = z.object({
   VOLUMES_MAX_WORKSPACES_PER_USER: z.preprocess(emptyToUndefined, z.coerce.number().int().min(1).max(100).default(5)),
   /** Volumes kept free for new users' default workspaces (extra workspaces never use them). */
   VOLUMES_RESERVED_VOLUMES: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).max(1000).default(1)),
+  /** AI agent access (/mcp + OAuth discovery). '0' turns it off. */
+  VOLUMES_MCP_ENABLED: z.preprocess(emptyToUndefined, z.enum(['0', '1']).default('1')),
+  /** Extra browser origins allowed to call /mcp, comma-separated. */
+  VOLUMES_MCP_ORIGINS: opt(),
 });
 
 export const DEV_SECRET = 'volumes-dev-secret-not-for-production-0000000000000000';
@@ -83,6 +87,10 @@ export interface Env {
   API_HOST: string;
   maxWorkspacesPerUser: number;
   reservedVolumes: number;
+  /** /mcp and the OAuth discovery documents answer (VOLUMES_MCP_ENABLED, default on). */
+  mcpEnabled: boolean;
+  /** Extra browser origins allowed to call /mcp (besides trustedOrigins). */
+  mcpOrigins: string[];
 }
 
 export function loadEnv(source: Record<string, string | undefined> = process.env): Env {
@@ -155,6 +163,11 @@ export function loadEnv(source: Record<string, string | undefined> = process.env
     API_HOST: r.API_HOST,
     maxWorkspacesPerUser: r.VOLUMES_MAX_WORKSPACES_PER_USER,
     reservedVolumes: r.VOLUMES_RESERVED_VOLUMES,
+    mcpEnabled: r.VOLUMES_MCP_ENABLED === '1',
+    mcpOrigins: (r.VOLUMES_MCP_ORIGINS ?? '')
+      .split(',')
+      .map((o) => o.trim().replace(/\/$/, ''))
+      .filter(Boolean),
   };
 }
 

@@ -36,3 +36,13 @@ export function publicShareHref(token: string, relPath = '/'): string {
   const enc = encodePathForUrl(relPath);
   return enc ? `/s/${encodeURIComponent(token)}/${enc}` : `/s/${encodeURIComponent(token)}`;
 }
+
+/** The review page of one proposal (in the current workspace). */
+export function proposalHref(id: string): string {
+  return `/proposals/${encodeURIComponent(id)}`;
+}
+
+/** Staged bytes of one proposed write (inline preview, or attachment with `download`). */
+export function proposalContentUrl(ws: string, id: string, seq: number, download?: boolean): string {
+  return `/api/w/${encodeURIComponent(ws)}/proposals/${encodeURIComponent(id)}/files/${seq}/content${qs({ download: download ? '1' : undefined })}`;
+}

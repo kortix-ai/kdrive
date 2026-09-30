@@ -19,7 +19,7 @@ import { getStore } from '../storage';
 import type { Commit } from '../storage/types';
 import type { WorkspaceCtx } from '../types';
 import { checkpointsByCommit } from './checkpoints';
-import { actionsByCommits, reconcilePending, restoredToOf } from './ledger';
+import { actionsByCommits, agentOf, reconcilePending, restoredToOf } from './ledger';
 import { reconcileLostCommits } from './lost-commits';
 import { cmpCommitId } from './versioning-util';
 
@@ -218,6 +218,7 @@ export async function buildTimeline(ws: WorkspaceCtx, opts: { limit: number; bef
       actionId: a?.id ?? null,
       restoredTo: a ? restoredToOf(a) : null,
       paths: preview,
+      agent: agentOf(a),
     };
   });
 

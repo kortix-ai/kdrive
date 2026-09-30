@@ -11,7 +11,18 @@ const nextConfig: NextConfig = {
   turbopack: { root: path.join(__dirname, '../..') }, // bun hoists node_modules to the repo root
   experimental: { proxyTimeout: 10 * 60_000 }, // long zip / video streams through the rewrite
   async rewrites() {
-    return [{ source: '/api/:path*', destination: `${API}/api/:path*` }];
+    return [
+      { source: '/api/:path*', destination: `${API}/api/:path*` },
+      // AI agents: the MCP endpoint and OAuth discovery live on the web origin
+      // too. The path-suffixed forms answer clients that probe RFC 8414 / 9728
+      // path-inserted URLs (e.g. /.well-known/oauth-protected-resource/mcp).
+      { source: '/mcp', destination: `${API}/mcp` },
+      { source: '/.well-known/oauth-authorization-server', destination: `${API}/.well-known/oauth-authorization-server` },
+      { source: '/.well-known/oauth-authorization-server/:path*', destination: `${API}/.well-known/oauth-authorization-server` },
+      { source: '/.well-known/openid-configuration', destination: `${API}/.well-known/openid-configuration` },
+      { source: '/.well-known/oauth-protected-resource', destination: `${API}/.well-known/oauth-protected-resource` },
+      { source: '/.well-known/oauth-protected-resource/:path*', destination: `${API}/.well-known/oauth-protected-resource` },
+    ];
   },
   async redirects() {
     return [

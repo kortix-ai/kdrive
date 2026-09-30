@@ -13,3 +13,6 @@ export * from './schemas/checkpoints';
 export * from './schemas/sharing';
 export * from './schemas/workspaces';
 export * from './schemas/admin';
+export * from './schemas/agents';
+export * from './schemas/proposals';
+export * from './agents-copy';

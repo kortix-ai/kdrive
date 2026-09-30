@@ -29,7 +29,7 @@ export function sortEntries<T extends Pick<FileEntry, 'name' | 'type'>>(entries:
 const plural = (n: number, one: string, many = one + 's') => `${n} ${n === 1 ? one : many}`;
 
 /** Recursive size of a folder (sum of file sizes) and its logical footprint. */
-async function footprint(ws: WorkspaceCtx, st: FileStat): Promise<{ size: number; logical: number }> {
+export async function footprint(ws: WorkspaceCtx, st: FileStat): Promise<{ size: number; logical: number }> {
   if (st.type !== 'dir') return { size: st.size, logical: logicalSize(st.size) };
   const { entries } = await listTree(ws, st.path, st.commitId || undefined);
   let size = 0;
@@ -44,18 +44,18 @@ async function footprint(ws: WorkspaceCtx, st: FileStat): Promise<{ size: number
 }
 
 /** The head commit a prepare step measures against (under the workspace lock, it does not move). */
-async function headOf(ws: WorkspaceCtx): Promise<string> {
+export async function headOf(ws: WorkspaceCtx): Promise<string> {
   return (await getStore().getVolume(ws.volumeId)).headCommitId;
 }
 
-async function mustStat(ws: WorkspaceCtx, path: string): Promise<FileStat> {
+export async function mustStat(ws: WorkspaceCtx, path: string): Promise<FileStat> {
   const st = await statOrNull(ws, path);
   if (!st) throw new ApiError(404, 'path_not_found', `"${basename(path) || path}" does not exist.`, { path });
   return st;
 }
 
 /** Block list of a file from the ledger row that wrote its current version (never a same-size lookalike). */
-async function knownBlocks(ws: WorkspaceCtx, st: FileStat): Promise<string[] | undefined> {
+export async function knownBlocks(ws: WorkspaceCtx, st: FileStat): Promise<string[] | undefined> {
   if (st.type !== 'file') return undefined;
   return (await exactBlockLists(ws.id, [st])).get(st.path);
 }

@@ -115,3 +115,37 @@ export function useTimeline(pageSize = 50) {
   useEffect(() => registerInfinite(() => mutate()), [mutate]);
   return res;
 }
+
+// ── AI agents ───────────────────────────────────────────────────────────────
+
+/** The user's agent tokens (never their secrets). */
+export function useAgentTokens() {
+  return useSWR('agent-tokens', () => api.agents.tokens(), noRetryOn4xx);
+}
+
+/** Apps connected through OAuth sign-in. */
+export function useConnectedApps() {
+  return useSWR('agent-apps', () => api.agents.apps(), noRetryOn4xx);
+}
+
+/** Open proposals in the current workspace (the sidebar count). Key ['proposals-count', ws]; refreshes every 30 s and on focus. */
+export function useProposalCount() {
+  const ws = useVx((s) => s.workspaceId);
+  return useSWR(ws ? (['proposals-count', ws] as const) : null, ([, w]) => api.proposals.count(w), {
+    ...noRetryOn4xx,
+    refreshInterval: 30_000,
+    revalidateOnFocus: true,
+  });
+}
+
+/** Proposals of the current workspace: 'open' (waiting), 'closed' (decided) or 'all'. */
+export function useProposals(status: 'open' | 'closed' | 'all' = 'open') {
+  const ws = useVx((s) => s.workspaceId);
+  return useSWR(ws ? (['proposals', ws, status] as const) : null, ([, w, st]) => api.proposals.list(w, { status: st }), noRetryOn4xx);
+}
+
+/** One proposal with its files, conflicts and compare sides. */
+export function useProposal(id: string | null) {
+  const ws = useVx((s) => s.workspaceId);
+  return useSWR(ws && id ? (['proposal', ws, id] as const) : null, ([, w, i]) => api.proposals.get(w, i), noRetryOn4xx);
+}

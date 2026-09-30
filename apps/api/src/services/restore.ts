@@ -19,8 +19,6 @@ import {
   basename,
   BLOCK_SIZE,
   dirname,
-  MAX_PLAN_BLOCKS,
-  MAX_PLAN_FILES,
   normalizePath,
   type ActionKind,
   type ActionSummary,
@@ -28,15 +26,16 @@ import {
 } from '@volumes/shared';
 import { ApiError } from '../lib/http';
 import { getStore } from '../storage';
-import { isStoreError, type Commit, type CommitResult, type FileEntry, type FileStat, type Ref } from '../storage/types';
+import { isStoreError, type Commit, type FileEntry, type FileStat, type Ref } from '../storage/types';
 import type { WorkspaceCtx } from '../types';
 import { createCheckpoint, deleteCheckpoint } from './checkpoints';
-import { exactBlockLists, landedCommit, withAction, type ActionCtx, type ActionRecorder, type PathChange } from './ledger';
+import { exactBlockLists, landedCommit, withAction, type ActionCtx, type PathChange } from './ledger';
 import { detachLiveLinks } from './links';
 import { reserveQuota } from './reservations';
+import { blockSourceAt, serverUpload } from './server-upload';
 import { listTree, statOrNull } from './tree';
 import { DIR_BYTES, logicalSize, Projection } from './footprint';
-import { hashBlocks, isUnder, mapLimit, readStream, topMost } from './versioning-util';
+import { hashBlocks, isUnder, mapLimit, topMost } from './versioning-util';
 
 
 interface PlannedFile {
@@ -328,70 +327,6 @@ const expectedBlocks = (size: number) => Math.ceil(size / BLOCK_SIZE);
 
 // ── execution ───────────────────────────────────────────────────────────────
 
-function batches(files: PlannedFile[]): PlannedFile[][] {
-  const out: PlannedFile[][] = [];
-  let cur: PlannedFile[] = [];
-  let blocks = 0;
-  for (const f of files) {
-    if (cur.length && (cur.length >= MAX_PLAN_FILES || blocks + f.blocks.length > MAX_PLAN_BLOCKS)) {
-      out.push(cur);
-      cur = [];
-      blocks = 0;
-    }
-    cur.push(f);
-    blocks += f.blocks.length;
-  }
-  if (cur.length) out.push(cur);
-  return out;
-}
-
-/** Plans, sends only the blocks Platinum lacks (re-read from `at`), commits; one commit per batch. */
-async function uploadRestored(ws: WorkspaceCtx, files: PlannedFile[], dirs: string[], at: string, rec: ActionRecorder): Promise<void> {
-  const store = getStore();
-  const source = new Map<string, { path: string; start: number; end: number }>();
-  for (const f of files) {
-    f.blocks.forEach((sha, i) => {
-      if (source.has(sha)) return;
-      const start = i * BLOCK_SIZE;
-      source.set(sha, { path: f.sourcePath ?? f.path, start, end: Math.min(start + BLOCK_SIZE, f.size) - 1 });
-    });
-  }
-  const send = async (uploadId: string, shas: string[]) => {
-    await mapLimit([...new Set(shas)], 4, async (sha) => {
-      const src = source.get(sha);
-      if (!src) throw new ApiError(500, 'internal', 'Restore could not locate a block.');
-      const r = await store.read(ws.volumeId, src.path, { at, range: `bytes=${src.start}-${src.end}` });
-      await store.putBlock(ws.volumeId, uploadId, sha, await readStream(r.body));
-    });
-  };
-
-  const groups = batches(files);
-  if (!groups.length && dirs.length) groups.push([]);
-  for (let i = 0; i < groups.length; i++) {
-    const batch = groups[i];
-    const plan = await store.planUpload(ws.volumeId, {
-      files: batch.map((f) => ({ path: f.path, size: f.size, blocks: f.blocks, mtime: f.mtime, ...(f.mode !== undefined ? { mode: f.mode } : {}) })),
-      dirs: i === 0 ? dirs : [],
-      overwrite: true,
-    });
-    let result: CommitResult;
-    try {
-      if (plan.missing.length) await send(plan.uploadId, plan.missing);
-      try {
-        result = await store.commitUpload(ws.volumeId, plan.uploadId);
-      } catch (e) {
-        if (!isStoreError(e, 'bad_request') || !e.extra.missing?.length) throw e;
-        await send(plan.uploadId, e.extra.missing);
-        result = await store.commitUpload(ws.volumeId, plan.uploadId);
-      }
-    } catch (e) {
-      store.releaseUpload(plan.uploadId);
-      throw e;
-    }
-    await rec.commit(result);
-  }
-}
-
 /** Restores files / folders to `at` as one action (re-uploads old block lists; removes later additions). */
 export async function restorePaths(
   ctx: ActionCtx,
@@ -428,7 +363,7 @@ export async function restorePaths(
         await rec.commit(await store.remove(ctx.ws.volumeId, r.path, { recursive: true }));
         await detachLiveLinks(ctx.ws.id, r.path, rec.actionId);
       }
-      if (work.files.length || work.dirs.length) await uploadRestored(ctx.ws, work.files, work.dirs, target.id, rec);
+      if (work.files.length || work.dirs.length) await serverUpload(ctx.ws, work.files, work.dirs, blockSourceAt(ctx.ws, work.files, target.id), rec);
     },
   );
   return action;
@@ -462,7 +397,7 @@ export async function restoreFileFrom(
       await rec.addPaths([
         { op: 'restored', path: to, entryType: 'file', size: file.size, prevSize: now?.size, blockHashes: file.blocks, mtime: file.mtime },
       ]);
-      await uploadRestored(ctx.ws, [file], [], target.id, rec);
+      await serverUpload(ctx.ws, [file], [], blockSourceAt(ctx.ws, [file], target.id), rec);
     },
   );
   return action;

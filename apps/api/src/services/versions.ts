@@ -28,7 +28,7 @@ import { getStore } from '../storage';
 import { isStoreError, type Commit, type FileStat } from '../storage/types';
 import type { WorkspaceCtx } from '../types';
 import { allCheckpointRows } from './checkpoints';
-import { actionsByCommits } from './ledger';
+import { actionsByCommits, agentOf } from './ledger';
 import { statOrNull } from './tree';
 import { ancestorsOf, cmpCommitId, contentUrlFor, mapLimit, visibleHistory } from './versioning-util';
 
@@ -166,6 +166,7 @@ export async function fileVersions(ws: WorkspaceCtx, path: string): Promise<Vers
     isCurrent: !!headStat && !!stat.version && headStat.version === stat.version && e.name === path,
     checkpointNames: [],
     path: e.name,
+    agent: agentOf(e.action),
   }));
 
   // The current content came from outside the ledger (or its commit was thinned): show it anyway.
@@ -245,6 +246,7 @@ async function chainVersions(ws: WorkspaceCtx, path: string, headStat: FileStat 
     if (a) {
       v.actionId = a.id;
       v.summary = a.summary;
+      v.agent = agentOf(a);
     }
   }
   await attachCheckpointNames(ws, path, versions);
@@ -288,12 +290,33 @@ async function attachCheckpointNames(ws: WorkspaceCtx, path: string, versions: F
 
 // ── compare ─────────────────────────────────────────────────────────────────
 
-function compareKind(path: string): CompareKind {
+/** How a file compares in the browser, from its name. */
+export function compareKind(path: string): CompareKind {
   const k = previewKind(path);
   if (k === 'text' || k === 'code' || k === 'markdown' || k === 'json') return 'text';
   if (k === 'image') return 'image';
   if (k === 'csv') return 'csv';
   return 'binary';
+}
+
+function toFileSide(ws: WorkspaceCtx, s: FileStat, c: Pick<Commit, 'id' | 'createdAt'>, name: string, mime: string): FileSide {
+  return {
+    commitId: c.id,
+    createdAt: c.createdAt,
+    size: s.size,
+    mtime: s.mtime,
+    mime,
+    version: s.version,
+    contentUrl: contentUrlFor(ws.id, name, c.id),
+    downloadUrl: contentUrlFor(ws.id, name, c.id, true),
+  };
+}
+
+/** One side of a compare: the file at `path` as of `commitId`, or null when no file is there. */
+export async function fileSideAt(ws: WorkspaceCtx, path: string, commitId: string): Promise<FileSide | null> {
+  const [c, s] = await Promise.all([getStore().getCommit(ws.volumeId, commitId), statOrNull(ws, path, commitId)]);
+  if (!s || s.type !== 'file') return null;
+  return toFileSide(ws, s, c, path, mimeFor(basename(path)));
 }
 
 /** Both sides of one file at two versions (metadata + URLs); the diff itself runs in the browser. */
@@ -317,19 +340,7 @@ export async function compareFile(ws: WorkspaceCtx, path: string, a: string, b: 
   }
   const kind = compareKind(path);
   const mime = mimeFor(basename(path));
-  const side = (s: FileStat | null, c: Commit, name: string): FileSide | null =>
-    s
-      ? {
-          commitId: c.id,
-          createdAt: c.createdAt,
-          size: s.size,
-          mtime: s.mtime,
-          mime,
-          version: s.version,
-          contentUrl: contentUrlFor(ws.id, name, c.id),
-          downloadUrl: contentUrlFor(ws.id, name, c.id, true),
-        }
-      : null;
+  const side = (s: FileStat | null, c: Commit, name: string): FileSide | null => (s ? toFileSide(ws, s, c, name, mime) : null);
   // Only line/cell diffs are bounded; images and binaries always compare.
   const tooLargeForDiff = (kind === 'text' || kind === 'csv') && [sa, sb].some((s) => !!s && s.size > TEXT_DIFF_MAX_BYTES);
   return { path, kind, a: side(sa, ca, ra.name), b: side(sb, cb, rb.name), tooLargeForDiff };

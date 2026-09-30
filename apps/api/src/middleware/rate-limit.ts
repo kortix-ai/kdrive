@@ -95,13 +95,19 @@ export interface RateLimitOptions {
 
 /** Throws 429 `rate_limited` (+ Retry-After) when the bucket is empty. */
 export function checkRateLimit(o: RateLimitOptions, c: Context): void {
+  const k = o.key(c);
+  if (k === null) return;
+  checkRateLimitKey(o, k);
+}
+
+/** checkRateLimit for callers without a Hono context (MCP tool handlers): same buckets, explicit key. */
+export function checkRateLimitKey(o: Omit<RateLimitOptions, 'key'>, key: string): void {
   let b = registry.get(o.name);
   if (!b) {
     b = new TokenBucket(o.capacity, o.refillPerSec);
     registry.set(o.name, b);
   }
-  const k = o.key(c);
-  if (k === null) return;
+  const k = key;
   const wait = b.take(k);
   if (wait > 0) {
     throw new ApiError(429, 'rate_limited', 'Too many requests. Try again shortly.', { retryAfterSeconds: wait }, {
@@ -128,4 +134,8 @@ export const limits = {
   linkOpenIpToken: { name: 'link-open-ip', capacity: 60, refillPerSec: 1 },
   linkOpenToken: { name: 'link-open-token', capacity: 600, refillPerSec: 10 },
   user: { name: 'user', capacity: 600, refillPerSec: 10 },
+  /** Per agent credential on /mcp: 120 requests/min, burst 60. */
+  mcp: { name: 'mcp', capacity: 60, refillPerSec: 2 },
+  /** Per agent credential: write_changes calls, 30/min. */
+  mcpWrite: { name: 'mcp-write', capacity: 10, refillPerSec: 0.5 },
 } as const;

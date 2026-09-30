@@ -42,7 +42,7 @@ export { logicalSize };
 const SHA = /^[0-9a-f]{64}$/;
 
 /** Re-validates one path (already normalised by the schema): every segment passes validateName, and it is not the root. */
-function checkPath(p: string, what: string): string {
+export function checkPath(p: string, what: string): string {
   const n = normalizePath(p);
   if (n === '/') throw new ApiError(400, 'invalid_path', `The ${what} path cannot be the root folder.`);
   for (const seg of splitPath(n)) {

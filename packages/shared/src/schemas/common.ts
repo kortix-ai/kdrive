@@ -55,6 +55,8 @@ export const ACTION_KINDS = [
   'restore.folder',
   'restore.drive',
   'undo',
+  'agent.batch',
+  'proposal.accept',
 ] as const;
 export const ActionKindSchema = z.enum(ACTION_KINDS);
 export type ActionKind = z.infer<typeof ActionKindSchema>;
@@ -65,6 +67,14 @@ export type PathOp = z.infer<typeof PathOpSchema>;
 
 export const ActionStatusSchema = z.enum(['pending', 'committed', 'noop', 'failed']);
 export type ActionStatus = z.infer<typeof ActionStatusSchema>;
+
+/** Who acted, when an AI agent made the change. `credential` is `pat:<tokenId>` or `oauth:<clientId>`. */
+export const AgentRefSchema = z.object({
+  kind: z.enum(['token', 'oauth']),
+  name: z.string(),
+  credential: z.string(),
+});
+export type AgentRef = z.infer<typeof AgentRefSchema>;
 
 export const ActionSummarySchema = z.object({
   id: z.string(),
@@ -79,6 +89,10 @@ export const ActionSummarySchema = z.object({
   undoable: z.boolean(),
   /** Restores: when the version it went back to was made (the client shows it in local time). */
   restoredTo: IsoDateSchema.nullable().optional(),
+  /** Set when an AI agent made the change (directly, or through an accepted proposal). */
+  agent: AgentRefSchema.nullable().optional(),
+  /** The proposal this action accepted. */
+  proposalId: z.string().nullable().optional(),
 });
 export type ActionSummary = z.infer<typeof ActionSummarySchema>;
 
