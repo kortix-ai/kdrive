@@ -1,0 +1,89 @@
+// Small helpers shared by the tool handlers.
+import { basename, isTextLike, normalizePath } from '@volumes/shared';
+import type { z } from 'zod';
+import type { AgentPrincipal } from '../../agents/principal';
+import { ApiError } from '../../lib/http';
+import { getStore } from '../../storage';
+import { isStoreError, type FileStat } from '../../storage/types';
+import { statOrNull } from '../../services/tree';
+import type { WorkspaceCtx } from '../../types';
+import type { AccessShape } from '../schemas';
+
+/** A drive path from a tool argument: a missing leading `/` is added, then normalised. */
+export function toPath(p: string): string {
+  return normalizePath(p.startsWith('/') ? p : `/${p}`);
+}
+
+/** Paths from arguments, normalised and deduplicated (first occurrence wins). */
+export function toPaths(ps: readonly string[]): string[] {
+  return [...new Set(ps.map(toPath))];
+}
+
+export function accessOf(p: AgentPrincipal): z.infer<typeof AccessShape> {
+  return { scope: p.scope, mode: p.scope === 'drive:read' ? null : p.mode, restricted_to: p.workspaceId };
+}
+
+export const entryKind = (t: string): 'file' | 'dir' | 'other' => (t === 'file' ? 'file' : t === 'dir' ? 'dir' : 'other');
+
+/** stat that also treats "a parent is a file" as absent. */
+export async function safeStat(ws: Pick<WorkspaceCtx, 'volumeId'>, path: string, at?: string): Promise<FileStat | null> {
+  try {
+    return await statOrNull(ws, path, at);
+  } catch (e) {
+    if (isStoreError(e, 'not_a_directory')) return null;
+    throw e;
+  }
+}
+
+export async function headCommit(ws: Pick<WorkspaceCtx, 'volumeId'>): Promise<string> {
+  return (await getStore().getVolume(ws.volumeId)).headCommitId;
+}
+
+/** Resolves a version ref (commit id or tag) to its commit id; unknown → 404 `not_found`-style store errors pass through. */
+export async function commitIdOf(ws: Pick<WorkspaceCtx, 'volumeId'>, ref: string): Promise<string> {
+  return (await getStore().getCommit(ws.volumeId, ref)).id;
+}
+
+/** Reads a whole small file at a commit. */
+export async function readAll(ws: Pick<WorkspaceCtx, 'volumeId'>, path: string, at: string, range?: string): Promise<Uint8Array> {
+  const r = await getStore().read(ws.volumeId, path, { at, ...(range ? { range } : {}) });
+  return new Uint8Array(await new Response(r.body).arrayBuffer());
+}
+
+const strictUtf8 = new TextDecoder('utf-8', { fatal: true });
+
+/** True when `bytes` (a prefix of a file; `whole` when it is the entire file) look like UTF-8 text. */
+export function looksLikeText(bytes: Uint8Array, whole: boolean): boolean {
+  if (bytes.includes(0)) return false;
+  let end = bytes.length;
+  if (!whole) {
+    // A prefix may end inside a character: back off to its start.
+    let back = 0;
+    while (end > 0 && back < 4 && (bytes[end - 1] & 0xc0) === 0x80) {
+      end--;
+      back++;
+    }
+    if (end > 0 && bytes[end - 1] >= 0xc0) end--;
+  }
+  try {
+    strictUtf8.decode(bytes.subarray(0, end));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Text by name, else by sniffing the first 8 KiB. */
+export async function isTextFile(ws: Pick<WorkspaceCtx, 'volumeId'>, st: FileStat, at: string): Promise<boolean> {
+  if (isTextLike(basename(st.path) || st.name)) return true;
+  if (st.size === 0) return true;
+  const n = Math.min(st.size, 8192);
+  const head = await readAll(ws, st.path, at, `bytes=0-${n - 1}`);
+  return looksLikeText(head, n === st.size);
+}
+
+export function badRequest(message: string, details?: Record<string, unknown>): ApiError {
+  return new ApiError(400, 'bad_request', message, details);
+}
+
+export const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString('en-US')} ${n === 1 ? one : many}`;

@@ -1,8 +1,9 @@
 // Builds one stateless MCP server per request for a principal.
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import type { AgentPrincipal } from '../agents/principal';
 import type { AgentMode, AgentScope } from '@volumes/shared';
-import { MCP_SERVER_VERSION, serverInstructions } from './descriptions';
+import { ERROR_HINTS, MCP_SERVER_VERSION, serverInstructions } from './descriptions';
 import { registerDiffCard } from './diff-card';
 import type { ToolCtx } from './result';
 import { registerTools } from './tools';
@@ -42,5 +43,35 @@ export function buildMcpServer(p: AgentPrincipal, ctx: ToolCtx): McpServer {
   );
   registerTools(server, p, ctx);
   registerDiffCard(server);
+  jsonArgumentErrors(server);
   return server;
+}
+
+const MUTATING = new Set<string>(['write_changes', 'create_checkpoint', 'restore', 'undo']);
+
+/**
+ * The SDK answers bad arguments (schema validation) with a plain-text error
+ * result. Rewrite those into our error shape, so every error an agent sees is
+ * `{"error":{code,message,hint,details}}`.
+ */
+export function asJsonError(res: CallToolResult, tool: string): CallToolResult {
+  if (!res?.isError || res.content?.length !== 1 || res.content[0].type !== 'text') return res;
+  const text = res.content[0].text;
+  if (text.startsWith('{"error"')) return res;
+  const message = text.replace(/^MCP error -?\d+:\s*/, '').slice(0, 2000);
+  const unknownTool = /^Tool .* (not found|disabled)$/.test(message);
+  const details: Record<string, unknown> = MUTATING.has(tool) ? { outcome: 'not_committed' } : {};
+  const error = unknownTool
+    ? { code: 'not_found', message, hint: 'Call tools/list for the tools this connection can use.', details }
+    : { code: 'bad_request', message, hint: ERROR_HINTS.bad_request, details };
+  return { isError: true, content: [{ type: 'text', text: JSON.stringify({ error }) }] };
+}
+
+type Handler = (req: { params?: { name?: string } }, extra: unknown) => Promise<unknown>;
+
+function jsonArgumentErrors(server: McpServer): void {
+  const handlers = (server.server as unknown as { _requestHandlers?: Map<string, Handler> })._requestHandlers;
+  const inner = handlers?.get('tools/call');
+  if (!handlers || !inner) return;
+  handlers.set('tools/call', async (req, extra) => asJsonError((await inner(req, extra)) as CallToolResult, String(req?.params?.name ?? '')));
 }
