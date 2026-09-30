@@ -30,6 +30,10 @@ export async function startServer(opts: { env?: Record<string, string> } = {}): 
     env: {
       PATH: process.env.PATH ?? '',
       HOME: process.env.HOME ?? '',
+      // The Postgres client picks its role from these; without them a minimal
+      // env connects as "unknown" on machines that use peer/trust auth.
+      ...(process.env.USER ? { USER: process.env.USER } : {}),
+      ...(process.env.PGUSER ? { PGUSER: process.env.PGUSER } : {}),
       NODE_ENV: 'test',
       DATABASE_URL: process.env.DATABASE_URL ?? 'postgresql://localhost:5432/volumes_test',
       VOLUMES_STORAGE: 'emulated',
@@ -41,9 +45,21 @@ export async function startServer(opts: { env?: Record<string, string> } = {}): 
       API_HOST: '127.0.0.1',
       ...opts.env,
     },
-    stdout: 'pipe',
+    // Output is drained continuously: an unread pipe fills after ~64 KiB of
+    // request logs and the child then blocks on its next write.
+    stdout: 'ignore',
     stderr: 'pipe',
   });
+  let errTail = '';
+  const drained = (async () => {
+    const decoder = new TextDecoder();
+    const reader = child.stderr.getReader();
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      errTail = (errTail + decoder.decode(value, { stream: true })).slice(-4000);
+    }
+  })().catch(() => {});
 
   const stop = async () => {
     child.kill();
@@ -54,9 +70,9 @@ export async function startServer(opts: { env?: Record<string, string> } = {}): 
   const deadline = Date.now() + 20_000;
   for (;;) {
     if (child.exitCode !== null) {
-      const err = await new Response(child.stderr).text();
+      await drained;
       rmSync(dataDir, { recursive: true, force: true });
-      throw new Error(`API server exited early (${child.exitCode}): ${err.slice(0, 2000)}`);
+      throw new Error(`API server exited early (${child.exitCode}): ${errTail.slice(-2000)}`);
     }
     try {
       const r = await fetch(`${base}/api/health`);
