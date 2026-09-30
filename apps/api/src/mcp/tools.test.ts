@@ -80,6 +80,33 @@ describe('read tools', () => {
     expect(bad.code).toBe('bad_request');
   });
 
+  test('read_files folder listings share one bounded budget per call and page with offset', async () => {
+    const long = 'n'.repeat(180);
+    const dirs: string[] = [];
+    for (let i = 0; i < 600; i++) dirs.push(`/a/${long}${String(i).padStart(4, '0')}`, `/b/${long}${String(i).padStart(4, '0')}`);
+    await upload(u, {}, { dirs });
+    const r = await call('read_files', { paths: ['/a', '/b'], max_bytes: 1 });
+    const [a, b] = r.structuredContent.files;
+    const n = a.entries.length + b.entries.length;
+    expect(n).toBeLessThanOrEqual(1000);
+    expect(a.entries_truncated || b.entries_truncated).toBe(true);
+    expect(r.structuredContent.budget_exhausted).toBe(true);
+    const bytes = [...a.entries, ...b.entries].reduce((s: number, e: Json) => s + e.name.length + e.path.length, 0);
+    expect(bytes).toBeLessThanOrEqual(256 * 1024);
+    expect(JSON.stringify(r).length).toBeLessThan(1024 * 1024);
+    // One folder at a time pages through every entry.
+    const seen: string[] = [];
+    let offset: number | null = 0;
+    for (let i = 0; i < 20 && offset !== null; i++) {
+      const page = (await call('read_files', { paths: ['/a'], offset })).structuredContent.files[0];
+      expect(page.offset).toBe(offset);
+      seen.push(...page.entries.map((e: Json) => e.name));
+      offset = page.next_offset;
+    }
+    expect(seen).toHaveLength(600);
+    expect(new Set(seen).size).toBe(600);
+  });
+
   test('search_files, get_history, file_versions, get_links', async () => {
     await upload(u, { '/plans/plan.md': 'v1' });
     await upload(u, { '/plans/plan.md': 'v2' });

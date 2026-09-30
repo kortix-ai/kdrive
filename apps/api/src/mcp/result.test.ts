@@ -5,7 +5,7 @@ import type { AgentPrincipal } from '../agents/principal';
 import { ERROR_HINTS, PARTIAL_HINT, UNKNOWN_OUTCOME_HINT } from './descriptions';
 import { toolError, toolErrorBody } from './errors';
 import { capBytes, utf8Window } from './output';
-import { ok, withTool } from './result';
+import { MAX_RESULT_BYTES, ok, withTool } from './result';
 
 const principal = (scope: AgentPrincipal['scope'], mode: AgentPrincipal['mode'] = 'review'): AgentPrincipal => ({
   kind: 'token',
@@ -26,6 +26,12 @@ describe('ok()', () => {
     expect(r.content[1]).toEqual({ type: 'resource_link', uri: 'http://x/drive?ws=1', name: 'a.txt', mimeType: 'text/plain' });
     expect(JSON.parse((r.content[2] as { text: string }).text)).toEqual(r.structuredContent as object);
     expect(r.isError).toBeUndefined();
+  });
+
+  test('a result past the size cap is refused rather than built', () => {
+    const big = { text: 'x'.repeat(MAX_RESULT_BYTES + 1) };
+    expect(() => ok({ summary: 'big', data: big })).toThrow(ApiError);
+    expect(() => ok({ summary: 'fits', data: { text: 'x'.repeat(1024) } })).not.toThrow();
   });
 
   test('at most 50 links, with "(+N more)" on the summary', () => {

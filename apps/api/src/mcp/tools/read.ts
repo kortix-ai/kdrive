@@ -15,6 +15,11 @@ import { badRequest, commitIdOf, entryKind, headCommit, isTextFile, plural, read
 
 const READ_ONLY = { readOnlyHint: true, idempotentHint: true, openWorldHint: false } as const;
 const MAX_DIR_ENTRIES = 500;
+/** Folder entries per call, across every folder read. */
+export const MAX_LIST_ENTRIES = 1000;
+/** Bytes of entry names and paths per call, across every folder read (a path can be 4 KiB). */
+export const MAX_LIST_BYTES = 256 * 1024;
+const utf8Len = (x: string) => Buffer.byteLength(x, 'utf8');
 const dec = new TextDecoder('utf-8', { fatal: false });
 
 type Args = { workspace_id?: string; paths: string[]; at?: string; offset: number; max_bytes: number; encoding: 'auto' | 'base64' };
@@ -33,6 +38,8 @@ export async function readFiles(ws: WorkspaceCtx, args: Args): Promise<Out> {
   const commit = args.at ? await commitIdOf(ws, args.at) : head;
   const past = commit !== head;
   let budget = args.max_bytes;
+  let listEntries = MAX_LIST_ENTRIES;
+  let listBytes = MAX_LIST_BYTES;
   let exhausted = false;
   const files: FileOut[] = [];
 
@@ -60,15 +67,27 @@ export async function readFiles(ws: WorkspaceCtx, args: Args): Promise<Out> {
       download_url: isFile ? downloadUrl(ws.id, path, past ? commit : undefined) : null,
     };
     if (type === 'dir') {
+      // Listings share one budget per call: entries and the bytes of their names and paths.
       const { entries } = await listDir(ws, path, commit);
       const sorted = sortEntries(entries);
-      out.entries = sorted.slice(0, MAX_DIR_ENTRIES).map((e) => ({
-        name: e.name || basename(e.path),
-        path: e.path,
-        type: entryKind(e.type),
-        size: e.size,
-      }));
-      out.entries_truncated = sorted.length > MAX_DIR_ENTRIES;
+      const start = Math.min(args.offset, sorted.length);
+      const shown: NonNullable<FileOut['entries']> = [];
+      for (let i = start; i < sorted.length && shown.length < MAX_DIR_ENTRIES && listEntries > 0; i++) {
+        const e = sorted[i];
+        const name = e.name || basename(e.path);
+        const cost = utf8Len(name) + utf8Len(e.path) + 64;
+        if (cost > listBytes) break;
+        listBytes -= cost;
+        listEntries--;
+        shown.push({ name, path: e.path, type: entryKind(e.type), size: e.size });
+      }
+      const next = start + shown.length;
+      out.entries = shown;
+      out.entries_truncated = next < sorted.length;
+      out.offset = start;
+      out.next_offset = next < sorted.length ? next : null;
+      // Cut by the per-call budget rather than the per-folder cap: the rest needs another call.
+      if (next < sorted.length && shown.length < MAX_DIR_ENTRIES) exhausted = true;
     } else if (isFile) {
       if (budget <= 0) {
         exhausted = true;
@@ -130,7 +149,9 @@ export function readSummary(data: Out): string {
   if (nDirs) parts.push(plural(nDirs, 'folder'));
   if (missing) parts.push(`${missing.toLocaleString('en-US')} missing`);
   const cut = data.files.find((f) => f.truncated && f.next_offset != null);
+  const more = data.files.find((f) => f.entries_truncated && f.next_offset != null);
   if (cut) parts.push(`truncated, call again with offset=${cut.next_offset}`);
+  else if (more) parts.push(`more entries, read ${more.path} alone with offset=${more.next_offset}`);
   else if (data.budget_exhausted) parts.push('budget used up, read the rest in another call');
   return parts.join(' · ');
 }

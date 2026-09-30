@@ -56,7 +56,7 @@ export const ReadFilesInput = {
   workspace_id: WorkspaceId,
   paths: z.array(DrivePath).min(1).max(50).describe('Files or folders to read (at most 50).'),
   at: RefSchema.optional().describe('Version to read: a commit id (vc_…) or checkpoint tag. Default: now.'),
-  offset: z.number().int().min(0).default(0).describe('Byte offset; only with exactly one path.'),
+  offset: z.number().int().min(0).default(0).describe('Byte offset in a file, or entry offset in a folder; only with exactly one path.'),
   max_bytes: z.number().int().min(1).max(1_048_576).default(65_536).describe('Total text budget for this call.'),
   encoding: z.enum(['auto', 'base64']).default('auto').describe('auto: text for text files; base64: raw bytes.'),
 };

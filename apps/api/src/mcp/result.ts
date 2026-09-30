@@ -17,6 +17,8 @@ export interface ToolCtx {
 }
 
 export const MAX_LINKS = 50;
+/** Largest JSON copy of a result (it is sent twice: as text and as structuredContent). */
+export const MAX_RESULT_BYTES = 8 * 1024 * 1024;
 
 /** One summary line + resource links + the JSON text copy + structuredContent. */
 export function ok<T extends Record<string, unknown>>(r: { summary: string; links?: Link[]; data: T }): CallToolResult {
@@ -34,7 +36,13 @@ export function ok<T extends Record<string, unknown>>(r: { summary: string; link
       ...(l.description !== undefined ? { description: l.description } : {}),
     });
   }
-  content.push({ type: 'text', text: JSON.stringify(r.data) });
+  const json = JSON.stringify(r.data);
+  if (json.length > MAX_RESULT_BYTES) {
+    throw new ApiError(413, 'payload_too_large', 'This result is too large to return. Ask for fewer paths or a smaller max_bytes.', {
+      max: MAX_RESULT_BYTES,
+    });
+  }
+  content.push({ type: 'text', text: json });
   return { content, structuredContent: r.data };
 }
 

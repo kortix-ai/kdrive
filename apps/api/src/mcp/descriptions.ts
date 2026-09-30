@@ -41,7 +41,8 @@ export const OPEN_WORKSPACE_DESCRIPTION =
 
 export const READ_FILES_DESCRIPTION =
   'Read files and folders. For each path you get metadata (type, size, modified time, version id, mime type, browser URL); for a ' +
-  'folder, its entries (at most 500); for a text file, its text. How to use: check size first (read with max_bytes small, or look at ' +
+  'folder, its entries (at most 500 per folder and 1,000 per call; read one folder with offset=next_offset for the rest); for a text ' +
+  'file, its text. How to use: check size first (read with max_bytes small, or look at ' +
   'the manifest), then read what you need; large files come back in pages: call again with offset=next_offset. At most 1 MiB of text ' +
   'per call (default 64 KiB). Binary files return metadata and a download URL for the user; pass encoding="base64" to get raw bytes of ' +
   `a small binary file. Pass at= a commit id or checkpoint to read an earlier version. ${PATHS_LINE} ${DATA_LINE} ${UNTRUSTED_LINE}`;
