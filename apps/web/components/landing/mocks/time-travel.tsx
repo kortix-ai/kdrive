@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { RotateCcw } from 'lucide-react';
 import { FileIcon } from './bits';
 import { restoreVersion, rowsAt, type Version, VERSIONS } from './tt-data';
 import { Timeline } from './tt-timeline';
@@ -87,10 +88,12 @@ export function TimeTravelMock() {
                 Viewing <b>Studio</b> as it was · <span className="kd-mono">{cur.when} · v{cur.v}</span>
               </span>
               <span className="kd-tt__banner-actions">
-                <button type="button" className="kd-mbtn kd-mbtn--primary" onClick={restore}>
-                  Restore this version
+                {/* The app's order and weights: Restore… as an outline, Back to now as the one primary. */}
+                <button type="button" className="kd-mbtn kd-mbtn--restore" onClick={restore}>
+                  <RotateCcw size={14} strokeWidth={1.75} aria-hidden />
+                  Restore…
                 </button>
-                <button type="button" className="kd-mbtn" onClick={() => setIndex(headIndex)}>
+                <button type="button" className="kd-mbtn kd-mbtn--primary" onClick={() => setIndex(headIndex)}>
                   Back to now
                 </button>
               </span>
@@ -103,10 +106,10 @@ export function TimeTravelMock() {
             <thead>
               <tr>
                 <th scope="col">Name</th>
-                <th scope="col">Size</th>
                 <th scope="col" className="kd-tt__col-mod">
                   Modified
                 </th>
+                <th scope="col">Size</th>
                 <th scope="col">
                   <span className="kd-sr-only">Change</span>
                 </th>
@@ -118,16 +121,20 @@ export function TimeTravelMock() {
                   <td className="kd-tt__name">
                     {/* the cell stays a table cell (its hairline lines up with the row); the flex row is inside */}
                     <span className="kd-tt__namewrap">
-                      <FileIcon dir={r.dir} ghost={r.notYet || r.chip === 'deleted'} />
+                      <FileIcon name={r.name} dir={r.dir} ghost={r.notYet || r.chip === 'deleted'} />
                       <span title={r.name}>{r.name}</span>
                     </span>
                   </td>
-                  <td className="kd-mono">{r.size}</td>
                   <td className="kd-mono kd-tt__col-mod">{r.modified}</td>
+                  <td className="kd-mono">{r.size}</td>
                   <td className="kd-tt__chipcell">
-                    {r.notYet ? <span className="kd-chip is-ghost">
-                        <span className="kd-tt__addedword">added </span>in v{r.addedIn}
-                      </span> : r.chip && <span className="kd-chip">{r.chip}</span>}
+                    {r.notYet ? (
+                      <span className="kd-chip is-ghost">
+                        <span className="kd-tt__addedword">Added&nbsp;</span>in v{r.addedIn}
+                      </span>
+                    ) : (
+                      r.chip && <span className="kd-chip">{r.chip[0].toUpperCase() + r.chip.slice(1)}</span>
+                    )}
                   </td>
                 </tr>
               ))}

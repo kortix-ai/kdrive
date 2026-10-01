@@ -48,7 +48,8 @@ export class Decor {
     const zero = new THREE.Vector3();
     if (spec.kind === 'solid' && spec.n > 1) {
       // a hair off the faces (no z-fighting); the block hides the ones on its far side
-      this.panel = LineBatch.item(faceGrid(half.clone().multiplyScalar(1.002), cellsOf(spec)), p.panel);
+      // ends stop at the bevel (radius .12 of the half extent): no stubs past the silhouette on a light ground
+      this.panel = LineBatch.item(faceGrid(half.clone().multiplyScalar(1.002), cellsOf(spec), 0.12), p.panel);
       this.lineItems.push({ item: this.panel, role: 'panel' });
     }
     if (spec.kind === 'ghost') {

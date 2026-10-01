@@ -345,9 +345,15 @@
   transform: translateX(-50%);
   font: 11.5px/1.4 var(--kd-font-mono);
   color: var(--kd-text-3);
-  white-space: nowrap;
+  /* never wider than the phone it is on: wraps (balanced, centred) instead of running off both edges */
+  width: max-content;
+  max-width: calc(100vw - 32px);
+  justify-content: center;
+  text-align: center;
+  text-wrap: balance;
   pointer-events: none;
 }
+.kd-hero__hint kbd { white-space: nowrap; }
 .kd-hero__hint.is-on { animation: kd-hint-in 300ms var(--kd-ease-out) both; }
 @keyframes kd-hint-in { from { opacity: 0; } to { opacity: 1; } }
 .kd-hero__hint kbd {
@@ -358,7 +364,7 @@
   border-radius: var(--kd-r-1);
 }
 .kd-hero__hint-coarse { display: none; }
-@media (pointer: coarse) {
+@media (pointer: coarse), (hover: none), (max-width: 600px) {
   .kd-hero__hint-fine { display: none; }
   .kd-hero__hint-coarse { display: inline; }
 }

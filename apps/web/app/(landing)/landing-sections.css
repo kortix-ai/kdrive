@@ -221,25 +221,15 @@
   box-shadow: var(--vx-cta-sheen);
 }
 .kd-mbtn--primary:hover { background: var(--vx-cta-fill); filter: var(--vx-cta-hover); }
+/* The app's past-tense Restore: brass outline and text, as on the real time-travel banner. */
+.kd-mbtn--restore { color: var(--vx-past); box-shadow: inset 0 0 0 1px var(--vx-past-edge); }
+.kd-mbtn--restore:hover { background: var(--vx-past-wash); }
 .kd-linkbtn {
   font: 500 13px/1 var(--kd-font-sans); color: var(--kd-text-1);
   text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--kd-hair-strong);
   border-radius: var(--kd-r-1); padding: 2px;
 }
 .kd-linkbtn:hover { text-decoration-color: var(--kd-text-2); }
-.kd-ficon {
-  position: relative; flex: none; width: 12px; height: 15px;
-  border-radius: 1.5px; border: 1px solid var(--vx-ficon-edge);
-  background: var(--vx-ficon-fill);
-}
-.kd-ficon::after {
-  content: ""; position: absolute; right: -1px; top: -1px; width: 4px; height: 4px;
-  background: var(--kd-surface); border-left: 1px solid var(--vx-ficon-edge); border-bottom: 1px solid var(--vx-ficon-edge);
-}
-.kd-ficon.is-dir { width: 15px; height: 12px; border-radius: 1.5px 3px 2px 2px; }
-.kd-ficon.is-dir::after { display: none; }
-.kd-ficon.is-ghost { border-style: dashed; border-color: var(--kd-hair-dash); background: none; }
-.kd-ficon.is-ghost::after { display: none; }
 .kd-tabs { display: inline-flex; gap: 2px; padding: 2px; border-radius: var(--kd-r-2); background: var(--kd-bg); box-shadow: inset 0 0 0 1px var(--kd-hair); }
 .kd-tabs__tab {
   height: 24px; padding: 0 10px; border-radius: var(--kd-r-1);
@@ -288,8 +278,10 @@
   font: 500 11px/1 var(--kd-font-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--kd-text-3);
   border-bottom: 1px solid var(--kd-hair);
 }
-.kd-tt__table th:nth-child(2) { width: 96px; }
-.kd-tt__table th:nth-child(3) { width: 128px; }
+/* NAME · MODIFIED · SIZE, the app's own column order; sizes right-aligned as in the app */
+.kd-tt__table th:nth-child(2) { width: 128px; }
+.kd-tt__table th:nth-child(3) { width: 96px; }
+.kd-tt__table th:nth-child(3), .kd-tt__table td:nth-child(3) { text-align: right; }
 .kd-tt__table th:nth-child(4) { width: 132px; }
 .kd-tt__table td { height: 34px; padding: 0 16px; border-bottom: 1px solid var(--kd-hair); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .kd-tt__table tbody tr { transition: background-color var(--kd-t-fast); }
@@ -340,6 +332,9 @@
   cursor: grab; transition: left var(--kd-t-mid) var(--kd-ease-out);
 }
 .kd-tt__handle:active { cursor: grabbing; }
+/* In the past the playhead is the app's grip: surface centre, 3 px brass ring. */
+.kd-tt__handle.is-past { width: 14px; height: 14px; background: var(--vx-surface); box-shadow: inset 0 0 0 3px var(--vx-past-dot), var(--vx-shadow-2); }
+.kd-tt__handle.is-past .kd-tt__handle-label { color: var(--vx-past); }
 .kd-tt__handle-label { position: absolute; top: 22px; left: 50%; transform: translateX(-50%); font: 500 11px/1 var(--kd-font-mono); color: var(--kd-text-1); white-space: nowrap; }
 .kd-tt__scale { display: flex; justify-content: space-between; margin-top: 18px; font: 11px/1 var(--kd-font-mono); color: var(--kd-text-3); }
 @media (max-width: 639px) {

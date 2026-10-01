@@ -88,7 +88,7 @@ export function Timeline({
         <div
           role="slider"
           tabIndex={0}
-          className="kd-tt__handle"
+          className={`kd-tt__handle${index < list.length - 1 ? ' is-past' : ''}`}
           aria-label="Version"
           aria-valuemin={first}
           aria-valuemax={last}

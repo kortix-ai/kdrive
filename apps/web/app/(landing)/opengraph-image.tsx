@@ -4,7 +4,7 @@ import { posterSvg } from '@/components/landing/hero/poster-art';
 
 // The landing's share card (LANDING-SPEC §8): the hero's own cubes (the SSR
 // poster art, from the same layout), the KDRIVE wordmark and the tagline.
-export const alt = 'KDRIVE — The drive that remembers.';
+export const alt = 'KDRIVE · The drive that remembers.';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 

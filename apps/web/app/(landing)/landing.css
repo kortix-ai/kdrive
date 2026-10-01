@@ -31,7 +31,7 @@
   --kd-del-bg: var(--vx-del-bg);
   --kd-del-word: var(--vx-del-word);
   --kd-ok: var(--vx-ok);
-  --kd-past-hatch: var(--vx-past-hatch-neutral);
+  --kd-past-hatch: var(--vx-past-hatch);
   --kd-metal: var(--vx-metal);
 
   /* radii, elevation */

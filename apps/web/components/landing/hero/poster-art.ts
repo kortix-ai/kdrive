@@ -112,8 +112,9 @@ function panelLines(c: Cam, m: M3, at: V3, h: V3, cells: V3, out: Item[]) {
         p0[axis] = f.n[axis] * h[axis] * 1.002;
         p0[a] = -h[a] + (2 * h[a] * i) / cells[a];
         const p1: V3 = [...p0];
-        p0[b] = -h[b];
-        p1[b] = h[b];
+        // stop where the bevel starts (as the scene does), so no line end pokes past the silhouette
+        p0[b] = -h[b] * 0.88;
+        p1[b] = h[b] * 0.88;
         d += `M${pts(c, [add(at, mul(m, p0))])}L${pts(c, [add(at, mul(m, p1))])}`;
       }
     }

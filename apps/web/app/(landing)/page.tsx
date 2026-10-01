@@ -13,7 +13,7 @@ import { How } from '@/components/landing/sections/how';
 import { TimeTravel } from '@/components/landing/sections/time-travel';
 import { UnderHood } from '@/components/landing/sections/under-hood';
 
-const TITLE = 'KDRIVE — The drive that remembers.';
+const TITLE = 'KDRIVE · The drive that remembers.';
 const DESCRIPTION =
   'A cloud drive where every change is a version. Go back to any version, compare, restore, and let AI agents propose changes you review.';
 
