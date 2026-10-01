@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { format } from 'date-fns';
-import { ArrowLeftRight, Bookmark, ClockFading } from 'lucide-react';
+import { ArrowLeftRight, ClockFading, Diamond } from 'lucide-react';
 import type { TimelineEntry } from '@volumes/shared';
 import { AgentBadge } from '@/components/agents/agent-badge';
 import { Button } from '@/components/ui/button';
@@ -33,23 +33,30 @@ import { CommitId, Delta } from './readout';
 import { useEntryActions } from './timeline-entry';
 import './versioning.css';
 
-// Track geometry (72 px): top lane 4–22 (flags, zone labels) · line at 36 · bottom lane 50–66 (days).
-const H = 72;
-const LINE_Y = 36;
-const HIT_TOP = 22;
-const HIT_H = 28;
-const DAY_Y = 50;
+// Track geometry (64 px, the strip's height): top lane 4–16 (checkpoint and zone labels) · line at 30 ·
+// bottom lane 42–54 (day labels).
+const H = 64;
+const LINE_Y = 30;
+const HIT_TOP = 17;
+const HIT_H = 26;
+const DAY_Y = 43;
 const PAD_L = 16;
 const PAD_R = 20;
 const MAGNET = 8;
-const ZONE_RECENT = 'Every version · 7 days';
-const ZONE_OLD = 'Newest 50 + checkpoints';
-const textW = (s: string, perChar = 6.1) => s.length * perChar;
+const ZONE_RECENT = 'every version · 7 days';
+const ZONE_OLD = 'newest 50 + checkpoints';
+/** Minimum gap between a zone label and a checkpoint label in the shared top lane. */
+const ZONE_CLEAR = 120;
+/** Mono 11 is ~6.6 px a character. */
+/** Tick heights by size bucket (dotSize 6 / 8 / 10 → 8 / 12 / 16 px). */
+const TICK_H: Record<6 | 8 | 10, number> = { 6: 8, 8: 12, 10: 16 };
+const textW = (s: string, perChar = 6.7) => s.length * perChar;
 
 /**
- * History strip (DESIGN-v2 §6.4; /drive only): a white 72 px sheet with the Now / Viewing readout,
- * a track of dots on a line (oldest left, now pinned right) with a draggable amber grip in the past,
- * and the History / Checkpoint / Compare tools. On phones it is a floating 56 px pill.
+ * History strip (UNIFY-SPEC §12.3; behaviour DESIGN-v2 §6.4; /drive only): a 64 px sheet with the Now / Viewing
+ * readout, a ruler of version ticks on a hairline (oldest left, now pinned right; ◆ checkpoints with Mono labels,
+ * the head disc at the right) with a draggable brass grip in the past, and the History / Checkpoint / Compare tools.
+ * On phones it is a floating 56 px bar.
  */
 export default function TimeStrip() {
   const tt = useVx((s) => s.timeTravel);
@@ -245,7 +252,7 @@ export default function TimeStrip() {
     return vs && vs.length ? new Set(vs.map((v) => v.commitId)) : null;
   }, [lens.data]);
 
-  // ── checkpoint flags (top lane): full badge when there is room, else the bookmark only ──
+  // ── checkpoint labels (top lane): the Mono name above its ◆ when there is room, else the ◆ alone ──
   const flags = useMemo(() => {
     const out: { i: number; x: number; name: string; full: boolean; l: number; r: number }[] = [];
     let lastRight = -Infinity;
@@ -253,15 +260,15 @@ export default function TimeStrip() {
     idx.forEach((i, k) => {
       const name = ordered[i].checkpoints.map((c) => c.name).join(', ');
       const x = xs[i];
-      const fullW = Math.min(160, textW(name) + 30);
+      const fullW = Math.min(150, textW(name));
       const nextX = k + 1 < idx.length ? xs[idx[k + 1]] : Infinity;
-      // Near the track ends the badge slides inward (its stem stays on the dot) instead of shrinking.
+      // Near the track ends the label slides inward (the ◆ stays on its tick) instead of shrinking.
       const fullL = Math.max(2, Math.min(x - fullW / 2, contentW - 2 - fullW));
-      const fits = fullL > lastRight + 4 && fullL + fullW < nextX - 14 && fullL <= x - 6 && fullL + fullW >= x + 6;
-      const w = fits ? fullW : 22;
-      const l = fits ? fullL : x - w / 2;
-      out.push({ i, x, name, full: fits, l, r: l + w });
-      lastRight = l + w;
+      const fits = fullL > lastRight + 10 && fullL + fullW < nextX - 10 && fullL <= x + 4 && fullL + fullW >= x - 4;
+      const l = fits ? fullL : x - 5;
+      const r = fits ? fullL + fullW : x + 5;
+      out.push({ i, x, name, full: fits, l, r });
+      lastRight = r;
     });
     return out;
   }, [ordered, xs, contentW]);
@@ -275,7 +282,7 @@ export default function TimeStrip() {
     const bx = boundary > 0 ? offset + boundary * slot : boundary === 0 ? startX : contentW - PAD_R;
     // Each label prefers its spot next to the boundary, else the first gap between flags inside its zone.
     const cands: { text: string; ls: number[]; min: number; max: number }[] = [];
-    const gapsIn = (min: number, max: number) => [min + 4, ...flags.filter((f) => f.r > min && f.r < max).map((f) => f.r + 10)];
+    const gapsIn = (min: number, max: number) => [min + 4, ...flags.filter((f) => f.r > min && f.r < max).map((f) => f.r + ZONE_CLEAR)];
     if (boundary !== 0) cands.push({ text: ZONE_OLD, ls: [bx - textW(ZONE_OLD) - 8, ...gapsIn(startX, bx)], min: startX, max: bx });
     if (boundary >= 0) cands.push({ text: ZONE_RECENT, ls: [bx + 8, ...gapsIn(bx, contentW - PAD_R)], min: bx, max: contentW - PAD_R + 12 });
     for (const c of cands) {
@@ -283,7 +290,8 @@ export default function TimeStrip() {
       for (const l of c.ls) {
         const r = l + w;
         if (l < Math.max(2, c.min) || r > Math.min(contentW - 4, c.max)) continue;
-        if (flags.some((f) => l < f.r + 6 && r > f.l - 6)) continue;
+        // Well clear of any checkpoint label (or hidden), so "First draft" and a zone label never read as one phrase.
+        if (flags.some((f) => l < f.r + ZONE_CLEAR && r > f.l - ZONE_CLEAR)) continue;
         if (out.some((o) => l < o.r + 8 && r > o.l - 8)) continue;
         out.push({ text: c.text, l, r });
         break;
@@ -299,7 +307,7 @@ export default function TimeStrip() {
     if (!n) return out;
     let lastRight = -Infinity;
     const push = (x: number, label: string, tick: boolean, align: 'center' | 'left') => {
-      const w = textW(label, 5.8);
+      const w = textW(label);
       const l = align === 'center' ? x - w / 2 : x;
       const ok = l > lastRight + 8 && l >= 2 && l + w <= contentW - 2;
       out.push({ x: align === 'center' ? x : x + w / 2, label: ok ? label : null, tick });
@@ -331,27 +339,21 @@ export default function TimeStrip() {
   return (
     <div ref={rootRef} className="h-[var(--vx-strip-h)] min-w-0 select-none" aria-label="Time strip">
       {/* ── desktop / tablet ── */}
-      <div className="flex h-full min-w-0 items-center pl-5 pr-3 max-[720px]:hidden">
+      <div className="flex h-full min-w-0 items-center pl-4 pr-2 max-[720px]:hidden">
         {/* readout */}
-        <div className="flex h-[52px] w-[200px] shrink-0 flex-col justify-center border-r border-vx-hair pr-4">
-          <div className="flex items-center gap-2">
-            <span
-              aria-hidden
-              className={cx(
-                'h-2 w-2 shrink-0 rounded-full',
-                tt ? 'bg-vx-past-dot shadow-[0_0_0_3px_var(--vx-past-halo)]' : 'bg-vx-ok shadow-[0_0_0_3px_var(--vx-ok-wash)]',
-              )}
-            />
+        <div className="flex h-full w-[200px] shrink-0 flex-col justify-center border-r border-vx-hair pr-4">
+          <div className="flex items-center gap-1.5">
+            <span aria-hidden className={cx('h-1.5 w-1.5 shrink-0 rounded-full', tt ? 'bg-vx-past-dot' : 'bg-vx-ok')} />
             <span className={cx('vx-eyebrow', tt && '!text-vx-past')}>{tt ? 'Viewing' : 'Now'}</span>
           </div>
-          <span className={cx('truncate text-[14px] font-semibold leading-5 tabular-nums', tt ? 'text-vx-past' : 'text-vx-text-1')} title={new Date(codeAt).toString()}>
+          <span className="truncate text-[14px] font-semibold leading-5 tabular-nums text-vx-text-1" title={new Date(codeAt).toString()}>
             {timecode(codeAt)}
           </span>
           <span className="vx-meta flex min-w-0 items-center gap-1 truncate text-vx-text-3">
             {version ? <span className="shrink-0 tabular-nums">{version}</span> : null}
             {version && shownCommit ? <span aria-hidden>·</span> : null}
             {shownCommit ? (
-              <span key={stamp?.n ?? 0} className={cx('-mx-1 rounded-full px-1', flashing && !tt && 'vxv-stamp')}>
+              <span key={stamp?.n ?? 0} className={cx('-mx-1 rounded-vx-xs px-1', flashing && !tt && 'vxv-stamp')}>
                 <CommitId id={shownCommit} />
               </span>
             ) : (
@@ -372,50 +374,51 @@ export default function TimeStrip() {
             className="vxv-noscroll h-full overflow-x-auto overflow-y-hidden"
           >
             <div className="relative" style={{ width: contentW, height: H }}>
-              {/* the line */}
-              <div className="pointer-events-none absolute h-0.5 rounded-full bg-vx-hair" style={{ left: PAD_L / 2, right: 4, top: LINE_Y - 1 }} />
-
               {isLoading ? (
                 <div aria-busy aria-label="Loading history">
+                  <div className="pointer-events-none absolute h-px bg-vx-hair-strong" style={{ left: PAD_L / 2, right: 4, top: LINE_Y }} />
                   {Array.from({ length: 24 }, (_, i) => (
-                    <span
-                      key={i}
-                      className="skeleton absolute h-2 w-2 !rounded-full"
-                      style={{ left: contentW - PAD_R - 8 - i * 20, top: LINE_Y - 4 }}
-                    />
+                    <span key={i} className="skeleton absolute w-px" style={{ left: contentW - PAD_R - 8 - i * 20, top: LINE_Y - 6, height: 12 }} />
                   ))}
                 </div>
               ) : error && !n ? (
                 <div className="absolute inset-0 flex items-center gap-2 bg-vx-surface pl-4">
-                  <span className="vx-body text-vx-text-3">Couldn&apos;t load history</span>
-                  <span className="vx-meta truncate text-vx-text-4">{errorText(error)}</span>
+                  <span className="vx-body text-vx-text-2">Couldn&apos;t load history</span>
+                  <span className="vx-micro truncate text-vx-text-3">{errorText(error)}</span>
                   <Button variant="text" size="sm" onClick={retry}>
                     Retry
                   </Button>
                 </div>
               ) : (
                 <>
-                  {/* retention zones */}
+                  {/* the baseline: dashed through the older zone (newest 50 + checkpoints), solid through the last 7 days */}
                   {oldBand && oldBand.r > oldBand.l ? (
-                    <div className="pointer-events-none absolute h-[18px] rounded-full bg-vx-surface-2" style={{ left: oldBand.l, width: oldBand.r - oldBand.l, top: LINE_Y - 9 }} />
+                    <div className="pointer-events-none absolute h-0 border-t border-dashed border-vx-hair-strong" style={{ left: PAD_L / 2, width: oldBand.r - PAD_L / 2, top: LINE_Y }} />
                   ) : null}
+                  <div
+                    className="pointer-events-none absolute h-px bg-vx-hair-strong"
+                    style={{ left: oldBand && oldBand.r > oldBand.l ? oldBand.r : PAD_L / 2, right: 4, top: LINE_Y }}
+                  />
                   {boundary > 0 ? (
-                    <div className="pointer-events-none absolute w-0 border-l border-dashed border-vx-hair-strong" style={{ left: offset + boundary * slot, top: HIT_TOP, height: HIT_H }} />
+                    <div className="pointer-events-none absolute w-0 border-l border-dashed border-vx-hair-strong" style={{ left: offset + boundary * slot, top: LINE_Y - 9, height: 18 }} />
                   ) : null}
                   {zones.map((z) => (
-                    <span key={z.text} className="vx-micro pointer-events-none absolute whitespace-nowrap text-vx-text-4" style={{ left: z.l, top: 4 }}>
+                    <span
+                      key={z.text}
+                      // A surface chip: the label stays legible over the hatched future and never touches a tick.
+                      className="pointer-events-none absolute z-[1] -mx-1 whitespace-nowrap rounded-vx-xs bg-vx-surface px-1 font-mono text-[11px] leading-3 text-vx-text-3"
+                      style={{ left: z.l, top: 6 }}
+                    >
                       {z.text}
                     </span>
                   ))}
-                  {/* the line again, above the band */}
-                  <div className="pointer-events-none absolute h-0.5 rounded-full bg-vx-hair" style={{ left: PAD_L / 2, right: 4, top: LINE_Y - 1 }} />
 
-                  {/* day ticks + labels */}
+                  {/* day boundaries (taller ticks) + Mono day labels */}
                   {days.map((d, k) => (
                     <div key={`${k}-${d.x}`}>
-                      {d.tick ? <span className="pointer-events-none absolute w-px bg-vx-hair" style={{ left: d.x, top: 26, height: 22 }} /> : null}
+                      {d.tick ? <span className="pointer-events-none absolute w-px bg-vx-hair-strong" style={{ left: d.x, top: LINE_Y - 7, height: 18 }} /> : null}
                       {d.label ? (
-                        <span className="vx-micro pointer-events-none absolute -translate-x-1/2 whitespace-nowrap text-vx-text-4" style={{ left: d.x, top: DAY_Y }}>
+                        <span className="pointer-events-none absolute -translate-x-1/2 whitespace-nowrap font-mono text-[11px] leading-3 text-vx-text-3" style={{ left: d.x, top: DAY_Y }}>
                           {d.label}
                         </span>
                       ) : null}
@@ -424,43 +427,56 @@ export default function TimeStrip() {
 
                   {/* the future you are "before" */}
                   {past ? (
-                    <div className="vx-hatch pointer-events-none absolute rounded-vx-sm" style={{ left: playX, width: Math.max(0, contentW - playX - 4), top: HIT_TOP, height: HIT_H }} />
+                    <div className="vx-hatch pointer-events-none absolute" style={{ left: playX, width: Math.max(0, contentW - playX - 4), top: LINE_Y - 8, height: 16 }} />
                   ) : null}
 
-                  {/* checkpoint flags */}
-                  {flags.map((f) => (
-                    <div key={f.i} className="pointer-events-none absolute flex flex-col items-start" style={{ left: f.l, top: 4 }}>
-                      {f.full ? (
-                        <CheckpointBadge name={f.name} className="!h-[18px] max-w-[160px] !px-1.5" />
-                      ) : (
-                        <span className="inline-flex h-[18px] w-[22px] items-center justify-center rounded-full bg-vx-accent-wash text-vx-on-accent-wash" title={`Checkpoint: ${f.name}`}>
-                          <Bookmark size={11} strokeWidth={2} fill="currentColor" aria-hidden />
-                        </span>
-                      )}
-                      <span aria-hidden className="h-2 w-px bg-vx-accent opacity-50" style={{ marginLeft: f.x - f.l }} />
-                    </div>
-                  ))}
+                  {/* checkpoint labels above their ◆ */}
+                  {flags.map((f) =>
+                    f.full ? (
+                      <span
+                        key={f.i}
+                        className="pointer-events-none absolute truncate whitespace-nowrap font-mono text-[11px] leading-3 text-vx-text-2"
+                        style={{ left: f.l, top: 8, maxWidth: f.r - f.l + 2 }}
+                        title={`Checkpoint: ${f.name}`}
+                      >
+                        {f.name}
+                      </span>
+                    ) : null,
+                  )}
 
-                  {/* dots */}
+                  {/* marks: ticks (size bucket), ◆ checkpoints, hollow restore rings, the head disc */}
                   {ordered.map((e, i) => {
                     const dim = (lensSet && !lensSet.has(e.commitId)) || (past && e.isHead);
                     const lensHit = !!lensSet?.has(e.commitId);
                     const hovered = hoverId === e.id && !dragging;
                     const isNew = flashing && stamp?.id === e.commitId && !tt;
-                    const restore = isRestoreKind(e.kind);
-                    let size: number = e.isHead ? 14 : restore ? 10 : dotSize(e.bytesDelta);
-                    let style: React.CSSProperties;
-                    if (hovered) {
-                      size = Math.max(size, 12);
-                      style = { background: 'var(--vx-text-1)', boxShadow: '0 0 0 4px var(--vx-surface-3)' };
-                    } else if (e.isHead) {
-                      style = { background: 'var(--vx-accent)', boxShadow: '0 0 0 4px var(--vx-accent-wash)' };
-                    } else if (restore) {
-                      style = { background: 'var(--vx-surface)', boxShadow: 'inset 0 0 0 2px var(--vx-text-2), 0 0 0 2px var(--vx-surface)' };
+                    const lit = hovered || lensHit;
+                    let mark: React.ReactNode;
+                    const pos: React.CSSProperties = { top: LINE_Y - HIT_TOP, opacity: dim ? 0.35 : 1 };
+                    const anim = isNew ? (e.isHead ? 'vxv-pulse' : 'vxv-grow') : undefined;
+                    if (e.isHead) {
+                      mark = <span key={isNew ? `new-${stamp?.n}` : 'mark'} className={cx('vxv-head', anim)} style={pos} />;
+                    } else if (e.checkpoints.length) {
+                      const filled = lit || viewedIdx < 0 || i <= viewedIdx;
+                      mark = <span key="mark" className="vxv-diamond" data-filled={filled ? 'true' : undefined} style={pos} />;
+                    } else if (isRestoreKind(e.kind)) {
+                      mark = (
+                        <span
+                          key={isNew ? `new-${stamp?.n}` : 'mark'}
+                          className={cx('vxv-ring', anim)}
+                          style={lit ? { ...pos, boxShadow: 'inset 0 0 0 1.5px var(--vx-text-1)' } : pos}
+                        />
+                      );
                     } else {
-                      style = { background: 'var(--vx-tick)', boxShadow: '0 0 0 2px var(--vx-surface)' };
+                      const h = TICK_H[dotSize(e.bytesDelta)];
+                      mark = (
+                        <span
+                          key={isNew ? `new-${stamp?.n}` : 'mark'}
+                          className={cx('vxv-tick transition-[background-color,width] duration-[120ms]', anim)}
+                          style={{ ...pos, height: h, width: hovered ? 2 : 1, background: lit ? 'var(--vx-text-1)' : undefined }}
+                        />
+                      );
                     }
-                    if (lensHit && !hovered) style = { ...style, boxShadow: `${style.boxShadow}, 0 0 0 4px var(--vx-accent)` };
                     return (
                       <button
                         key={e.id}
@@ -478,31 +494,17 @@ export default function TimeStrip() {
                         className="absolute cursor-pointer outline-none"
                         style={{ left: xs[i] - slot / 2, width: slot, top: HIT_TOP, height: HIT_H, zIndex: hovered ? 2 : 1 }}
                       >
-                        <span
-                          key={isNew ? `new-${stamp?.n}` : 'dot'}
-                          className={cx(
-                            'absolute left-1/2 rounded-full transition-[width,height,background-color,box-shadow] duration-[120ms]',
-                            isNew && (e.isHead ? 'vxv-pulse' : 'vxv-grow'),
-                          )}
-                          style={{
-                            ...style,
-                            top: LINE_Y - HIT_TOP,
-                            width: size,
-                            height: size,
-                            transform: 'translate(-50%, -50%)',
-                            opacity: dim ? 0.35 : 1,
-                          }}
-                        />
+                        {mark}
                       </button>
                     );
                   })}
 
                   {n === 0 ? (
-                    <span className="vx-meta pointer-events-none absolute whitespace-nowrap text-vx-text-4" style={{ right: PAD_R + 16, top: LINE_Y + 8 }}>
-                      Every upload, rename or delete adds a dot here
+                    <span className="vx-micro pointer-events-none absolute whitespace-nowrap bg-vx-surface pl-2 text-vx-text-3" style={{ right: PAD_R + 16, top: LINE_Y + 6 }}>
+                      Every upload, rename or delete adds a version here
                     </span>
                   ) : n === 1 ? (
-                    <span className="vx-meta pointer-events-none absolute whitespace-nowrap bg-vx-surface pr-2 text-vx-text-3" style={{ right: contentW - xs[0] + 16, top: LINE_Y - 8 }}>
+                    <span className="vx-micro pointer-events-none absolute whitespace-nowrap bg-vx-surface pr-2 text-vx-text-3" style={{ right: contentW - xs[0] + 16, top: LINE_Y - 8 }}>
                       Your history starts here
                     </span>
                   ) : null}
@@ -517,14 +519,14 @@ export default function TimeStrip() {
                     onPointerCancel={onDragEnd}
                   />
 
-                  {/* playhead (past only) */}
+                  {/* playhead (past only): a 1 px brass line through the grip */}
                   {past ? (
                     <div
-                      className={cx('pointer-events-none absolute z-[3] w-0.5 -translate-x-1/2 rounded-full bg-vx-past-dot', gliding && !dragging && 'vxv-glide')}
-                      style={{ left: playX, top: LINE_Y - 17, height: 34 }}
+                      className={cx('pointer-events-none absolute z-[3] w-px -translate-x-1/2 bg-vx-past-dot', gliding && !dragging && 'vxv-glide')}
+                      style={{ left: playX, top: LINE_Y - 14, height: 28 }}
                     />
                   ) : null}
-                  {/* the grip: a 16 px amber ring in the past; an invisible focus target on the head dot at now */}
+                  {/* the grip: a 14 px brass ring in the past; an invisible focus target on the head disc at now */}
                   {n ? (
                     <div
                       role="slider"
@@ -550,10 +552,10 @@ export default function TimeStrip() {
                       onMouseLeave={hideTip}
                       className={cx(
                         'absolute z-[4] rounded-full',
-                        past ? 'vxv-grip' : 'cursor-grab focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-vx-accent-edge',
+                        past ? 'vxv-grip' : 'vxv-head-target cursor-grab',
                         gliding && !dragging && 'vxv-glide',
                       )}
-                      style={{ left: playX - (past ? 8 : 7), top: LINE_Y - (past ? 8 : 7), width: past ? 16 : 14, height: past ? 16 : 14 }}
+                      style={{ left: playX - 7, top: LINE_Y - 7, width: 14, height: 14 }}
                     />
                   ) : null}
                 </>
@@ -574,31 +576,28 @@ export default function TimeStrip() {
         </div>
 
         {/* tools */}
-        <div className="flex h-12 shrink-0 items-center gap-1 border-l border-vx-hair pl-3">
+        <div className="flex h-10 shrink-0 items-center gap-0.5 border-l border-vx-hair pl-2">
           <Tooltip label={timelineOpen ? 'Hide history' : 'History'} kbd="H">
             <IconButton label={timelineOpen ? 'Hide history' : 'History'} nativeTitle={false} toggled={timelineOpen} onClick={history}>
-              <ClockFading size={20} strokeWidth={1.75} aria-hidden />
+              <ClockFading size={18} strokeWidth={1.75} aria-hidden />
             </IconButton>
           </Tooltip>
           <Tooltip label={tt ? 'Checkpoint this version' : 'New checkpoint'} kbd="P">
             <IconButton label="Checkpoint" nativeTitle={false} onClick={checkpoint}>
-              <Bookmark size={20} strokeWidth={1.75} aria-hidden />
+              <Diamond size={18} strokeWidth={1.75} aria-hidden />
             </IconButton>
           </Tooltip>
           <Tooltip label={tt ? 'Compare with now' : 'You are already at now'} kbd={tt ? 'C' : undefined}>
             <IconButton label="Compare with now" nativeTitle={false} disabled={!tt} onClick={compare}>
-              <ArrowLeftRight size={20} strokeWidth={1.75} aria-hidden />
+              <ArrowLeftRight size={18} strokeWidth={1.75} aria-hidden />
             </IconButton>
           </Tooltip>
         </div>
       </div>
 
-      {/* ── phone: a floating pill ── */}
-      <div className="hidden h-full min-w-0 items-center gap-3 pl-[18px] pr-2 max-[720px]:flex">
-        <span
-          aria-hidden
-          className={cx('h-2 w-2 shrink-0 rounded-full', tt ? 'bg-vx-past-dot shadow-[0_0_0_3px_var(--vx-past-halo)]' : 'bg-vx-ok shadow-[0_0_0_3px_var(--vx-ok-wash)]')}
-        />
+      {/* ── phone: a floating bar ── */}
+      <div className="hidden h-full min-w-0 items-center gap-3 pl-4 pr-2 max-[720px]:flex">
+        <span aria-hidden className={cx('h-1.5 w-1.5 shrink-0 rounded-full', tt ? 'bg-vx-past-dot' : 'bg-vx-ok')} />
         <div className="flex min-w-0 flex-1 flex-col">
           <span className={cx('truncate text-[14px] font-semibold leading-5 tabular-nums', tt ? 'text-vx-past-strong' : 'text-vx-text-1')}>
             {tt ? `Viewing ${format(new Date(tt.createdAt), 'd MMM')}` : `Now${ordinal > 0 ? ` · v${ordinal}` : ''}`}
@@ -630,7 +629,7 @@ export default function TimeStrip() {
   );
 }
 
-/** Hover card for a dot (float, r12, shadow-3, 280 px), 12 px above the strip. */
+/** Hover card for a version (float, r6, shadow-3 with its hair ring, 280 px), 12 px above the strip. */
 function DotCard({ e, v, x, anchor }: { e: TimelineEntry; v: number; x: number; anchor: HTMLElement | null }) {
   if (typeof document === 'undefined') return null;
   const w = 280;
@@ -640,7 +639,7 @@ function DotCard({ e, v, x, anchor }: { e: TimelineEntry; v: number; x: number; 
   return createPortal(
     <div
       role="tooltip"
-      className="vxv-fade pointer-events-none fixed z-[70] rounded-vx-md border border-vx-hair bg-vx-float px-3.5 py-3 text-vx-text-2 shadow-vx-3"
+      className="vxv-fade pointer-events-none fixed z-[70] rounded-vx-md bg-vx-float px-3.5 py-3 text-vx-text-2 shadow-vx-3"
       style={{ left, bottom, width: w }}
     >
       <div className="vx-meta text-vx-text-3">
@@ -658,7 +657,7 @@ function DotCard({ e, v, x, anchor }: { e: TimelineEntry; v: number; x: number; 
         <CommitId id={e.commitId} />
       </div>
       {e.paths.length ? (
-        <ul className="mt-2 flex flex-col gap-0.5 border-t border-vx-hair-soft pt-2">
+        <ul className="-mx-3.5 mt-2 flex flex-col gap-0.5 border-t border-vx-hair-soft px-3.5 pt-2">
           {e.paths.slice(0, 3).map((p, i) => (
             <li key={i} className="vx-code truncate text-vx-text-2">
               {p.fromPath ? `${p.fromPath} → ${p.path}` : p.path}
@@ -674,7 +673,7 @@ function DotCard({ e, v, x, anchor }: { e: TimelineEntry; v: number; x: number; 
         </div>
       ) : null}
       {e.mergedCount > 0 ? <div className="vx-micro mt-1.5 text-vx-text-3">includes {plural(e.mergedCount, 'earlier change')}</div> : null}
-      <div className="vx-micro mt-2 text-vx-text-4">
+      <div className="vx-micro mt-2 text-vx-text-3">
         {e.isHead ? 'This is now · Right-click for more' : 'Click to view · Shift-click to compare · Right-click for more'}
       </div>
     </div>,

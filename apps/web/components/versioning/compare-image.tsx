@@ -4,8 +4,8 @@ import { useCallback, useRef, useState } from 'react';
 import { formatBytes, type FileSide } from '@volumes/shared';
 import { cx } from '@/components/ui/cx';
 import { useHotkeys } from '@/lib/keys';
-import { formatTimeTravelLabel } from '@/lib/format';
-import { MissingSide, SideDisc, SummaryBar, type ImageMode } from './compare-header';
+import { Kbd } from '@/components/ui/kbd';
+import { MissingSide, SideDisc, SummaryBar, sideLabel, type CompareSides, type ImageMode } from './compare-header';
 import { Bytes } from './readout';
 import './versioning.css';
 
@@ -15,8 +15,8 @@ const FIT: View = { zoom: 1, x: 0, y: 0 };
 
 const dimText = (d: Dims) => (d ? `${d.w}×${d.h}` : '…');
 
-/** Images: side-by-side checkerboard wells (shared zoom/pan) or a swipe with a round A | B handle. */
-export function CompareImage({ a, b, mode }: { a: FileSide | null; b: FileSide | null; mode: ImageMode }) {
+/** Images: side-by-side checkerboard wells (shared zoom/pan) or a swipe with a round Mono A | B handle. */
+export function CompareImage({ a, b, mode, sides }: { a: FileSide | null; b: FileSide | null; mode: ImageMode; sides?: CompareSides }) {
   const [da, setDa] = useState<Dims>(null);
   const [db, setDb] = useState<Dims>(null);
   const [failed, setFailed] = useState<{ a?: boolean; b?: boolean }>({});
@@ -31,20 +31,28 @@ export function CompareImage({ a, b, mode }: { a: FileSide | null; b: FileSide |
       <SummaryBar
         right={
           <span className="vx-micro text-vx-text-3 max-[720px]:hidden">
-            {swipe ? 'Drag or ← → · ⇧ moves 10 · double-click centres' : 'Scroll or + − to zoom · drag to pan · 0 fits'}
+            {swipe ? (
+              <>
+                Drag or <Kbd>←</Kbd> <Kbd>→</Kbd> · <Kbd>⇧</Kbd> moves 10 · double-click centres
+              </>
+            ) : (
+              <>
+                Scroll or <Kbd>+</Kbd> <Kbd>−</Kbd> to zoom · drag to pan · <Kbd>0</Kbd> to fit
+              </>
+            )}
           </span>
         }
       >
-        <span className="truncate tabular-nums">
+        <span className="truncate font-mono text-[12px] tabular-nums">
           {sizes}
           {dims ? ` · ${dims}` : ''}
           {same ? ' · identical content' : ''}
         </span>
       </SummaryBar>
       {swipe ? (
-        <Swipe a={a!} b={b!} onDims={(k, d) => (k === 'a' ? setDa(d) : setDb(d))} />
+        <Swipe a={a!} b={b!} sides={sides} onDims={(k, d) => (k === 'a' ? setDa(d) : setDb(d))} />
       ) : (
-        <SideBySide a={a} b={b} da={da} db={db} failed={failed} onDims={(k, d) => (k === 'a' ? setDa(d) : setDb(d))} onFail={(k) => setFailed((f) => ({ ...f, [k]: true }))} />
+        <SideBySide a={a} b={b} sides={sides} da={da} db={db} failed={failed} onDims={(k, d) => (k === 'a' ? setDa(d) : setDb(d))} onFail={(k) => setFailed((f) => ({ ...f, [k]: true }))} />
       )}
     </div>
   );
@@ -53,6 +61,7 @@ export function CompareImage({ a, b, mode }: { a: FileSide | null; b: FileSide |
 function SideBySide({
   a,
   b,
+  sides,
   da,
   db,
   failed,
@@ -61,6 +70,7 @@ function SideBySide({
 }: {
   a: FileSide | null;
   b: FileSide | null;
+  sides?: CompareSides;
   da: Dims;
   db: Dims;
   failed: { a?: boolean; b?: boolean };
@@ -74,13 +84,13 @@ function SideBySide({
 
   const frame = (k: 'a' | 'b', side: FileSide | null, d: Dims) => (
     <div className="flex min-h-[240px] min-w-0 flex-1 flex-col">
-      <div className="flex h-9 shrink-0 items-center gap-2 px-1 text-[12px] leading-4 text-vx-text-3">
-        <SideDisc which={k === 'a' ? 'A' : 'B'} />
-        {side ? <span className="truncate font-semibold tabular-nums text-vx-text-1">{formatTimeTravelLabel(side.createdAt)}</span> : null}
+      <div className="flex h-9 shrink-0 items-center gap-2 px-1 text-[13px] leading-4 text-vx-text-3">
+        <SideDisc which={k === 'a' ? 'A' : 'B'} tone={sides?.[k]?.tone} />
+        {side ? <span className="truncate font-semibold tabular-nums text-vx-text-1">{sideLabel(side, sides?.[k]?.label)}</span> : null}
       </div>
       {side ? (
         <div
-          className="vxv-checker relative min-h-0 flex-1 cursor-grab overflow-hidden rounded-vx-md active:cursor-grabbing"
+          className="vxv-checker relative min-h-0 flex-1 cursor-grab overflow-hidden rounded-vx-sm border border-vx-hair active:cursor-grabbing"
           onWheel={(e) => zoomBy(e.deltaY < 0 ? 1.1 : 1 / 1.1)}
           onPointerDown={(e) => {
             (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
@@ -132,7 +142,7 @@ function SideBySide({
   );
 }
 
-function Swipe({ a, b, onDims }: { a: FileSide; b: FileSide; onDims: (k: 'a' | 'b', d: Dims) => void }) {
+function Swipe({ a, b, sides, onDims }: { a: FileSide; b: FileSide; sides?: CompareSides; onDims: (k: 'a' | 'b', d: Dims) => void }) {
   const [pos, setPos] = useState(50);
   const box = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
@@ -153,20 +163,20 @@ function Swipe({ a, b, onDims }: { a: FileSide; b: FileSide; onDims: (k: 'a' | '
 
   return (
     <div className="flex min-h-0 flex-1 flex-col p-4">
-      <div className="flex h-9 shrink-0 items-center justify-between gap-2 px-1 text-[12px] leading-4 text-vx-text-3">
+      <div className="flex h-9 shrink-0 items-center justify-between gap-2 px-1 text-[13px] leading-4 text-vx-text-3">
         <span className="flex min-w-0 items-center gap-2">
-          <SideDisc which="A" />
-          <span className="truncate font-semibold tabular-nums text-vx-text-1">{formatTimeTravelLabel(a.createdAt)}</span>
+          <SideDisc which="A" tone={sides?.a?.tone} />
+          <span className="truncate font-semibold tabular-nums text-vx-text-1">{sideLabel(a, sides?.a?.label)}</span>
         </span>
-        <span className="tabular-nums">{Math.round(pos)}%</span>
+        <span className="font-mono text-[12px] tabular-nums">{Math.round(pos)}%</span>
         <span className="flex min-w-0 items-center gap-2">
-          <span className="truncate font-semibold tabular-nums text-vx-text-1">{formatTimeTravelLabel(b.createdAt)}</span>
-          <SideDisc which="B" />
+          <span className="truncate font-semibold tabular-nums text-vx-text-1">{sideLabel(b, sides?.b?.label)}</span>
+          <SideDisc which="B" tone={sides?.b?.tone} />
         </span>
       </div>
       <div
         ref={box}
-        className="vxv-checker relative min-h-0 flex-1 cursor-ew-resize select-none overflow-hidden rounded-vx-md"
+        className="vxv-checker relative min-h-0 flex-1 cursor-ew-resize select-none overflow-hidden rounded-vx-sm border border-vx-hair"
         onPointerDown={(e) => {
           (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
           dragging.current = true;
@@ -198,7 +208,7 @@ function Swipe({ a, b, onDims }: { a: FileSide; b: FileSide; onDims: (k: 'a' | '
           className="absolute inset-0 h-full w-full object-contain"
           style={{ clipPath: `inset(0 ${100 - pos}% 0 0)` }}
         />
-        <div className="pointer-events-none absolute inset-y-0 w-0.5 -translate-x-1/2 bg-vx-surface shadow-[0_0_0_1px_var(--vx-hair)]" style={{ left: `${pos}%` }} />
+        <div className="pointer-events-none absolute inset-y-0 w-0.5 -translate-x-1/2 bg-vx-text-1 shadow-[0_0_0_1px_var(--vx-surface)]" style={{ left: `${pos}%` }} />
         <div
           role="slider"
           tabIndex={0}
@@ -214,14 +224,14 @@ function Swipe({ a, b, onDims }: { a: FileSide; b: FileSide; onDims: (k: 'a' | '
             }
           }}
           className={cx(
-            'vxv-handle absolute top-1/2 flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center gap-[3px] text-[10px] font-bold leading-none transition-transform duration-[120ms]',
+            'vxv-handle absolute top-1/2 flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center gap-[3px] text-[10px] font-medium leading-none transition-transform duration-[120ms]',
             active && 'scale-110',
           )}
           style={{ left: `${pos}%` }}
         >
           <span aria-hidden className="text-vx-past">A</span>
           <span aria-hidden className="h-3 w-px bg-vx-hair-strong" />
-          <span aria-hidden className="text-vx-accent">B</span>
+          <span aria-hidden className="text-vx-text-1">B</span>
         </div>
       </div>
     </div>

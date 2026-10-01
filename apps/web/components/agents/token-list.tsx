@@ -1,6 +1,6 @@
 'use client';
 
-// Settings → AI agents, card 3: agent tokens (rows, New token, Revoke with an inline confirm).
+// Settings → AI agents, block 3: agent tokens (rows, New token, Revoke with an inline confirm).
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { mutate } from 'swr';
@@ -28,7 +28,7 @@ export function usedLabel(iso: string | null, now = new Date()): string {
   return `used ${/^(Just|Today|Yesterday)/.test(r) ? r.charAt(0).toLowerCase() + r.slice(1) : r}`;
 }
 
-/** Inline danger confirm (r12, danger wash + edge inset): question, consequence, Keep + the danger action. */
+/** Inline danger confirm (r6, danger wash + edge inset): question, consequence, Keep + the danger action. */
 export function DangerConfirm({
   question,
   detail,
@@ -48,7 +48,7 @@ export function DangerConfirm({
     <div className="mt-2 flex flex-wrap items-center gap-3 rounded-vx-md bg-vx-danger-wash px-3.5 py-3 shadow-[inset_0_0_0_1px_var(--vx-danger-edge)]">
       <div className="min-w-0 flex-[1_1_220px]">
         <div className="text-[14px] font-semibold leading-5 text-vx-text-1">{question}</div>
-        {detail ? <div className="vx-meta mt-0.5 text-vx-text-2">{detail}</div> : null}
+        {detail ? <div className="mt-0.5 text-[13px] leading-5 text-vx-text-2">{detail}</div> : null}
       </div>
       <div className="flex shrink-0 items-center gap-1">
         <Button size="sm" variant="text" disabled={busy} onClick={onCancel}>
@@ -83,9 +83,9 @@ function TokenRow({ token }: { token: AgentToken }) {
   };
 
   return (
-    <li className="-mx-2 rounded-vx-sm px-2 py-2.5 transition-colors duration-[120ms] hover:bg-vx-hover" data-token-id={token.id}>
+    <li className="-mx-3 border-t border-vx-hair-soft px-3 py-3 transition-colors duration-[120ms] first:border-t-0 hover:bg-vx-raise" data-token-id={token.id}>
       <div className="flex min-h-8 items-center gap-3">
-        <span aria-hidden className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-vx-surface-3 text-vx-text-2">
+        <span aria-hidden className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-vx-sm border border-vx-hair bg-vx-surface-2 text-vx-text-2">
           <KeyRound size={16} strokeWidth={1.75} />
         </span>
         <div className="min-w-0 flex-1">
@@ -95,7 +95,7 @@ function TokenRow({ token }: { token: AgentToken }) {
             {token.revokedAt ? <Badge tone="dashed">Revoked</Badge> : token.expired ? <Badge tone="dashed">Expired</Badge> : null}
           </div>
           <div className="vx-meta mt-0.5 truncate text-vx-text-3">
-            <span className="font-mono">{token.prefix}…</span> · {token.expired ? 'expired' : 'expires'}{' '}
+            <span>{token.prefix}…</span> · {token.expired ? 'expired' : 'expires'}{' '}
             <span title={isoTitle(token.expiresAt)}>{dayLabel(token.expiresAt)}</span> ·{' '}
             <span title={token.lastUsedAt ? isoTitle(token.lastUsedAt) : undefined}>{usedLabel(token.lastUsedAt)}</span>
           </div>
@@ -106,7 +106,7 @@ function TokenRow({ token }: { token: AgentToken }) {
             items={[{ id: 'revoke', label: 'Revoke', danger: true, onSelect: () => setConfirming(true) }]}
             trigger={(p) => (
               <IconButton {...p} size="sm" label={`Actions for ${token.name}`} className="max-[720px]:h-11 max-[720px]:w-11">
-                <Ellipsis size={18} strokeWidth={1.75} aria-hidden />
+                <Ellipsis size={16} strokeWidth={1.75} aria-hidden />
               </IconButton>
             )}
           />
@@ -142,7 +142,7 @@ export function TokenList() {
       label="Agent tokens"
       description="For scripts and agents that cannot sign in. A token has the access you choose and expires within a year."
       aside={
-        <Button variant="outline" icon={<Plus size={18} strokeWidth={1.75} aria-hidden />} onClick={() => setCreating(true)}>
+        <Button variant="outline" icon={<Plus size={16} strokeWidth={1.75} aria-hidden />} onClick={() => setCreating(true)}>
           New token
         </Button>
       }

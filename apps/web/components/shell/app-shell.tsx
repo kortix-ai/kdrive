@@ -26,8 +26,8 @@ import { PanelHost } from './panel-host';
 import { ShortcutSheet } from './shortcut-sheet';
 import { TopBar } from './top-bar';
 
-/** Routes whose content sits straight on the page instead of in a sheet (DESIGN-v2 §6.17). */
-export function isSheetless(pathname: string): boolean {
+/** Routes that are not about the drive's contents, so the past ring never frames them. */
+export function isTimeless(pathname: string): boolean {
   return pathname === '/settings' || pathname.startsWith('/settings/');
 }
 
@@ -150,19 +150,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   // The history strip belongs to the drive only (never on /proposals/**, whose review page is full height).
   const onDrive = pathname === '/drive' || pathname.startsWith('/drive/');
-  const sheetless = isSheetless(pathname);
+  const timeless = isTimeless(pathname);
   return (
     <div className="vx-app">
+      <a href="#vx-main" className="vx-skip">
+        Skip to content
+      </a>
       <TopBar onMenu={() => setDrawer((d) => !d)} onHelp={() => setSheet(true)} />
       <LeftRail open={drawer} onNavigate={() => setDrawer(false)} />
       {drawer ? <div className="dlg-fade fixed inset-0 z-[55] hidden bg-vx-scrim max-[720px]:block" onClick={() => setDrawer(false)} aria-hidden /> : null}
       <div className="vx-content" data-strip={onDrive ? 'true' : 'false'}>
-        <main className={cx('vx-main', sheetless ? 'vx-sheetless' : 'vx-sheet', past && !sheetless && 'is-past')} data-past={past ? 'true' : undefined}>
+        <main id="vx-main" tabIndex={-1} className={cx('vx-main vx-sheet outline-none', past && !timeless && 'is-past')} data-past={past ? 'true' : undefined}>
           <TimeTravelBanner />
           <div className="min-h-0 flex-1 overflow-auto">{children}</div>
         </main>
         {timelineOpen ? (
-          <aside className="vx-timeline vx-sheet" aria-label="Timeline">
+          <aside className="vx-timeline vx-sheet" aria-label="History">
             <div className="min-h-0 flex-1 overflow-auto">
               <TimelineRail />
             </div>

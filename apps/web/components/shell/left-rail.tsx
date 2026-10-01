@@ -7,7 +7,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
-import { Diamond, HardDrive, Inbox, Settings, Shield, Trash } from 'lucide-react';
+import { Diamond, Files, Inbox, Settings, Shield, Trash } from 'lucide-react';
 import StorageMeter from '@/components/drive/storage-meter';
 import WorkspaceSwitcher from '@/components/workspaces/workspace-switcher';
 import { ProposalsNavCount } from '@/components/proposals/proposals-nav-count';
@@ -17,10 +17,10 @@ import { useCheckpoints } from '@/lib/versioning/hooks';
 import { EmulatedBadge } from './emulated-badge';
 import { NewButton } from './new-button';
 
-type NavItem = { href: string; label: string; short: string; icon: typeof HardDrive; chord: string };
+type NavItem = { href: string; label: string; short: string; icon: typeof Files; chord: string };
 
 const NAV_MAIN: NavItem[] = [
-  { href: '/drive', label: 'My Drive', short: 'Drive', icon: HardDrive, chord: 'g d' },
+  { href: '/drive', label: 'Files', short: 'Files', icon: Files, chord: 'g d' },
   { href: '/checkpoints', label: 'Checkpoints', short: 'Saved', icon: Diamond, chord: 'g c' },
   { href: '/recently-deleted', label: 'Recently deleted', short: 'Deleted', icon: Trash, chord: 'g x' },
   { href: '/proposals', label: 'Proposals', short: 'Review', icon: Inbox, chord: 'g p' },
@@ -64,7 +64,9 @@ export function LeftRail({ open, onNavigate }: { open?: boolean; onNavigate?: ()
   const pathname = usePathname() ?? '/';
   const me = useVx((s) => s.me);
   const { data: cps } = useCheckpoints();
-  const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/');
+  // Compare (a file or the whole drive) is a drive view: Files stays lit there.
+  const isActive = (href: string) =>
+    pathname === href || pathname.startsWith(href + '/') || (href === '/drive' && (pathname === '/compare' || pathname.startsWith('/compare/')));
   const cpCount = cps?.checkpoints.length ?? 0;
 
   return (

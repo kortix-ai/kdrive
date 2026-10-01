@@ -14,7 +14,7 @@ import { switchToWorkspace } from './switch';
 /** Validates a workspace name (1–60 chars after trimming). Returns an error or null. */
 export function workspaceNameError(name: string): string | null {
   const n = name.trim();
-  if (!n) return 'Give the workspace a name.';
+  if (!n) return 'Give the drive a name.';
   if (n.length > 60) return 'Use at most 60 characters.';
   return null;
 }
@@ -53,10 +53,10 @@ export function NewWorkspaceDialog({ open, onClose }: { open: boolean; onClose: 
       setBusy(false);
       setError(
         isApiError(e, 'storage_limit')
-          ? 'No more workspaces can be created on this server.'
+          ? 'No more drives can be created on this server.'
           : e instanceof Error
             ? e.message
-            : 'Could not create the workspace.',
+            : 'Could not create the drive.',
       );
     }
   };
@@ -65,10 +65,10 @@ export function NewWorkspaceDialog({ open, onClose }: { open: boolean; onClose: 
     <Dialog
       open={open}
       onClose={close}
-      title="New workspace"
+      title="New drive"
       icon={
-        <span aria-hidden className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-vx-surface-3 text-vx-text-2">
-          <Layers size={18} strokeWidth={1.75} />
+        <span aria-hidden className="inline-flex h-8 w-8 items-center justify-center rounded-vx-sm border border-vx-hair bg-vx-surface-2 text-vx-text-2">
+          <Layers size={16} strokeWidth={1.75} />
         </span>
       }
       width={480}
@@ -81,7 +81,7 @@ export function NewWorkspaceDialog({ open, onClose }: { open: boolean; onClose: 
             Cancel
           </Button>
           <Button variant="primary" onClick={() => void submit()} loading={busy} disabled={touched && !!invalid}>
-            Create workspace
+            Create drive
           </Button>
         </>
       }

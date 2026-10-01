@@ -1,4 +1,4 @@
-/* WEB-drive shapes and motion Tailwind can't express (DESIGN-v2 §5, §6.2, §6.13, §8).
+/* WEB-drive shapes and motion Tailwind can't express (UNIFY-SPEC §5, §12.1, §14.2; DESIGN-v2 §6.2, §8).
    Durations stay ≤ 240 ms; the global reduced-motion rule turns them off (progress keeps moving). */
 
 /* delete: the row collapses (160 ms) before it leaves the list; Undo re-expands it */
@@ -8,25 +8,40 @@
 }
 .removing { animation: vxCollapse 160ms var(--vx-ease-exit) forwards; transform-origin: top; pointer-events: none; }
 
+/* List rows run full-bleed inside the sheet with a 1 px hair-soft divider (the landing mocks). */
+.row::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; pointer-events: none;
+  background: var(--vx-hair-soft);
+}
+/* Selected rows: a 2 px accent bar flush on the left edge (UNIFY-SPEC §5). */
+.selBar { box-shadow: inset 2px 0 0 var(--vx-accent); }
+/* Drop target: accent-wash (from the tone) + a solid 1 px accent-edge inset. */
+.dropOn { box-shadow: inset 0 0 0 1px var(--vx-accent-edge); }
+/* Keyboard focus: the violet inset ring on the focused row / card, only while the list itself
+   has keyboard focus (a mouse click focuses an item without painting a ring). */
+.scroller:focus-visible .item[data-focused='true'] { box-shadow: inset 0 0 0 2px var(--vx-focus); }
+/* The list carries its own per-item ring, so the scroller's frame ring stays off while one shows. */
+.scroller:focus-visible:has(.item[data-focused='true']) { box-shadow: none; }
+
 /* pending rename / move / create: a 2 px accent bar sweeping along the bottom of the row */
 @keyframes vxSweep {
   from { transform: translateX(-100%); }
   to { transform: translateX(340%); }
 }
 .pendingLine {
-  position: absolute; left: 8px; right: 8px; bottom: 0; height: 2px; overflow: hidden; pointer-events: none;
-  border-radius: 2px; background: var(--vx-accent-wash);
+  position: absolute; left: 0; right: 0; bottom: 0; height: 2px; overflow: hidden; pointer-events: none; z-index: 1;
+  background: var(--vx-accent-wash);
 }
 .pendingLine::after {
-  content: ''; position: absolute; top: 0; left: 0; width: 30%; height: 2px; border-radius: 2px; background: var(--vx-accent);
+  content: ''; position: absolute; top: 0; left: 0; width: 30%; height: 2px; background: var(--vx-accent);
   animation: vxSweep 1.1s linear infinite;
 }
 
 /* a frame is loading: a 2 px indeterminate bar along the top of the sheet
    (amber while scrubbing the past, accent at now) */
-.loadLine { position: absolute; left: 12px; right: 12px; top: 0; height: 2px; overflow: hidden; pointer-events: none; z-index: 5; border-radius: 2px; }
+.loadLine { position: absolute; left: 0; right: 0; top: 0; height: 2px; overflow: hidden; pointer-events: none; z-index: 5; }
 .loadLine::after {
-  content: ''; position: absolute; top: 0; left: 0; width: 30%; height: 2px; border-radius: 2px; background: var(--vx-accent);
+  content: ''; position: absolute; top: 0; left: 0; width: 30%; height: 2px; background: var(--vx-accent);
   animation: vxSweep 0.9s linear infinite;
 }
 .loadLine.past::after { background: var(--vx-past-dot); }
@@ -67,29 +82,29 @@
   display: flex; align-items: center; justify-content: flex-end; gap: 0;
   padding: 0 6px 0 32px;
   width: calc(200px + 32px + 8px);
-  border-radius: 0 var(--vx-r-xs) var(--vx-r-xs) 0;
-  background: linear-gradient(90deg, transparent 0, var(--acts-bg, var(--vx-hover)) 24px);
+  background: linear-gradient(90deg, transparent 0, var(--acts-bg, var(--vx-raise)) 24px);
   pointer-events: none;
 }
 .item:hover .actsOverlay,
 .item:focus-within .actsOverlay,
 .item[data-focused='true'] .actsOverlay { pointer-events: auto; }
-.item[aria-selected='true'] .actsOverlay { --acts-bg: var(--vx-selection); }
-.item[aria-selected='true']:not(:hover):not(:focus-within):not([data-focused='true']) .actsOverlay { opacity: 0; pointer-events: none; }
+.item[aria-selected='true'] .actsOverlay, .item[data-open='true'] .actsOverlay { --acts-bg: var(--vx-selection); }
+.item:is([aria-selected='true'], [data-open='true']):not(:hover):not(:focus-within):not([data-focused='true']) .actsOverlay { opacity: 0; pointer-events: none; }
+/* A keyboard-focused row that is not hovered keeps the sheet colour, so the backing must match it (no lighter slab). */
+.item[data-focused='true']:not(:hover):not([aria-selected='true']):not([data-open='true']) .actsOverlay { --acts-bg: var(--vx-surface); }
 
-/* grid: the file card's thumbnail mat (r8) */
+/* grid: the file card's thumbnail mat (r4, --vx-mat) */
 .mat { position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden; border-radius: var(--vx-r-sm); background: var(--vx-mat); }
 .matInner { position: absolute; inset: 0; }
 .pastFilter { filter: var(--vx-past-filter); }
 
-/* video: a dark mat with a 40 px white play disc */
-.videoMat { background: var(--vx-ft-video); }
+/* video: the mat with a 36 px play disc (surface at .9, text-1 triangle, hair ring) in both themes */
+.videoMat { background: var(--vx-mat); }
 .playDisc {
-  display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 999px;
-  background: var(--vx-surface); color: var(--vx-ft-video); box-shadow: var(--vx-shadow-2);
+  display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 999px;
+  background: color-mix(in srgb, var(--vx-surface) 90%, transparent); color: var(--vx-text-1);
+  box-shadow: var(--vx-shadow-2), 0 0 0 1px var(--vx-hair);
 }
-:global(:root[data-vx-theme='dark']) .videoMat { background: var(--vx-mat); }
-:global(:root[data-vx-theme='dark']) .playDisc { background: var(--vx-text-1); color: var(--vx-mat); }
 
 /* OS drop target: a 2 px dashed accent ring with a 30 % accent-wash tint that moves to the
    folder row / card / crumb under the pointer. Danger over quota, amber in the past. */

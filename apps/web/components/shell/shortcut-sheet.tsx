@@ -5,11 +5,11 @@ import { cx } from '@/components/ui/cx';
 import { Kbd } from '@/components/ui/kbd';
 
 const GROUPS: { label: string; keys: [string, string][] }[] = [
-  { label: 'Global', keys: [['/  ⌘K', 'Search'], ['?', 'Keyboard shortcuts'], ['h', 'Timeline'], ['⌘Z', 'Undo last action'], ['g d', 'Go to drive'], ['g c', 'Go to checkpoints'], ['g x', 'Go to recently deleted'], ['g p', 'Go to proposals'], ['g ,', 'Go to settings']] },
+  { label: 'Global', keys: [['/  ⌘K', 'Search'], ['?', 'Keyboard shortcuts'], ['h', 'History'], ['⌘Z', 'Undo last action'], ['g d', 'Go to files'], ['g c', 'Go to checkpoints'], ['g x', 'Go to recently deleted'], ['g p', 'Go to proposals'], ['g ,', 'Go to settings']] },
   { label: 'Drive', keys: [['u  ⇧U', 'Upload files / folder'], ['n', 'New folder'], ['↵', 'Open'], ['Space', 'Preview'], ['F2', 'Rename'], ['⌫', 'Delete'], ['d', 'Download'], ['m  ⇧M', 'Move / copy to…'], ['s', 'Share'], ['⇧H', 'Versions'], ['v', 'List / grid'], ['⌘A', 'Select all']] },
   { label: 'Time', keys: [[',  .', 'Older / newer version'], ['p', 'New checkpoint'], ['c', 'Compare'], ['r', 'Restore (in the past)'], ['Esc', 'Back to now']] },
-  { label: 'Preview', keys: [['←  →', 'Previous / next file'], ['+  −  0  1', 'Zoom in / out / fit / 100 %'], ['Esc', 'Close']] },
-  { label: 'Compare', keys: [[']  [', 'Next / previous change'], ['x', 'Swap A and B'], ['←  →', 'Move the swipe (⇧ ×10)'], ['Esc', 'Back']] },
+  { label: 'Preview', keys: [['←  →', 'Previous / next file'], ['+  −', 'Zoom'], ['0  1', 'Fit / 100 %'], ['Esc', 'Close']] },
+  { label: 'Compare', keys: [[']  [', 'Next / previous change'], ['x', 'Swap A and B'], ['←  →', 'Move the swipe'], ['⇧←  ⇧→', 'Move the swipe ×10'], ['Esc', 'Back']] },
 ];
 
 /** A chord like "g d" shows as `g` then `d`; alternatives are separated by two spaces. */
@@ -51,7 +51,7 @@ export function ShortcutList({ className }: { className?: string }) {
               <ul>
                 {g.keys.map(([k, label]) => (
                   <li key={k + label} className="flex min-h-[30px] items-center justify-between gap-3">
-                    <span className="text-[14px] leading-5 text-vx-text-1">{label}</span>
+                    <span className="min-w-0 text-[14px] leading-5 text-vx-text-1">{label}</span>
                     <Keys k={k} />
                   </li>
                 ))}
@@ -64,10 +64,10 @@ export function ShortcutList({ className }: { className?: string }) {
   );
 }
 
-/** Keyboard shortcuts (UNIFY-SPEC §14.1): a 560 dialog; group titles as eyebrows, 30 px rows, Mono kbd. */
+/** Keyboard shortcuts (UNIFY-SPEC §14.1): a 640 dialog; group titles as eyebrows, 30 px rows, Mono kbd. */
 export function ShortcutSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   return (
-    <Dialog open={open} onClose={onClose} title="Keyboard shortcuts" width={560}>
+    <Dialog open={open} onClose={onClose} title="Keyboard shortcuts" width={640}>
       <ShortcutList className="pb-4" />
     </Dialog>
   );

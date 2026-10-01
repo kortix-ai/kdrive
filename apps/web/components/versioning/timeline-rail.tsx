@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Bookmark, Bot, X } from 'lucide-react';
+import { Bot, Diamond, X } from 'lucide-react';
 import type { TimelineEntry } from '@volumes/shared';
 import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
@@ -25,7 +25,7 @@ export function matchesRailFilter(e: TimelineEntry, f: RailFilter): boolean {
   return f === 'agents' ? !!e.agent : matchesFilter(e, f);
 }
 
-/** History rail (320 px sheet, `h`; DESIGN-v2 §6.4): newest first, grouped by day. Click = view the drive then. */
+/** History rail (300 px sheet, `h`; UNIFY-SPEC §12.3, DESIGN-v2 §6.4): newest first, grouped by day. Click = view the drive then. */
 export default function TimelineRail() {
   const open = useVx((s) => s.timelineOpen);
   if (!open) return null;
@@ -70,22 +70,24 @@ function Rail() {
           <h2 className="vx-title">History</h2>
           <Tooltip label="Close history" kbd="H" side="left">
             <IconButton label="Close history (H)" nativeTitle={false} size="sm" onClick={() => toggle(false)} className="-mr-1">
-              <X size={18} strokeWidth={1.75} aria-hidden />
+              <X size={16} strokeWidth={1.75} aria-hidden />
             </IconButton>
           </Tooltip>
         </div>
+        {/* The filters wrap (two short rows in the 300 px rail), so no chip is ever half shown. */}
         <div role="group" aria-label="Filter history" className="mt-3 flex flex-wrap gap-1.5">
           {RAIL_FILTERS.map((f) => (
             <Chip
               key={f.value}
               size="sm"
+              className="shrink-0"
               on={filter === f.value}
               onClick={() => setFilter(f.value)}
               icon={
                 f.value === 'checkpoints' ? (
-                  <Bookmark size={16} strokeWidth={1.75} aria-hidden />
+                  <Diamond size={14} strokeWidth={1.75} aria-hidden />
                 ) : f.value === 'agents' ? (
-                  <Bot size={16} strokeWidth={1.75} aria-hidden />
+                  <Bot size={14} strokeWidth={1.75} aria-hidden />
                 ) : undefined
               }
             >
@@ -95,14 +97,14 @@ function Rail() {
         </div>
         <RetentionNote className="mt-3" />
       </div>
-      <div className="h-px shrink-0 bg-vx-hair-soft" />
+      <div className="h-px shrink-0 bg-vx-hair" />
 
       <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto px-2 pb-4" role="list" aria-label="Versions">
         {isLoading ? (
           <div aria-busy className="px-3 py-3">
             {Array.from({ length: 8 }, (_, i) => (
               <div key={i} className="flex h-14 items-start gap-4 pt-2">
-                <span className="skeleton h-3 w-3 shrink-0 !rounded-full" />
+                <span className="skeleton mt-1 h-2 w-2 shrink-0 !rounded-full" />
                 <span className="flex flex-1 flex-col">
                   <span className="skeleton skel-line w-3/4" />
                   <span className="skeleton skel-line w-1/2" />
@@ -113,7 +115,7 @@ function Rail() {
         ) : error && !entries.length ? (
           <div className="flex flex-col items-start gap-2 px-3 py-6">
             <p className="vx-body text-vx-text-2">Couldn&apos;t load history</p>
-            <p className="vx-meta text-vx-text-3">{errorText(error)}</p>
+            <p className="vx-micro text-vx-text-3">{errorText(error)}</p>
             <Button size="sm" variant="text" className="-ml-3" onClick={retry}>
               Retry
             </Button>
@@ -122,8 +124,8 @@ function Rail() {
           <>
             {groups.map((g) => (
               <section key={g.key} aria-label={g.label} className="relative">
-                <div className="sticky top-0 z-[2] bg-vx-surface pb-1.5 pl-11 pt-3 text-[12px] font-semibold leading-4 text-vx-text-2">
-                  <span aria-hidden className="absolute inset-y-0 left-[27px] w-0.5 bg-vx-hair-soft" />
+                <div className="vx-eyebrow sticky top-0 z-[2] bg-vx-surface pb-1.5 pl-11 pt-3">
+                  <span aria-hidden className="absolute inset-y-0 left-[27.5px] w-px bg-vx-hair" />
                   {g.label}
                 </div>
                 {g.items.map((e) => (
@@ -155,11 +157,11 @@ function Rail() {
             ) : null}
             {hasMore ? (
               <div ref={sentinel} className="flex h-10 items-center justify-center">
-                {loadingMore ? <span className="vx-meta text-vx-text-3">Loading older versions…</span> : null}
+                {loadingMore ? <span className="vx-micro text-vx-text-3">Loading older versions…</span> : null}
               </div>
             ) : null}
             {entries.length <= 1 && filter === 'all' ? (
-              <EmptyState className="py-10" title="Your history starts here." body="Each upload, rename or delete adds a version." />
+              <EmptyState art="history" className="py-10" title="Your history starts here." body="Each upload, rename or delete adds a version." />
             ) : null}
             {!hasMore && entries.length > 1 && filter === 'all' ? (
               <p className="vx-micro px-3 pb-2 pt-4 text-vx-text-3">{headEntry ? 'That is everything still kept.' : null}</p>

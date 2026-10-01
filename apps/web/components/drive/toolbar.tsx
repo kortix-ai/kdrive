@@ -1,10 +1,10 @@
 'use client';
 
-// Drive sheet head (DESIGN-v2 §6.2): 64 px, breadcrumbs as pill crumbs (the current one
+// Drive sheet head (UNIFY-SPEC §14.2): 52 px, breadcrumbs as r4 crumbs (the current one
 // opens the folder menu), then the list/grid segmented control (`v`) and the Details (i)
 // button for the current folder. Search and + New live in the shell.
 // Phones (≤ 720 px, §7): an up button when not at the root, the current folder name
-// 22/600 + ▾, and the list/grid toggle on the right.
+// 20/600 + ▾, and the list/grid toggle on the right.
 import { ArrowLeft, ChevronDown, Info, LayoutGrid, List } from 'lucide-react';
 import { basename, dirname } from '@volumes/shared';
 import { IconButton } from '@/components/ui/icon-button';
@@ -26,6 +26,7 @@ export default function Toolbar({
   detailsOpen,
   onDetails,
   phone,
+  missing,
 }: {
   path: string;
   rootName: string;
@@ -39,6 +40,8 @@ export default function Toolbar({
   detailsOpen: boolean;
   onDetails: () => void;
   phone?: boolean;
+  /** The folder is not there: no folder menu, no view toggle, no details. */
+  missing?: boolean;
 }) {
   const here = path === '/' ? rootName : basename(path);
   const viewToggle = (
@@ -46,10 +49,9 @@ export default function Toolbar({
       label="View"
       value={view}
       onChange={onView}
-      check={!phone}
       options={[
-        { value: 'list', ariaLabel: 'List view (V)', label: <List size={18} strokeWidth={1.75} aria-hidden /> },
-        { value: 'grid', ariaLabel: 'Grid view (V)', label: <LayoutGrid size={18} strokeWidth={1.75} aria-hidden /> },
+        { value: 'list', ariaLabel: 'List view (V)', label: <List size={16} strokeWidth={1.75} aria-hidden /> },
+        { value: 'grid', ariaLabel: 'Grid view (V)', label: <LayoutGrid size={16} strokeWidth={1.75} aria-hidden /> },
       ]}
     />
   );
@@ -57,38 +59,42 @@ export default function Toolbar({
   if (phone) {
     const up = dirname(path) === '/' ? rootName : basename(dirname(path));
     return (
-      <header className="flex h-16 shrink-0 items-center gap-1 pl-2 pr-4">
+      <header className="flex h-[52px] shrink-0 items-center gap-1 pl-1.5 pr-3">
         {path !== '/' ? (
           <IconButton label={`Up to ${up}`} onClick={() => onNavigate(dirname(path))}>
-            <ArrowLeft size={20} strokeWidth={1.75} aria-hidden />
+            <ArrowLeft size={18} strokeWidth={1.75} aria-hidden />
           </IconButton>
         ) : (
-          <span className="w-2" aria-hidden />
+          <span className="w-0.5" aria-hidden />
         )}
         <div className="min-w-0 flex-1">
-          <Menu
-            items={folderMenu}
-            trigger={(p) => (
-              <button
-                type="button"
-                {...p}
-                aria-label={`${here}: folder actions`}
-                title={path === '/' ? rootName : path}
-                className="inline-flex h-10 max-w-full items-center gap-1 rounded-full px-2 text-[22px] font-semibold leading-7 tracking-[-0.02em] text-vx-text-1 hover:bg-vx-hover"
-              >
-                <span className="truncate">{here}</span>
-                <ChevronDown size={18} strokeWidth={1.75} className="shrink-0 text-vx-text-2" aria-hidden />
-              </button>
-            )}
-          />
+          {missing ? (
+            <span className="block truncate px-2 text-[20px] font-semibold leading-[26px] tracking-[-0.02em] text-vx-text-1">{here}</span>
+          ) : (
+            <Menu
+              items={folderMenu}
+              trigger={(p) => (
+                <button
+                  type="button"
+                  {...p}
+                  aria-label={`${here}: folder actions`}
+                  title={path === '/' ? rootName : path}
+                  className="inline-flex h-9 max-w-full items-center gap-1 rounded-vx-sm px-2 text-[20px] font-semibold leading-[26px] tracking-[-0.02em] text-vx-text-1 hover:bg-vx-raise"
+                >
+                  <span className="truncate">{here}</span>
+                  <ChevronDown size={16} strokeWidth={2} className="shrink-0 text-vx-text-3" aria-hidden />
+                </button>
+              )}
+            />
+          )}
         </div>
-        {viewToggle}
+        {missing ? null : viewToggle}
       </header>
     );
   }
 
   return (
-    <header className="flex h-16 shrink-0 items-center gap-3 pl-2 pr-3">
+    <header className="flex h-[52px] shrink-0 items-center gap-2 pl-2 pr-3">
       <div className="min-w-0 flex-1">
         <Breadcrumbs
           path={path}
@@ -98,14 +104,19 @@ export default function Toolbar({
           onDropItems={onDropItems}
           canDropInto={canDropInto}
           folderMenu={folderMenu}
+          missing={missing}
         />
       </div>
-      {viewToggle}
-      <Tooltip label="Details">
-        <IconButton label="Details" nativeTitle={false} toggled={detailsOpen} onClick={onDetails}>
-          <Info size={20} strokeWidth={1.75} aria-hidden />
-        </IconButton>
-      </Tooltip>
+      {missing ? null : (
+        <>
+          {viewToggle}
+          <Tooltip label="Details">
+            <IconButton label="Details" nativeTitle={false} toggled={detailsOpen} onClick={onDetails}>
+              <Info size={18} strokeWidth={1.75} aria-hidden />
+            </IconButton>
+          </Tooltip>
+        </>
+      )}
     </header>
   );
 }

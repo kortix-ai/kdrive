@@ -99,7 +99,7 @@ function MoveCopyInner({ ws, rootName, req, onClose }: { ws: string; rootName: s
       onSubmit={() => void run()}
       footer={
         <>
-          <span className="vx-meta mr-auto min-w-0 truncate text-vx-text-3 max-[720px]:mr-0 max-[720px]:text-center">
+          <span className="vx-micro mr-auto min-w-0 truncate text-vx-text-3 max-[720px]:mr-0 max-[720px]:text-center">
             to <span className="font-medium text-vx-text-1">{destLabel}</span>
           </span>
           <Button variant="ghost" onClick={onClose} disabled={busy}>
@@ -114,7 +114,7 @@ function MoveCopyInner({ ws, rootName, req, onClose }: { ws: string; rootName: s
       <nav aria-label="Destination" className="-ml-2 mb-2 flex flex-wrap items-center">
         {crumbs.map((c, i) => (
           <span key={c.path} className="flex min-w-0 items-center">
-            {i > 0 ? <ChevronRight size={16} strokeWidth={1.75} className="shrink-0 text-vx-text-4" aria-hidden /> : null}
+            {i > 0 ? <ChevronRight size={14} strokeWidth={1.75} className="shrink-0 text-vx-text-4" aria-hidden /> : null}
             <button
               type="button"
               aria-current={i === crumbs.length - 1 ? 'location' : undefined}
@@ -123,7 +123,7 @@ function MoveCopyInner({ ws, rootName, req, onClose }: { ws: string; rootName: s
                 setExists(null);
               }}
               className={cx(
-                'inline-flex h-8 max-w-[180px] items-center truncate rounded-full px-2 text-[14px] font-medium leading-5 transition-colors duration-[120ms] hover:bg-vx-hover',
+                'inline-flex h-7 max-w-[180px] items-center truncate rounded-vx-sm px-2 text-[14px] font-medium leading-5 transition-colors duration-[120ms] hover:bg-vx-raise',
                 i === crumbs.length - 1 ? 'text-vx-text-1' : 'text-vx-text-3 hover:text-vx-text-1',
               )}
             >
@@ -132,7 +132,7 @@ function MoveCopyInner({ ws, rootName, req, onClose }: { ws: string; rootName: s
           </span>
         ))}
       </nav>
-      <div className="h-[260px] overflow-auto rounded-vx-md bg-vx-surface-2 p-1">
+      <div className="h-[260px] overflow-auto rounded-vx-sm border border-vx-hair bg-vx-surface-2">
         {isLoading && !data ? (
           <div className="space-y-2 p-3">
             <span className="skeleton skel-line w-40" />
@@ -140,7 +140,7 @@ function MoveCopyInner({ ws, rootName, req, onClose }: { ws: string; rootName: s
             <span className="skeleton skel-line w-36" />
           </div>
         ) : listErr ? (
-          <p className="vx-meta p-3 text-vx-del-fg">Couldn't list this folder.</p>
+          <p className="vx-body p-3 text-vx-danger">Couldn't list this folder.</p>
         ) : folders.length ? (
           <ul role="listbox" aria-label="Folders">
             {folders.map((f) => {
@@ -155,28 +155,28 @@ function MoveCopyInner({ ws, rootName, req, onClose }: { ws: string; rootName: s
                       setDir(f.path);
                       setExists(null);
                     }}
-                    className="vx-inset-focus flex h-10 w-full items-center gap-3 rounded-vx-sm px-3 text-left transition-colors duration-[120ms] hover:bg-vx-hover disabled:cursor-not-allowed disabled:opacity-[.38]"
+                    className="vx-inset-focus flex h-9 w-full items-center gap-3 border-b border-vx-hair-soft px-3 text-left transition-colors duration-[120ms] hover:bg-vx-raise disabled:cursor-not-allowed disabled:opacity-[.38]"
                   >
-                    <FileIcon name={f.name} type="dir" size={24} />
+                    <FileIcon name={f.name} type="dir" size={20} />
                     <span className="min-w-0 flex-1 truncate text-[14px] font-medium leading-5 text-vx-text-1">{f.name}</span>
-                    <ChevronRight size={18} strokeWidth={1.75} className="shrink-0 text-vx-text-3" aria-hidden />
+                    <ChevronRight size={16} strokeWidth={1.75} className="shrink-0 text-vx-text-3" aria-hidden />
                   </button>
                 </li>
               );
             })}
           </ul>
         ) : (
-          <p className="vx-meta p-3 text-vx-text-3">No folders in here.</p>
+          <p className="vx-body p-3 text-vx-text-3">No folders in here.</p>
         )}
       </div>
-      {invalid ? <p className="vx-meta mt-2 text-vx-text-3">{invalid}</p> : null}
+      {invalid ? <p className="vx-micro mt-2 text-vx-text-3">{invalid}</p> : null}
       {exists ? (
-        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-vx-md bg-vx-danger-wash px-3.5 py-3 shadow-[inset_0_0_0_1px_var(--vx-danger-edge)]" role="alert">
+        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-vx-md bg-vx-danger-wash px-3 py-2.5 shadow-[inset_0_0_0_1px_var(--vx-danger-edge)]" role="alert">
           <span className="min-w-0 flex-1">
             <span className="block text-[14px] font-semibold leading-5 text-vx-text-1">
               {exists.length === 1 ? `${basename(exists[0])} already exists in ${destLabel}.` : `${exists.length} items already exist in ${destLabel}.`}
             </span>
-            <span className="vx-meta block text-vx-text-2">Replace keeps the old one in history.</span>
+            <span className="vx-micro block text-vx-text-2">Replace keeps the old one in history.</span>
           </span>
           <span className="flex shrink-0 items-center gap-2">
             <Button size="sm" variant="outline" onClick={() => void run({ overwrite: true })} disabled={busy}>
@@ -188,7 +188,7 @@ function MoveCopyInner({ ws, rootName, req, onClose }: { ws: string; rootName: s
           </span>
         </div>
       ) : null}
-      <p className="vx-meta mt-3 text-vx-text-3">
+      <p className="vx-micro mt-3 text-vx-text-3">
         {req.mode === 'move' ? 'Moving' : 'Copying'} makes one new version. You can undo it.
       </p>
     </Dialog>

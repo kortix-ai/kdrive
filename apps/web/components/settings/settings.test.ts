@@ -57,7 +57,7 @@ describe('workspace helpers', () => {
   test('provenance', () => {
     expect(provenance({ forkedFrom: null })).toBeNull();
     expect(provenance({ forkedFrom: { workspaceId: 'w', workspaceName: 'Personal', commitId: 'vc_01J8ZQ3ABC' } })).toBe('Duplicated from Personal @8zq3abc');
-    expect(provenance({ forkedFrom: { workspaceId: null, workspaceName: null, commitId: 'vc_01J8ZQ3ABC' } })).toContain('a deleted workspace');
+    expect(provenance({ forkedFrom: { workspaceId: null, workspaceName: null, commitId: 'vc_01J8ZQ3ABC' } })).toContain('a deleted drive');
   });
 });
 

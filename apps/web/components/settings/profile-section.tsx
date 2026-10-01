@@ -54,23 +54,23 @@ export function ProfileSection({ me }: { me: MeResponse }) {
   return (
     <Section id="profile" label="Profile">
       <div className="flex items-center gap-4">
-        <Avatar name={name} image={me.user.image} size={48} />
+        <Avatar name={name} image={me.user.image} size={40} />
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-2">
-            <span className="truncate text-[16px] font-semibold leading-6 text-vx-text-1">{me.user.name || 'No name'}</span>
+            <span className="vx-title truncate">{me.user.name || 'No name'}</span>
             {me.isAdmin ? <Badge tone="accent">Admin</Badge> : null}
           </div>
-          <div className="vx-meta truncate text-vx-text-3">{me.user.email}</div>
+          <div className="vx-meta mt-0.5 truncate text-vx-text-3">{me.user.email}</div>
         </div>
       </div>
-      <div className="mt-5 flex flex-wrap items-center gap-2">
+      <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-vx-hair-soft pt-4">
         <span className="mr-1 text-[13px] font-medium leading-5 text-vx-text-2">Signed in with</span>
         {accounts.error ? (
-          <span className="text-[13px] text-vx-del-fg">Couldn&apos;t load connected accounts.</span>
+          <span className="text-[13px] text-vx-danger">Couldn&apos;t load connected accounts.</span>
         ) : !accounts.data ? (
           <span className="skeleton skel-line inline-block w-32" />
         ) : accounts.data.length === 0 ? (
-          <span className="vx-meta text-vx-text-3">No connected accounts</span>
+          <span className="text-[13px] leading-5 text-vx-text-3">No connected accounts</span>
         ) : (
           accounts.data.map((a) => (
             <Badge key={a.id} title={`Connected ${formatDate(a.createdAt)}`} icon={<KeyRound strokeWidth={2} aria-hidden />}>

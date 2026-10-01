@@ -77,12 +77,12 @@ export function ConflictBar({
         className,
       )}
     >
-      <TriangleAlert size={18} strokeWidth={1.75} aria-hidden className="shrink-0 text-vx-del-fg" />
+      <TriangleAlert size={16} strokeWidth={1.75} aria-hidden className="shrink-0 text-vx-danger" />
       <div className="flex min-w-0 flex-1 flex-col">
         <span className="text-[14px] font-semibold leading-5 text-vx-text-1">
           {files} changed since the agent read {count === 1 ? 'it' : 'them'}.
         </span>
-        <span className="vx-meta text-vx-text-2">Accepting replaces those changes. Review them first.</span>
+        <span className="text-[13px] leading-5 text-vx-text-2">Accepting replaces those changes. Review them first.</span>
       </div>
       <div className="flex shrink-0 items-center gap-2 max-[720px]:w-full max-[720px]:justify-end">
         <Button variant="text" size="sm" onClick={onShow}>

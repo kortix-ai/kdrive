@@ -187,7 +187,7 @@
 
   --vx-add-fg: #1b7546; --vx-add-bg: rgb(46 160 90 / .10); --vx-add-word: rgb(46 160 90 / .24); --vx-add-word-fg: #0f5a33;
   --vx-del-fg: #c2302a; --vx-del-bg: rgb(229 72 77 / .08); --vx-del-word: rgb(229 72 77 / .20); --vx-del-word-fg: #8e1c17;
-  --vx-mod-bg: rgb(154 93 0 / .07);
+  --vx-mod-bg: rgb(154 93 0 / .12);
 
   --vx-ok: #1b7546; --vx-ok-wash: rgb(27 117 70 / .08);
   --vx-warn: #9a5d00; --vx-warn-wash: rgb(154 93 0 / .08);
@@ -315,7 +315,7 @@
   --vx-ease: cubic-bezier(.2, .7, .2, 1); --vx-ease-io: cubic-bezier(.65, 0, .35, 1); --vx-ease-exit: cubic-bezier(.3, 0, 1, 1);
   --vx-dur-1: 120ms; --vx-dur-2: 160ms; --vx-dur-3: 200ms; --vx-dur-4: 240ms; --vx-dur-5: 500ms;
   --vx-topbar-h: 56px; --vx-rail-w: 240px; --vx-row-h: 36px; --vx-strip-h: 64px;
-  --vx-panel-w: 380px; --vx-timeline-w: 300px; --vx-ctl-h: 36px; --vx-ctl-h-sm: 30px;
+  --vx-panel-w: clamp(380px, 30vw, 480px); --vx-timeline-w: 300px; --vx-ctl-h: 36px; --vx-ctl-h-sm: 30px;
   --vx-list-cols: 36px minmax(0, 1fr) 168px 96px 152px;
   --vx-list-cols-compact: 36px minmax(0, 1fr) 120px 80px;
 }
@@ -434,14 +434,18 @@ html, body {
   color: var(--vx-text-2);
   font-family: var(--vx-font-sans);
   font-feature-settings: "cv11", "ss01";
-  font-size: 14px;
-  line-height: 20px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+/* The root stays at 16 px so the rem-based spacing scale is the spec's 4 px grid (h-9 = 36, leading-5 = 20);
+   body copy is 14/20. */
+html { font-size: 16px; }
+body { font-size: 14px; line-height: 20px; }
 html, body { height: 100%; }
 body { overflow: hidden; }
 kbd, code, pre, samp, .vx-code, .vx-mono { font-family: var(--vx-font-mono); }
+/* Code reads as typed: no "=>" → "⇒" ligatures in any mono text (previews, compare, meta). */
+kbd, code, pre, samp, .vx-code, .vx-mono, .font-mono { font-variant-ligatures: none; }
 .tabular-nums, .vx-meta, .vx-meta-row, .vx-micro, .vx-mono { font-variant-numeric: tabular-nums; }
 
 /* In the base layer so a component's own `outline-none` (fields that draw a focus border,
@@ -477,6 +481,8 @@ html.vx-theme-switching *, html.vx-theme-switching *::before, html.vx-theme-swit
 .vx-micro { font-size: 12px; line-height: 16px; font-weight: 400; }
 .vx-eyebrow { font-family: var(--vx-font-mono); font-size: 11px; line-height: 16px; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; color: var(--vx-text-3); }
 .vx-colhead { font-family: var(--vx-font-mono); font-size: 11px; line-height: 16px; font-weight: 500; letter-spacing: .10em; text-transform: uppercase; color: var(--vx-text-3); }
+/* Header cells that hold the user's own data (CSV columns): the colhead voice, but never re-cased. */
+.vx-datahead { font-family: var(--vx-font-mono); font-size: 11px; line-height: 16px; font-weight: 500; letter-spacing: .04em; color: var(--vx-text-3); }
 .vx-code { font-size: 12px; line-height: 18px; font-weight: 400; }
 /* Metal text: the landing wordmark, two landing emphasis words and the sign-in headline's last word only. */
 .vx-metal { background: var(--vx-metal); -webkit-background-clip: text; background-clip: text; color: transparent; }
@@ -612,10 +618,24 @@ html.vx-theme-switching *, html.vx-theme-switching *::before, html.vx-theme-swit
 .vx-content > .vx-panel { grid-row: 1; grid-column: 3; width: var(--vx-panel-w); }
 .vx-content > .vx-strip { grid-row: 2; grid-column: 1 / -1; min-height: var(--vx-strip-h); }
 .vx-main { display: flex; flex-direction: column; min-height: 0; min-width: 0; overflow: hidden; }
-.vx-main.vx-sheetless { background: transparent; border: 0; box-shadow: none; }
-/* Sheetless pages scroll on the page itself: run the scroll box to the window edge so cards are not cut above it. */
-.vx-content:has(> .vx-main.vx-sheetless) { padding-bottom: 0; row-gap: 0; }
-.vx-main.vx-sheetless { border-radius: 0; }
+/* Key hints that decorate a control are noise on touch screens. */
+@media (hover: none) and (pointer: coarse), (max-width: 720px) { .vx-kbd-hint { display: none !important; } }
+
+/* A sideways-scrolling box with more content past its right edge fades that edge (useOverflowFade). */
+.vx-fade-x[data-more-right='true'] { mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent); }
+.vx-fade-y[data-more-bottom='true'] { mask-image: linear-gradient(180deg, #000 calc(100% - 32px), transparent); }
+
+/* Skip link: the first tab stop in the app shell, hidden until focused. */
+.vx-skip {
+  position: fixed; top: 8px; left: 8px; z-index: 80;
+  padding: 10px 14px; border-radius: var(--vx-r-sm);
+  background: var(--vx-text-1); color: var(--vx-bg); font-size: 14px; line-height: 1; font-weight: 500;
+  transform: translateY(-160%); transition: transform var(--vx-dur-1) var(--vx-ease);
+}
+.vx-skip:focus-visible { transform: none; }
+/* One frame for every top-level page (components/ui/page.tsx): left-aligned 1040 column inside the work sheet. */
+.vx-page { width: 100%; max-width: 1040px; padding: 28px 24px 40px; }
+@media (max-width: 720px) { .vx-page { padding: 20px 16px 32px; } }
 .vx-timeline, .vx-panel { min-height: 0; overflow: hidden; display: flex; flex-direction: column; margin-left: 8px; }
 
 /* Short labels in the collapsed sidebar; hidden on wide layouts. */
@@ -625,6 +645,9 @@ html.vx-theme-switching *, html.vx-theme-switching *::before, html.vx-theme-swit
 @media (max-width: 1279px) {
   .vx-content { grid-template-columns: minmax(0, 1fr) 0 0; }
   .vx-content > .vx-timeline, .vx-content > .vx-panel {
+    /* Auto placement: an absolutely positioned grid child then sizes against the container's padding box,
+       not its own (0-wide) grid track. */
+    grid-column: auto; grid-row: auto;
     position: absolute; top: 12px; right: 12px; bottom: 12px; z-index: 30;
     max-width: calc(100% - 24px);
     box-shadow: var(--vx-shadow-4);
@@ -706,10 +729,17 @@ html.vx-theme-switching *, html.vx-theme-switching *::before, html.vx-theme-swit
 .vx-nav:active { background: var(--vx-pressed); }
 .vx-nav[aria-current='page'] { background: var(--vx-accent-wash); color: var(--vx-text-1); font-weight: 600; }
 .vx-nav-icon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.vx-nav-chord { opacity: 0; font-family: var(--vx-font-mono); font-size: 11px; color: var(--vx-text-3); transition: opacity var(--vx-dur-1) var(--vx-ease); }
+/* The chord shows on hover/focus beside the count (never instead of it), so a count is never hidden while pointed at. */
+.vx-nav-chord { opacity: 0; font-family: var(--vx-font-mono); font-size: 11px; text-transform: uppercase; color: var(--vx-text-4); transition: opacity var(--vx-dur-1) var(--vx-ease); }
 .vx-nav:hover .vx-nav-chord, .vx-nav:focus-visible .vx-nav-chord { opacity: 1; }
-.vx-nav:hover .vx-nav-count, .vx-nav:focus-visible .vx-nav-count { display: none; }
-.vx-nav-count { font-family: var(--vx-font-mono); font-size: 11px; font-variant-numeric: tabular-nums; color: var(--vx-text-3); }
+@media (hover: none) { .vx-nav-chord { display: none; } }
+/* Nav counts are one component: an r2 Mono chip. Plain counts carry a hair ring; attention counts (proposals) the accent wash. */
+.vx-nav-count {
+  display: inline-flex; align-items: center; justify-content: center; height: 18px; min-width: 18px; padding: 0 4px;
+  border-radius: var(--vx-r-xs); box-shadow: inset 0 0 0 1px var(--vx-hair);
+  font-family: var(--vx-font-mono); font-size: 11px; line-height: 16px; font-weight: 500; font-variant-numeric: tabular-nums; color: var(--vx-text-3);
+}
+.vx-nav-count.is-attention { box-shadow: none; background: var(--vx-accent-wash); color: var(--vx-on-accent-wash); }
 .vx-nav.is-drop { background: var(--vx-accent-wash); box-shadow: inset 0 0 0 1px var(--vx-accent-edge); }
 @media (min-width: 721px) and (max-width: 1023px) {
   .vx-nav { flex-direction: column; justify-content: center; gap: 2px; height: auto; width: 48px; padding: 0 0 4px; background: transparent !important; color: var(--vx-text-2); font-size: 11px; line-height: 14px; }

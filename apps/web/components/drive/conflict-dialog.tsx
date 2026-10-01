@@ -1,7 +1,7 @@
 'use client';
 
 // Upload conflict (DESIGN-v2 §6.13, 480 px): "notes.md and 2 more already exist." with the
-// first five names in a surface-2 r12 box, an "Apply to all" checkbox (reused for the rest of this upload only),
+// first five names in a surface-2 r4 well (Mono paths), an "Apply to all" checkbox (reused for the rest of this upload only),
 // Keep both (default, ↵) · Replace. Esc cancels the upload.
 import { useState } from 'react';
 import { basename, dirname } from '@volumes/shared';
@@ -50,17 +50,17 @@ export default function ConflictDialog() {
         </>
       }
     >
-      <ul className="rounded-vx-md bg-vx-surface-2 p-1">
+      <ul className="overflow-hidden rounded-vx-sm border border-vx-hair bg-vx-surface-2">
         {shown.map((p) => (
-          <li key={p} className="flex h-10 items-center gap-3 px-3">
-            <FileIcon name={basename(p)} type="file" size={24} />
+          <li key={p} className="flex h-9 items-center gap-3 border-b border-vx-hair-soft px-3 last:border-b-0">
+            <FileIcon name={basename(p)} type="file" size={20} />
             <span className="min-w-0 flex-1 truncate text-[14px] font-medium leading-5 text-vx-text-1">{basename(p)}</span>
-            <span className="vx-meta max-w-[45%] truncate text-vx-text-3" title={dirname(p)}>
+            <span className="vx-meta-row max-w-[45%] truncate text-vx-text-3" title={dirname(p)}>
               {dirname(p) === '/' ? 'My Drive' : dirname(p)}
             </span>
           </li>
         ))}
-        {more > 0 ? <li className="vx-meta px-3 pb-2 pt-1 text-vx-text-3">and {more} more</li> : null}
+        {more > 0 ? <li className="vx-meta px-3 py-2 text-vx-text-3">and {more} more</li> : null}
       </ul>
       <p className="vx-body mt-4 text-vx-text-2">
         Keep both saves the new copies as <span className="font-medium text-vx-text-1">name (1).ext</span>. Replace makes the new files the current version; the old
@@ -69,7 +69,7 @@ export default function ConflictDialog() {
       <label className="mt-4 flex cursor-pointer items-center gap-3">
         <Checkbox checked={all} onChange={(c) => setAll(c)} label="Apply to all" />
         <span className="text-[14px] font-medium leading-5 text-vx-text-1">Apply to all</span>
-        <span className="vx-meta text-vx-text-3">for the rest of this upload</span>
+        <span className="vx-micro text-vx-text-3">for the rest of this upload</span>
       </label>
     </Dialog>
   );

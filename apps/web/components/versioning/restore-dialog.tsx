@@ -8,7 +8,7 @@ import { Dialog } from '@/components/ui/dialog';
 import { cx } from '@/components/ui/cx';
 import { ApiError } from '@/lib/api/client';
 import { api } from '@/lib/api/endpoints';
-import { formatBytes, formatTimeTravelLabel } from '@/lib/format';
+import { formatBytes, formatMoment } from '@/lib/format';
 import { useVx, type RestoreTarget } from '@/lib/store';
 import { errorText, useCommit, useDriveCompare, useTimelineEntries } from '@/lib/versioning/hooks';
 import { restoreEffects, type EffectLine } from '@/lib/versioning/restore-effects';
@@ -37,7 +37,7 @@ function Restore({ target }: { target: NonNullable<RestoreTarget> }) {
   const known = tt?.commitId === target.at ? tt.createdAt : entries.find((e) => e.commitId === target.at)?.createdAt;
   const commit = useCommit(known ? null : target.at);
   const createdAt = known ?? commit.data?.createdAt ?? null;
-  const when = createdAt ? formatTimeTravelLabel(createdAt) : '…';
+  const when = createdAt ? formatMoment(createdAt) : '…';
 
   const scoped = target.scope !== 'file';
   const isHead = !!headCommitId && headCommitId === target.at;
@@ -56,7 +56,7 @@ function Restore({ target }: { target: NonNullable<RestoreTarget> }) {
       close();
       if (target.scope === 'drive') exitTimeTravel();
       refresh();
-      const whenShort = createdAt ? formatTimeTravelLabel(createdAt).replace(',', '') : 'that version';
+      const whenShort = createdAt ? formatMoment(createdAt) : 'that version';
       let label = target.scope === 'drive' ? `Restored the drive to ${whenShort}` : `Restored ${target.scope === 'file' ? name : target.path} to ${whenShort}`;
       if (target.scope === 'drive') {
         if (r.checkpoint) label += ` · Saved checkpoint ${r.checkpoint.name}`;
@@ -106,7 +106,7 @@ function Restore({ target }: { target: NonNullable<RestoreTarget> }) {
           <Button variant="text" onClick={close} disabled={busy}>
             Cancel
           </Button>
-          <Button variant="past-primary" onClick={() => void run()} loading={busy} disabled={!ws} icon={<RotateCcw size={18} strokeWidth={1.75} aria-hidden />}>
+          <Button variant="past-primary" onClick={() => void run()} loading={busy} disabled={!ws} icon={<RotateCcw size={16} strokeWidth={1.75} aria-hidden />}>
             Restore
           </Button>
         </>
@@ -114,12 +114,12 @@ function Restore({ target }: { target: NonNullable<RestoreTarget> }) {
     >
       <div className="rounded-vx-md bg-vx-surface-2 px-3 py-1.5">
         {target.scope !== 'file' && isHead ? (
-          <p className="vx-body flex h-9 items-center text-vx-text-3">This is already the current version. Nothing changes.</p>
+          <p className="vx-body flex h-8 items-center text-vx-text-3">This is already the current version. Nothing changes.</p>
         ) : target.scope !== 'file' && cmp.isLoading ? (
           <div aria-busy aria-label="Working out what changes">
             {[0, 1, 2].map((i) => (
-              <div key={i} className="flex h-9 items-center gap-3">
-                <span className="skeleton h-6 w-6 shrink-0 !rounded-full" />
+              <div key={i} className="flex h-8 items-center gap-3">
+                <span className="skeleton h-5 w-5 shrink-0" />
                 <span className="skeleton skel-line" style={{ width: `${70 - i * 12}%` }} />
               </div>
             ))}
@@ -129,9 +129,11 @@ function Restore({ target }: { target: NonNullable<RestoreTarget> }) {
         ) : effectRows.length ? (
           <ul className="flex flex-col">
             {effectRows.map((l) => (
-              <li key={l.mark} className="flex min-h-9 items-center gap-3 py-1 text-[14px] leading-5 text-vx-text-1">
-                <EffectDisc mark={l.mark} />
-                <span className="min-w-0 break-words">{l.text}</span>
+              <li key={l.mark} className="flex min-h-8 items-center gap-3 py-1 text-[14px] leading-5 text-vx-text-1">
+                <EffectTile mark={l.mark} />
+                <span className="min-w-0 break-words">
+                  <EffectText text={l.text} />
+                </span>
               </li>
             ))}
           </ul>
@@ -144,19 +146,36 @@ function Restore({ target }: { target: NonNullable<RestoreTarget> }) {
       {cmp.data?.source === 'tree' ? <p className="vx-micro mt-2 text-vx-text-3">Worked out by listing both versions.</p> : null}
 
       <p className="vx-body mt-4 text-vx-text-2">This restore becomes a new version. You can undo it.</p>
-      {target.scope === 'drive' ? <p className="vx-meta mt-1 text-vx-text-3">A checkpoint of the current state is saved first.</p> : null}
+      {target.scope === 'drive' ? <p className="vx-micro mt-1 text-vx-text-3">A checkpoint of the current state is saved first.</p> : null}
     </Dialog>
   );
 }
 
-/** 24 px icon disc for an effect line: ~ goes back (past), + comes back (add), − removed (del), → moves back. */
-function EffectDisc({ mark }: { mark: EffectLine['mark'] }) {
-  const tone =
-    mark === '+' ? 'bg-vx-add-bg text-vx-add-fg' : mark === '−' ? 'bg-vx-del-bg text-vx-del-fg' : 'bg-vx-surface-3 text-vx-past';
+/** 20 px r2 glyph tile for an effect line (UNIFY-SPEC §14.3): ~ goes back (past), + comes back (add), − removed (del), → moves back. */
+function EffectTile({ mark }: { mark: EffectLine['mark'] }) {
+  const tone = mark === '+' ? 'bg-vx-add-bg text-vx-add-fg' : mark === '−' ? 'bg-vx-del-bg text-vx-del-fg' : 'bg-vx-past-wash text-vx-past';
   const Icon = mark === '+' ? Plus : mark === '−' ? Minus : mark === '→' ? CornerUpLeft : RotateCcw;
   return (
-    <span aria-hidden className={cx('inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full', tone)}>
-      <Icon size={14} strokeWidth={2} />
+    <span aria-hidden className={cx('inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-vx-xs', tone)}>
+      <Icon size={12} strokeWidth={2} />
     </span>
+  );
+}
+
+/** The counts in an effect line ("3 files and 1 folder …") in Mono; the rest stays prose. */
+function EffectText({ text }: { text: string }) {
+  const parts = text.split(/(\d[\d,]*(?= (?:files?|folders?)\b))/);
+  return (
+    <>
+      {parts.map((p, i) =>
+        i % 2 ? (
+          <span key={i} className="font-mono text-[13px] tabular-nums">
+            {p}
+          </span>
+        ) : (
+          p
+        ),
+      )}
+    </>
   );
 }

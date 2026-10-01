@@ -12,12 +12,15 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { FileIcon } from '@/components/ui/file-icon';
 import { Segmented } from '@/components/ui/segmented';
 import { CompareCsv } from '@/components/versioning/compare-csv';
-import { MissingSide, SideDisc, SummaryBar, type CompareModes } from '@/components/versioning/compare-header';
+import { MissingSide, SideDisc, SummaryBar, type CompareModes, type CompareSides } from '@/components/versioning/compare-header';
 import { CompareImage } from '@/components/versioning/compare-image';
 import { CompareMeta } from '@/components/versioning/compare-meta';
 import { CompareText } from '@/components/versioning/compare-text';
 import { driveHref } from '@/lib/urls';
 import { CHANGE_LABEL } from './format';
+
+/** A proposal review compares "Now" (A, a neutral disc, never the past's amber) with "Proposed" (B). UNIFY-SPEC §14.4. */
+const REVIEW_SIDES: CompareSides = { a: { label: 'Now', tone: 'neutral' }, b: { label: 'Proposed' } };
 
 export type ReviewView = 'text' | 'image' | 'csv' | 'meta' | 'removed' | 'move' | 'folder' | 'none';
 
@@ -48,15 +51,15 @@ function MoveFacts({ f }: { f: ProposalFile }) {
   const folderThere = f.inDrive?.folder !== false;
   return (
     <div className="p-5 max-[720px]:p-4">
-      <div className="max-w-[560px] rounded-vx-md bg-vx-surface-2 p-4">
-        <p className="text-[16px] font-semibold leading-6 text-vx-text-1">
+      <div className="max-w-[560px] rounded-vx-md border border-vx-hair bg-vx-surface-2 p-4">
+        <p className="vx-title">
           {verb} {f.entryType === 'dir' ? 'a folder' : 'a file'}
         </p>
-        <dl className="mt-3 grid grid-cols-[72px_minmax(0,1fr)] gap-x-3 gap-y-2 text-[14px] leading-5">
+        <dl className="mt-3 grid grid-cols-[72px_minmax(0,1fr)] items-baseline gap-x-3 gap-y-2 text-[13px] leading-5">
           <dt className="text-vx-text-3">From</dt>
           <dd className="min-w-0">
             {fromThere ? (
-              <Link href={fileLink(from, f.entryType === 'dir')} className="vx-code break-all text-vx-accent hover:underline">
+              <Link href={fileLink(from, f.entryType === 'dir')} className="vx-code break-all text-vx-text-1 underline decoration-vx-hair-strong underline-offset-[3px] hover:decoration-vx-text-1">
                 {from}
               </Link>
             ) : (
@@ -69,14 +72,14 @@ function MoveFacts({ f }: { f: ProposalFile }) {
             {f.path}
           </dd>
           <dt className="text-vx-text-3">Size</dt>
-          <dd className="tabular-nums text-vx-text-2">{f.size !== null ? formatBytes(f.size) : f.baseSize !== null ? formatBytes(f.baseSize) : '—'}</dd>
+          <dd className="vx-meta-row text-vx-text-2">{f.size !== null ? formatBytes(f.size) : f.baseSize !== null ? formatBytes(f.baseSize) : '—'}</dd>
         </dl>
-        <p className="vx-meta mt-3 text-vx-text-3">
+        <p className="vx-micro mt-3 text-vx-text-3">
           {f.op === 'move' ? 'The original goes away when you accept.' : 'The original stays where it is.'}
           {folderThere ? (
             <>
               {' '}
-              <Link href={driveHref(dirname(f.path) || '/')} className="text-vx-accent hover:underline">
+              <Link href={driveHref(dirname(f.path) || '/')} className="text-vx-text-1 underline decoration-vx-hair-strong underline-offset-[3px] hover:decoration-vx-text-1">
                 Open the destination folder
               </Link>
             </>
@@ -119,10 +122,10 @@ export function ReviewPane({
   let body: React.ReactNode;
   switch (view) {
     case 'text':
-      body = <CompareText a={a} b={b} path={file.path} mode={phone ? 'unified' : modes.text} />;
+      body = <CompareText a={a} b={b} path={file.path} mode={phone ? 'unified' : modes.text} sides={REVIEW_SIDES} />;
       break;
     case 'image':
-      body = <CompareImage a={a} b={b} mode={modes.image} />;
+      body = <CompareImage a={a} b={b} mode={modes.image} sides={REVIEW_SIDES} />;
       break;
     case 'csv':
       body = <CompareCsv a={a} b={b} path={file.path} changesOnly={modes.changesOnly} />;
@@ -161,7 +164,7 @@ export function ReviewPane({
     case 'folder':
       body = (
         <div className="flex items-center gap-3 p-5 max-[720px]:p-4">
-          <FolderPlus size={20} strokeWidth={1.75} aria-hidden className="shrink-0 text-vx-text-2" />
+          <FolderPlus size={16} strokeWidth={1.75} aria-hidden className="shrink-0 text-vx-text-2" />
           <p className="vx-body text-vx-text-1">
             Creates the folder <span className="vx-code break-all">{file.path}</span>
           </p>
@@ -228,7 +231,7 @@ export function ReviewPane({
       <div className="flex min-h-14 shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-vx-hair px-5 py-2 max-[720px]:px-4">
         <FileIcon name={name} type={file.entryType === 'dir' ? 'dir' : 'file'} size={24} />
         <div className="flex min-w-0 flex-1 flex-col">
-          <span className="truncate text-[15px] font-semibold leading-5 text-vx-text-1" title={file.path}>
+          <span className="truncate text-[14px] font-semibold leading-5 text-vx-text-1" title={file.path}>
             {name}
           </span>
           <span className="vx-meta truncate text-vx-text-3">
@@ -238,7 +241,7 @@ export function ReviewPane({
         {view === 'text' || view === 'image' || view === 'csv' || view === 'meta' ? (
           <span className="flex shrink-0 items-center gap-3 text-[13px] leading-5 text-vx-text-2">
             <span className="inline-flex items-center gap-1.5">
-              <SideDisc which="A" /> Now
+              <SideDisc which="A" tone="neutral" /> Now
             </span>
             <span className="inline-flex items-center gap-1.5">
               <SideDisc which="B" /> Proposed
@@ -252,9 +255,9 @@ export function ReviewPane({
             download
             aria-label="Download the proposed file"
             title="Download the proposed file"
-            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-vx-text-2 transition-colors duration-[120ms] hover:bg-vx-surface-3 hover:text-vx-text-1"
+            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-vx-sm text-vx-text-2 transition-colors duration-[120ms] hover:bg-vx-raise hover:text-vx-text-1"
           >
-            <Download size={18} strokeWidth={1.75} aria-hidden />
+            <Download size={16} strokeWidth={1.75} aria-hidden />
           </a>
         ) : null}
       </div>
@@ -269,7 +272,7 @@ export function ReviewPane({
       {pending && (onAccept || onDiscard) ? (
         <footer className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-vx-hair px-5 py-3 max-[720px]:px-4">
           {onAccept && alsoAccepts.length ? (
-            <p className="vx-meta mr-auto min-w-0 truncate text-vx-text-3" title={alsoAccepts.join('\n')}>
+            <p className="vx-micro mr-auto min-w-0 truncate text-vx-text-3" title={alsoAccepts.join('\n')}>
               Also accepts: {alsoAccepts[0]}
               {alsoAccepts.length > 1 ? ` and ${alsoAccepts.length - 1} more` : ''}
             </p>

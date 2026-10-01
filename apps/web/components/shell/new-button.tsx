@@ -56,7 +56,8 @@ export function NewButton() {
       className={cx(
         'inline-flex h-9 w-full shrink-0 items-center justify-center gap-2 rounded-vx-sm bg-vx-primary px-3.5 text-[14px] font-medium text-vx-on-primary transition-[background-color,opacity] duration-[120ms] ease-vx',
         'hover:bg-vx-primary-hover aria-expanded:bg-vx-primary-hover',
-        'disabled:cursor-not-allowed disabled:opacity-[.38] disabled:hover:bg-vx-primary',
+        // Unavailable in the past: a quiet surface slab with a hair edge, not a faded fill that looks broken.
+        'disabled:cursor-not-allowed disabled:bg-vx-surface-3 disabled:text-vx-text-4 disabled:shadow-[inset_0_0_0_1px_var(--vx-hair)] disabled:hover:bg-vx-surface-3',
         'max-[1023px]:h-10 max-[1023px]:w-10 max-[1023px]:p-0 max-[720px]:h-9 max-[720px]:w-full max-[720px]:px-3.5',
       )}
     >
@@ -64,8 +65,15 @@ export function NewButton() {
       <span className="vx-side-full">New</span>
     </button>
   );
-  if (past) return <Tooltip label={READ_ONLY_REASON} side="right">{button({})}</Tooltip>;
-  return <Menu placement="over" minWidth={240} items={items} trigger={(p) => button(p)} />;
+  // The tooltip wrapper is a block, so the disabled button keeps its full width in the past (no layout jump).
+  if (past)
+    return (
+      <Tooltip label={READ_ONLY_REASON} side="right" className="flex w-full">
+        {button({})}
+      </Tooltip>
+    );
+  // Like every menu: 4 px below its anchor, here exactly as wide as the button.
+  return <Menu matchWidth minWidth={216} items={items} trigger={(p) => button(p)} />;
 }
 
 /** Phone FAB (≤ 720 px, /drive only): primary, 48 px, r4, bottom-right above the strip pill. */
@@ -83,7 +91,7 @@ export function NewFab() {
             {...p}
             disabled={past}
             title={past ? READ_ONLY_REASON : undefined}
-            className="inline-flex h-12 items-center gap-2 rounded-vx-sm bg-vx-primary pl-4 pr-5 text-[14px] font-medium text-vx-on-primary shadow-vx-3 hover:bg-vx-primary-hover disabled:cursor-not-allowed disabled:opacity-[.38]"
+            className="inline-flex h-12 items-center gap-2 rounded-vx-sm bg-vx-primary pl-4 pr-5 text-[14px] font-medium text-vx-on-primary shadow-vx-3 hover:bg-vx-primary-hover disabled:cursor-not-allowed disabled:bg-vx-surface-3 disabled:text-vx-text-4 disabled:shadow-[inset_0_0_0_1px_var(--vx-hair)]"
           >
             <Plus size={18} strokeWidth={2} aria-hidden />
             New

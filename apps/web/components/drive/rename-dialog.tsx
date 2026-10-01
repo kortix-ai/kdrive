@@ -1,6 +1,7 @@
 'use client';
 
-// Inline rename (DESIGN-v2 §5 File row "renaming"): a 32 px r8 text field in place of
+// Inline rename (UNIFY-SPEC §14.2 "renaming"): a 28 px r4 field (field fill, hair-strong
+// border, the violet inset focus ring) in place of
 // the name, base name preselected (extension excluded). ↵ saves, Esc cancels,
 // blur saves when the name changed and is valid.
 import { useLayoutEffect, useRef, useState } from 'react';
@@ -100,16 +101,16 @@ export function NameInput({
           else submit();
         }}
         className={cx(
-          'h-8 w-full min-w-0 rounded-vx-sm border bg-vx-surface px-2.5 text-[14px] font-medium leading-5 text-vx-text-1 outline-none transition-[border-color,box-shadow] duration-[120ms]',
+          'h-7 w-full min-w-0 rounded-vx-sm border bg-vx-field px-2 text-[14px] font-medium leading-5 text-vx-text-1 outline-none transition-[border-color,box-shadow] duration-[120ms]',
           error
             ? 'border-vx-danger shadow-[inset_0_0_0_1px_var(--vx-danger)]'
-            : 'border-vx-outline focus:border-vx-accent-edge focus:shadow-[inset_0_0_0_1px_var(--vx-accent-edge)]',
+            : 'border-vx-hair-strong hover:border-vx-outline focus:border-transparent focus:shadow-[inset_0_0_0_2px_var(--vx-focus)]',
         )}
       />
       {error ? (
         <span
           role="alert"
-          className="absolute left-0 top-full z-20 mt-1.5 flex items-center gap-1.5 whitespace-nowrap rounded-vx-sm border border-vx-hair bg-vx-float px-2.5 py-1.5 text-[13px] leading-5 text-vx-del-fg shadow-vx-3"
+          className="absolute left-0 top-full z-20 mt-1.5 flex items-center gap-1.5 whitespace-nowrap rounded-vx-sm bg-vx-float px-2.5 py-1.5 text-[13px] leading-5 text-vx-danger shadow-vx-3"
         >
           <CircleAlert size={16} strokeWidth={1.75} className="shrink-0" aria-hidden />
           {error}

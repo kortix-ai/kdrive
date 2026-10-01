@@ -8,9 +8,11 @@ import { CommitId } from './readout';
 
 type Fact = { label: string; a: React.ReactNode; b: React.ReactNode; same: boolean; mono?: boolean };
 
+const FACT_GRID = 'grid grid-cols-[112px_minmax(0,1fr)_minmax(0,1fr)] max-[720px]:grid-cols-[76px_minmax(0,1fr)_minmax(0,1fr)]';
+
 const mimeLabel = (m: string) => m.split(';')[0];
 
-/** Binary / other (or too large to diff): a two-column facts table, a verdict and both downloads. */
+/** Binary / other (or too large to diff): a verdict, a two-column Mono facts table (`.vx-colhead` head), both downloads. */
 export function CompareMeta({ a, b, note }: { a: FileSide | null; b: FileSide | null; note?: string }) {
   const sizeSame = !!a && !!b && a.size === b.size;
   const hashSame = !!a?.version && a.version === b?.version;
@@ -48,32 +50,33 @@ export function CompareMeta({ a, b, note }: { a: FileSide | null; b: FileSide | 
 
   return (
     <div className="mx-auto w-full max-w-[720px] px-6 py-8 max-[720px]:px-4">
-      <p className="text-[16px] font-semibold leading-6 text-vx-text-1">{verdict}</p>
+      <p className="vx-title">{verdict}</p>
       {note ? <p className="vx-body mt-1 text-vx-text-3">{note}</p> : null}
-      <div className="mt-5 overflow-hidden rounded-vx-md border border-vx-hair">
-        <div className="grid grid-cols-[112px_minmax(0,1fr)_minmax(0,1fr)] bg-vx-surface-2 text-[13px] font-medium leading-5 text-vx-text-3 max-[720px]:grid-cols-[76px_minmax(0,1fr)_minmax(0,1fr)]">
-          <span className="px-3 py-2" />
-          <span className="flex items-center gap-2 px-3 py-2">
+      <div role="table" aria-label="Compared facts" className="mt-5 border-y border-vx-hair">
+        <div role="row" className={cx(FACT_GRID, 'vx-colhead h-9 items-center border-b border-vx-hair bg-vx-bg-2')}>
+          <span role="columnheader" className="px-3">
+            Fact
+          </span>
+          <span role="columnheader" className="flex items-center gap-2 px-3">
             <SideDisc which="A" /> A
           </span>
-          <span className="flex items-center gap-2 px-3 py-2">
+          <span role="columnheader" className="flex items-center gap-2 px-3">
             <SideDisc which="B" /> B
           </span>
         </div>
         {facts.map((f) => (
-          <div
-            key={f.label}
-            className="grid grid-cols-[112px_minmax(0,1fr)_minmax(0,1fr)] border-t border-vx-hair-soft text-[13px] leading-5 max-[720px]:grid-cols-[76px_minmax(0,1fr)_minmax(0,1fr)]"
-          >
-            <span className="px-3 py-2.5 text-vx-text-3">{f.label}</span>
+          <div role="row" key={f.label} className={cx(FACT_GRID, 'border-b border-vx-hair-soft last:border-b-0')}>
+            <span role="rowheader" className="px-3 py-2 text-[13px] leading-5 text-vx-text-3">
+              {f.label}
+            </span>
             {[f.a, f.b].map((v, i) => (
               <span
+                role="cell"
                 key={i}
                 title={typeof v === 'string' ? v : undefined}
                 className={cx(
-                  'truncate px-3 py-2.5 tabular-nums',
-                  f.mono && 'font-mono text-[12px]',
-                  f.same ? 'text-vx-text-4' : 'bg-vx-mod-bg font-semibold text-vx-text-1',
+                  'truncate px-3 py-2 font-mono text-[12.5px] leading-5 tabular-nums',
+                  f.same ? 'text-vx-text-3' : 'bg-vx-mod-bg font-medium text-vx-text-1',
                 )}
               >
                 {v}
@@ -85,12 +88,12 @@ export function CompareMeta({ a, b, note }: { a: FileSide | null; b: FileSide | 
       <div className="mt-4 flex flex-wrap gap-2">
         {a ? (
           <a href={a.downloadUrl} download className={buttonClass('outline', 'sm', { withIcon: true })}>
-            <Download size={16} strokeWidth={1.75} aria-hidden /> Download A
+            <Download size={14} strokeWidth={1.75} aria-hidden /> Download A
           </a>
         ) : null}
         {b ? (
           <a href={b.downloadUrl} download className={buttonClass('outline', 'sm', { withIcon: true })}>
-            <Download size={16} strokeWidth={1.75} aria-hidden /> Download B
+            <Download size={14} strokeWidth={1.75} aria-hidden /> Download B
           </a>
         ) : null}
       </div>

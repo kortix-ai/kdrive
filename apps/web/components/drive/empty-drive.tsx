@@ -1,17 +1,20 @@
 'use client';
 
-// Teaching empty states for the drive (DESIGN §6.11 copy, DESIGN-v2 §5 / §6.18 look): a flat
-// 120 px illustration, an 18/600 title, one line of text-3 and at most one action. Past or
-// missing things use the amber / dashed variant of the illustration.
+// Teaching empty states for the drive (DESIGN §6.11 copy, UNIFY-SPEC §9 / §14.2 look): a static
+// 120 px isometric voxel piece, a 16/600 title, one line of text-3 and at most one action. Past
+// things (did not exist / was empty / no longer kept) use the `gone` piece in the past tone.
 import { RETENTION_COPY } from '@volumes/shared';
-import { Upload } from 'lucide-react';
+import { FolderPlus, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { EmptyState } from '@/components/ui/empty-state';
+import { EmptyState, type EmptyArtKey } from '@/components/ui/empty-state';
 import { Kbd } from '@/components/ui/kbd';
 
-type Art = 'stack' | 'slab' | 'stencil' | 'search';
+type Art = 'stack' | 'slab' | 'stencil' | 'missing' | 'search';
 
-/** Drive-flavoured EmptyState: `stencil` (missing / past) uses the past illustration. */
+/** Drive art → shared iso piece (UNIFY-SPEC §9). */
+const ART: Record<Art, EmptyArtKey> = { stack: 'drive', slab: 'folder', stencil: 'gone', missing: 'gone', search: 'search' };
+
+/** Drive-flavoured EmptyState: `stencil` (past) is the `gone` piece in the past tone. */
 export function DriveEmpty({
   art,
   title,
@@ -25,7 +28,7 @@ export function DriveEmpty({
   actions?: React.ReactNode;
   className?: string;
 }) {
-  return <EmptyState tone={art === 'stencil' ? 'past' : 'default'} title={title} body={body} actions={actions} className={className} />;
+  return <EmptyState art={ART[art]} tone={art === 'stencil' ? 'past' : 'default'} title={title} body={body} actions={actions} className={className} />;
 }
 
 export type EmptyKind =
@@ -66,7 +69,7 @@ export default function EmptyDrive({
           body="Every drop becomes a version you can come back to. The strip below records each one."
           actions={
             <>
-              <Button variant="primary" onClick={onUpload} kbd="U" icon={<Upload size={18} strokeWidth={1.75} aria-hidden />}>
+              <Button variant="primary" onClick={onUpload} kbd="U" icon={<Upload size={16} strokeWidth={1.75} aria-hidden />}>
                 Upload
               </Button>
               <p className="vx-micro basis-full text-vx-text-3">
@@ -90,6 +93,16 @@ export default function EmptyDrive({
               Drag files in, or press <Kbd>U</Kbd>.
             </>
           }
+          actions={
+            <>
+              <Button variant="outline" onClick={onUpload} icon={<Upload size={16} strokeWidth={1.75} aria-hidden />}>
+                Upload files
+              </Button>
+              <Button variant="ghost" onClick={onNewFolder} icon={<FolderPlus size={16} strokeWidth={1.75} aria-hidden />}>
+                New folder
+              </Button>
+            </>
+          }
         />
       );
     case 'past-missing':
@@ -101,7 +114,7 @@ export default function EmptyDrive({
     case 'missing':
       return (
         <DriveEmpty
-          art="stencil"
+          art="missing"
           title="This folder doesn't exist."
           body="It may have been moved or deleted. Recently deleted keeps items while their history is kept."
           actions={
@@ -114,7 +127,7 @@ export default function EmptyDrive({
     case 'error':
       return (
         <DriveEmpty
-          art="stencil"
+          art="missing"
           title="Couldn't load this folder."
           body={state.message}
           actions={

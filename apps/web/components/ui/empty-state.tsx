@@ -15,7 +15,8 @@ function piece(art: EmptyArtKey, past: boolean): Piece {
     case 'drive':
       return { boxes: [...FEATURE_ART.upload.boxes] };
     case 'folder':
-      return { boxes: [slab([0, 0, 0], [3.4, 0.5, 3.4], 'dim'), slab([1.1, 0.5, 1.1], [1.2, 1.2, 1.2], 'ghost')] };
+      // a lit slab (the same weight as the other pieces) waiting for its first ghost cube
+      return { boxes: [slab([0, 0, 0], [3.4, 0.5, 3.4]), slab([1.1, 0.5, 1.1], [1.2, 1.2, 1.2], 'ghost')] };
     case 'search':
     case 'deleted':
       return { boxes: [...FEATURE_ART.deleted.boxes] };

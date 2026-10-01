@@ -1,6 +1,7 @@
 // Words and tones shared by the proposals inbox and the review page (MCP.md §14.6-14.7).
 import type { ProposalChange, ProposalCounts, ProposalFile, ProposalStatus, ProposalSummary } from '@volumes/shared';
 import type { BadgeTone } from '@/components/ui/badge';
+import { CHANGE_KINDS, type ChangeKind } from '@/components/versioning/change-kind';
 
 const n = (k: number, one: string, many = `${one}s`) => `${k.toLocaleString('en-US')} ${k === 1 ? one : many}`;
 
@@ -26,37 +27,38 @@ export function proposalTitle(p: Pick<ProposalSummary, 'message' | 'counts'>): s
   return m || generatedSummary(p.counts);
 }
 
-export const CHANGE_LABEL: Record<ProposalChange, string> = {
-  added: 'Added',
-  modified: 'Modified',
-  removed: 'Removed',
-  moved: 'Moved',
-  copied: 'Copied',
-  folder: 'Folder',
+/** A proposed change in the shared change vocabulary ("modified" is called "changed" everywhere). */
+export const CHANGE_KIND: Record<ProposalChange, ChangeKind> = {
+  added: 'added',
+  modified: 'changed',
+  removed: 'removed',
+  moved: 'moved',
+  copied: 'copied',
+  folder: 'folder',
 };
 
-export const CHANGE_TONE: Record<ProposalChange, BadgeTone> = {
-  added: 'add',
-  modified: 'neutral',
-  removed: 'del',
-  moved: 'neutral',
-  copied: 'neutral',
-  folder: 'neutral',
-};
+/** The lowercase word for a proposed change: "added", "changed", "moved", … */
+export const CHANGE_LABEL: Record<ProposalChange, string> = Object.fromEntries(
+  Object.entries(CHANGE_KIND).map(([k, v]) => [k, CHANGE_KINDS[v].word.toLowerCase()]),
+) as Record<ProposalChange, string>;
 
-/** Count chips of an inbox row, in reading order; zero counts are left out. */
+/** Count chips of an inbox row, in reading order (the shared signs: + M R − C); zero counts are left out. */
 export function countChips(c: ProposalCounts): { key: keyof ProposalCounts; text: string; tone: BadgeTone; title: string }[] {
-  const all: { key: keyof ProposalCounts; sign: string; tone: BadgeTone; one: string; many?: string }[] = [
-    { key: 'added', sign: '+', tone: 'add', one: 'file added', many: 'files added' },
-    { key: 'modified', sign: '~', tone: 'neutral', one: 'file modified', many: 'files modified' },
-    { key: 'removed', sign: '−', tone: 'del', one: 'file removed', many: 'files removed' },
-    { key: 'moved', sign: '↪', tone: 'neutral', one: 'item moved', many: 'items moved' },
-    { key: 'copied', sign: '⧉', tone: 'neutral', one: 'item copied', many: 'items copied' },
-    { key: 'folders', sign: '▢', tone: 'neutral', one: 'new folder', many: 'new folders' },
+  const all: { key: keyof ProposalCounts; kind: ChangeKind; tone: BadgeTone; one: string; many?: string }[] = [
+    { key: 'added', kind: 'added', tone: 'add', one: 'file added', many: 'files added' },
+    { key: 'modified', kind: 'changed', tone: 'neutral', one: 'file changed', many: 'files changed' },
+    { key: 'removed', kind: 'removed', tone: 'del', one: 'file removed', many: 'files removed' },
+    { key: 'moved', kind: 'moved', tone: 'neutral', one: 'item moved', many: 'items moved' },
+    { key: 'copied', kind: 'copied', tone: 'neutral', one: 'item copied', many: 'items copied' },
+    { key: 'folders', kind: 'folder', tone: 'neutral', one: 'new folder', many: 'new folders' },
   ];
   return all
     .filter((x) => c[x.key] > 0)
-    .map((x) => ({ key: x.key, text: `${x.sign}${c[x.key].toLocaleString('en-US')}`, tone: x.tone, title: n(c[x.key], x.one, x.many) }));
+    .map((x) => {
+      const k = c[x.key].toLocaleString('en-US');
+      const text = x.kind === 'folder' ? `${k} ${c[x.key] === 1 ? 'folder' : 'folders'}` : `${CHANGE_KINDS[x.kind].sign}${k}`;
+      return { key: x.key, text, tone: x.tone, title: n(c[x.key], x.one, x.many) };
+    });
 }
 
 /** State badge of a decided proposal (none while it is open). */

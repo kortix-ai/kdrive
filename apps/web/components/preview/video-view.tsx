@@ -31,7 +31,7 @@ export function VideoView({ src, name }: { src: string; name: string }) {
   }
   return (
     <div className="flex min-w-0 flex-col p-3">
-      <div className="relative flex min-h-[200px] items-center justify-center overflow-hidden rounded-vx-sm bg-vx-mat">
+      <div className="relative flex min-h-[200px] items-center justify-center overflow-hidden rounded-vx-sm border border-vx-hair bg-vx-mat">
         {state === 'loading' ? <span aria-hidden className="skeleton absolute inset-0 rounded-none" /> : null}
         <video
           key={nonce}
@@ -58,7 +58,7 @@ export function VideoView({ src, name }: { src: string; name: string }) {
         ) : (
           <span>Loading…</span>
         )}
-        <span className="ml-auto text-vx-text-4">Seek freely. It streams as you go.</span>
+        <span className="vx-micro ml-auto font-sans text-vx-text-3">Seek freely. It streams as you go.</span>
       </div>
     </div>
   );

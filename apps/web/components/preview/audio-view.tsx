@@ -23,7 +23,7 @@ export function AudioView({ src, name }: { src: string; name: string }) {
   }
   return (
     <div className="flex min-w-0 flex-col p-3">
-      <div className="flex flex-col items-center rounded-vx-sm bg-vx-surface px-6 pb-6 pt-8 shadow-vx-1">
+      <div className="flex flex-col items-center rounded-vx-md border border-vx-hair bg-vx-surface px-6 pb-6 pt-8">
         <FileIcon name={name} type="file" size={48} />
         <div className="vx-ui mt-3 max-w-full truncate text-vx-text-1" title={name}>
           {name}

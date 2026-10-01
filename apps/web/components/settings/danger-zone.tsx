@@ -28,9 +28,9 @@ function WhatGoes({ me, open }: { me: MeResponse; open: boolean }) {
   return (
     <div>
       <p>This permanently deletes your account and everything in it:</p>
-      <ul className="mt-3 flex list-disc flex-col gap-1 rounded-vx-md bg-vx-surface-2 py-3 pl-8 pr-4 text-[13px] leading-5 text-vx-text-1 marker:text-vx-text-4">
+      <ul className="mt-3 flex list-disc flex-col gap-1 rounded-vx-sm border border-vx-hair bg-vx-surface-2 py-3 pl-8 pr-4 text-[13px] leading-5 text-vx-text-1 marker:text-vx-text-4">
         <li>
-          {n} {n === 1 ? 'workspace' : 'workspaces'} · {formatBytes(me.usage.usedBytes)} of files
+          {n} {n === 1 ? 'drive' : 'drives'} · {formatBytes(me.usage.usedBytes)} of files
         </li>
         <li>Every version, checkpoint and restore point</li>
         <li>
@@ -64,7 +64,7 @@ export function DangerZone({ me }: { me: MeResponse }) {
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <div className="min-w-0 flex-1">
           <div className="text-[14px] font-medium leading-5 text-vx-text-1">Delete account</div>
-          <p className="vx-body mt-0.5 text-vx-text-3">Deletes your workspaces, their history and your share links. You are signed out.</p>
+          <p className="vx-body mt-0.5 text-vx-text-3">Deletes your drives, their history and your share links. You are signed out.</p>
         </div>
         <Button variant="danger-text" onClick={() => setOpen(true)}>
           Delete account…

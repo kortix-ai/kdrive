@@ -3,15 +3,17 @@
 // Top bar (UNIFY-SPEC §11): the KDRIVE lockup · the "Search in Drive" field · Help,
 // the sun/moon theme toggle and the account avatar, over a 1px hair rule. On phones
 // it is a glass bar holding the menu button, the search field and a 28 px avatar.
+import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { CircleHelp, Clock, LogOut, Menu as MenuIcon, Monitor, Moon, Search, Settings, Sun } from 'lucide-react';
+import { CubeMark } from '@/components/brand/cube-mark';
 import { Avatar } from '@/components/ui/avatar';
 import { IconButton } from '@/components/ui/icon-button';
 import { Kbd } from '@/components/ui/kbd';
 import { Menu, type MenuItem } from '@/components/ui/menu';
 import { Tooltip } from '@/components/ui/tooltip';
 import { cx } from '@/components/ui/cx';
-import { formatTimeTravelLabel } from '@/lib/format';
+import { formatMoment } from '@/lib/format';
 import { signOutAndEnd } from '@/lib/session';
 import { sendShellIntent } from '@/lib/shell-intents';
 import { useVx } from '@/lib/store';
@@ -38,7 +40,7 @@ function PastChip() {
   return (
     <span className="fade-in inline-flex h-6 shrink-0 items-center gap-1.5 rounded-vx-xs bg-vx-past-wash px-2 font-mono text-[11px] font-medium text-vx-past shadow-[inset_0_0_0_1px_var(--vx-past-edge)] max-[720px]:hidden">
       <Clock size={13} strokeWidth={1.75} aria-hidden />
-      <span className="tabular-nums">{formatTimeTravelLabel(tt.createdAt)}</span>
+      <span className="tabular-nums">{formatMoment(tt.createdAt)}</span>
     </span>
   );
 }
@@ -49,9 +51,15 @@ function SearchPill({ onMenu, phone }: { onMenu?: () => void; phone?: boolean })
   return (
     <div role="search" className={cx('flex w-full min-w-0 items-center gap-2', phone ? '' : 'max-w-[640px]')}>
       {phone ? (
-        <IconButton label="Open navigation" size="md" onClick={onMenu}>
-          <MenuIcon size={18} strokeWidth={1.75} aria-hidden />
-        </IconButton>
+        <>
+          <IconButton label="Open navigation" size="md" onClick={onMenu}>
+            <MenuIcon size={18} strokeWidth={1.75} aria-hidden />
+          </IconButton>
+          {/* The brand on phones too: the 16 px cube mark, home to the drive. */}
+          <Link href="/drive" aria-label="KDRIVE home" className="inline-flex h-9 w-6 shrink-0 items-center justify-center rounded-vx-sm">
+            <CubeMark size={16} />
+          </Link>
+        </>
       ) : null}
       <button
         type="button"
@@ -66,7 +74,12 @@ function SearchPill({ onMenu, phone }: { onMenu?: () => void; phone?: boolean })
         <PastChip />
         {phone ? null : <Kbd className="max-[900px]:hidden">/</Kbd>}
       </button>
-      {phone ? <AccountMenu size={28} /> : null}
+      {phone ? (
+        <>
+          <ThemeToggle size="sm" />
+          <AccountMenu size={28} />
+        </>
+      ) : null}
     </div>
   );
 }
@@ -81,7 +94,7 @@ export function AccountMenu({ size = 28 }: { size?: number }) {
   const displayName = me?.user.name || me?.user.email || '';
   const items: MenuItem[] = [
     { id: 'who', type: 'label', label: <span className="block truncate">{me?.user.email ?? ''}</span> },
-    { id: 'settings', label: 'Settings', icon: <Settings size={16} strokeWidth={1.75} />, kbd: 'g ,', onSelect: () => router.push('/settings') },
+    { id: 'settings', label: 'Settings', icon: <Settings size={16} strokeWidth={1.75} />, kbd: 'G ,', onSelect: () => router.push('/settings') },
     { id: 'sep-theme', type: 'separator' },
     { id: 'theme', type: 'label', label: <span className="vx-eyebrow">Theme</span> },
     ...THEME_PREFS.map<MenuItem>((p) => {
@@ -141,7 +154,7 @@ export function TopBar({ onMenu, onHelp }: { onMenu: () => void; onHelp: () => v
           <AccountMenu />
         </span>
       </div>
-      {/* Phones: menu · search field · avatar. */}
+      {/* Phones: menu · search field · theme · avatar. */}
       <div className="hidden w-full min-w-0 max-[720px]:flex">
         <SearchPill phone onMenu={onMenu} />
       </div>

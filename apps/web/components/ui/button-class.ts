@@ -26,10 +26,13 @@ export type ButtonVariant =
 export type ButtonSize = 'xs' | 'sm' | 'md' | 'lg';
 
 const base =
-  'relative inline-flex shrink-0 select-none items-center justify-center gap-2 whitespace-nowrap rounded-vx-sm text-[14px] font-medium leading-5 transition-colors duration-[120ms] ease-vx disabled:cursor-not-allowed disabled:opacity-[.38]';
+  'relative inline-flex shrink-0 select-none items-center justify-center gap-2 whitespace-nowrap rounded-vx-sm text-[14px] font-medium leading-5 transition-colors duration-[120ms] ease-vx disabled:cursor-not-allowed';
 
 const variants: Record<ButtonVariant, string> = {
-  primary: 'bg-vx-primary text-vx-on-primary hover:bg-vx-primary-hover',
+  // Disabled primary reads as unavailable, not broken: a quiet surface slab with a hair edge (no faded fill).
+  // While loading (aria-busy) it keeps its fill and shows the spinner.
+  primary:
+    'bg-vx-primary text-vx-on-primary hover:bg-vx-primary-hover disabled:not-aria-busy:bg-vx-surface-3 disabled:not-aria-busy:text-vx-text-4 disabled:not-aria-busy:shadow-[inset_0_0_0_1px_var(--vx-hair)]',
   tonal: 'bg-vx-accent-wash text-vx-on-accent-wash hover:bg-vx-accent-wash-2',
   outline: 'border border-vx-hair-strong bg-transparent text-vx-text-1 hover:bg-vx-raise active:bg-vx-pressed',
   text: 'text-vx-text-1 underline-offset-[3px] hover:underline hover:decoration-vx-hair-strong active:bg-vx-pressed',
@@ -53,5 +56,5 @@ const textSizes: Partial<Record<ButtonSize, string>> = { md: 'h-9 px-2.5', lg: '
 /** Button classes for elements that are not <button> (e.g. a Next <Link> or <a download>). */
 export function buttonClass(variant: ButtonVariant = 'outline', size: ButtonSize = 'md', opts: { block?: boolean; withIcon?: boolean; className?: string } = {}): string {
   const pad = (variant === 'text' || variant === 'danger-text' || variant === 'ghost') && textSizes[size] ? textSizes[size] : sizes[size];
-  return cx(base, variants[variant], pad, opts.withIcon && size !== 'xs' && 'pl-3', opts.block && 'w-full', opts.className);
+  return cx(base, variants[variant], variant !== 'primary' && 'disabled:opacity-[.38]', pad, opts.withIcon && size !== 'xs' && 'pl-3', opts.block && 'w-full', opts.className);
 }

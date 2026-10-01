@@ -1,6 +1,6 @@
 'use client';
 
-// Settings → AI agents, card 2: apps connected through sign-in (OAuth grants).
+// Settings → AI agents, block 2: apps connected through sign-in (OAuth grants).
 import { useEffect, useState } from 'react';
 import { format, isSameYear } from 'date-fns';
 import { mutate } from 'swr';
@@ -79,7 +79,7 @@ export function ChangeAccessDialog({ app, onClose }: { app: ConnectedApp | null;
         <div className="flex flex-col gap-5">
           <AccessOptions value={value} onChange={setValue} maxScope={app.scope} disabledReason="Connect the app again to give it more access" />
           <WorkspacePicker
-            workspaces={known ? workspaces : [...workspaces, { id: workspaceId!, name: app.workspaceName ?? 'Removed workspace' }]}
+            workspaces={known ? workspaces : [...workspaces, { id: workspaceId!, name: app.workspaceName ?? 'Removed drive' }]}
             value={workspaceId}
             onChange={setWorkspaceId}
           />
@@ -109,9 +109,9 @@ function AppRow({ app, onChange }: { app: ConnectedApp; onChange: (a: ConnectedA
   };
 
   return (
-    <li className="-mx-2 rounded-vx-sm px-2 py-2.5 transition-colors duration-[120ms] hover:bg-vx-hover" data-app-id={app.id}>
+    <li className="-mx-3 border-t border-vx-hair-soft px-3 py-3 transition-colors duration-[120ms] first:border-t-0 hover:bg-vx-raise" data-app-id={app.id}>
       <div className="flex min-h-8 items-center gap-3">
-        <span aria-hidden className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-vx-surface-3 text-vx-text-2">
+        <span aria-hidden className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-vx-sm border border-vx-hair bg-vx-surface-2 text-vx-text-2">
           <Bot size={16} strokeWidth={1.75} />
         </span>
         <div className="min-w-0 flex-1">
@@ -122,7 +122,7 @@ function AppRow({ app, onChange }: { app: ConnectedApp; onChange: (a: ConnectedA
           <div className="vx-meta mt-0.5 truncate text-vx-text-3">
             {app.redirectHost ? (
               <>
-                <span className="font-mono">{app.redirectHost}</span> ·{' '}
+                <span>{app.redirectHost}</span> ·{' '}
               </>
             ) : null}
             connected <span title={isoTitle(app.createdAt)}>{shortDay(app.createdAt)}</span> ·{' '}
@@ -138,7 +138,7 @@ function AppRow({ app, onChange }: { app: ConnectedApp; onChange: (a: ConnectedA
           ]}
           trigger={(p) => (
             <IconButton {...p} size="sm" label={`Actions for ${app.name}`} className="max-[720px]:h-11 max-[720px]:w-11">
-              <Ellipsis size={18} strokeWidth={1.75} aria-hidden />
+              <Ellipsis size={16} strokeWidth={1.75} aria-hidden />
             </IconButton>
           )}
         />

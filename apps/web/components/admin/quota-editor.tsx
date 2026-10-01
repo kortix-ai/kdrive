@@ -54,7 +54,7 @@ export function QuotaEditor({ user, capBytes, onDone }: { user: AdminUser; capBy
 
   const preset = PRESETS.find((p) => p === value.trim());
   return (
-    <div className="my-1 flex w-[280px] flex-col items-stretch gap-2 rounded-vx-md bg-vx-surface-2 p-3 text-left" onClick={(e) => e.stopPropagation()}>
+    <div className="my-1 flex w-[280px] flex-col items-stretch gap-2 rounded-vx-md border border-vx-hair bg-vx-surface-2 p-3 text-left" onClick={(e) => e.stopPropagation()}>
       <div className="flex items-start gap-2">
         <Input
           autoFocus
@@ -90,12 +90,12 @@ export function QuotaEditor({ user, capBytes, onDone }: { user: AdminUser; capBy
         ))}
       </div>
       {capBytes ? (
-        <p className={overCap ? 'vx-meta rounded-vx-sm bg-vx-surface px-2 py-1.5 text-vx-text-2' : 'vx-meta text-vx-text-3'}>
-          Storage caps one workspace at {formatBytes(capBytes)}
-          {overCap ? ': the rest of this quota is usable only across several workspaces.' : '.'}
+        <p className={overCap ? 'vx-micro rounded-vx-sm bg-vx-warn-wash px-2 py-1.5 text-vx-text-2' : 'vx-micro text-vx-text-3'}>
+          Storage caps one drive at {formatBytes(capBytes)}
+          {overCap ? ': the rest of this quota is usable only across several drives.' : '.'}
         </p>
       ) : null}
-      {error ? <p role="alert" className="rounded-vx-sm bg-vx-danger-wash px-2 py-1.5 text-[13px] leading-5 text-vx-del-fg">{error}</p> : null}
+      {error ? <p role="alert" className="rounded-vx-sm bg-vx-danger-wash px-2 py-1.5 text-[13px] leading-5 text-vx-danger">{error}</p> : null}
       <div className="flex items-center justify-end gap-1">
         <Button size="sm" variant="text" onClick={() => onDone()} disabled={busy} kbd="Esc">
           Cancel

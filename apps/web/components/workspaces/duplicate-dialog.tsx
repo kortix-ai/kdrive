@@ -10,7 +10,7 @@ import { Dialog } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { ApiError } from '@/lib/api/client';
 import { api } from '@/lib/api/endpoints';
-import { formatTimeTravelLabel, isoTitle } from '@/lib/format';
+import { formatMoment, isoTitle } from '@/lib/format';
 import { useVx } from '@/lib/store';
 import { workspaceNameError } from './new-workspace-dialog';
 import { switchToWorkspace } from './switch';
@@ -29,11 +29,11 @@ function errorCopy(e: unknown): string {
         ? `This copy needs ${formatBytes(over)} more than your quota has left.`
         : 'This copy does not fit in your storage quota.';
     }
-    if (e.code === 'storage_limit') return 'No more workspaces can be created on this server.';
+    if (e.code === 'storage_limit') return 'No more drives can be created on this server.';
     if (e.code === 'version_gone') return 'This version is no longer kept, so it cannot be copied.';
     return e.message;
   }
-  return e instanceof Error ? e.message : 'Could not duplicate the workspace.';
+  return e instanceof Error ? e.message : 'Could not duplicate the drive.';
 }
 
 function DuplicateBody({ ws, wsName, at, onClose }: { ws: string; wsName: string; at: string | null; onClose: () => void }) {
@@ -60,7 +60,7 @@ function DuplicateBody({ ws, wsName, at, onClose }: { ws: string; wsName: string
       const { workspace } = await api.workspaces.duplicate(ws, { name: name.trim(), ...(at ? { at } : {}) });
       await switchToWorkspace(workspace.id);
       router.push('/drive');
-      toast({ kind: 'success', message: `Created ${workspace.name}${when ? ` from ${formatTimeTravelLabel(when)}` : ''}` });
+      toast({ kind: 'success', message: `Created ${workspace.name}${when ? ` from ${formatMoment(when)}` : ''}` });
       onClose();
     } catch (e) {
       setError(errorCopy(e));
@@ -72,11 +72,11 @@ function DuplicateBody({ ws, wsName, at, onClose }: { ws: string; wsName: string
     <Dialog
       open
       onClose={onClose}
-      title="Duplicate as new workspace"
+      title="Duplicate as new drive"
       description={`From ${wsName}`}
       icon={
-        <span aria-hidden className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-vx-surface-3 text-vx-text-2">
-          <Copy size={18} strokeWidth={1.75} />
+        <span aria-hidden className="inline-flex h-8 w-8 items-center justify-center rounded-vx-sm border border-vx-hair bg-vx-surface-2 text-vx-text-2">
+          <Copy size={16} strokeWidth={1.75} />
         </span>
       }
       width={480}
@@ -105,13 +105,13 @@ function DuplicateBody({ ws, wsName, at, onClose }: { ws: string; wsName: string
             >
               <Clock size={16} strokeWidth={1.75} className="shrink-0" aria-hidden />
               <span className="min-w-0 truncate">
-                <span className="font-semibold text-vx-past-strong">{when ? formatTimeTravelLabel(when) : commit.error ? 'An earlier version' : '…'}</span>
+                <span className="font-semibold text-vx-past-strong">{when ? formatMoment(when) : commit.error ? 'An earlier version' : '…'}</span>
                 {' · '}
-                <span className="font-mono text-[12px]">{shortId(at)}</span>
+                <span className="font-mono text-[12px] text-vx-past">{shortId(at)}</span>
               </span>
             </div>
           ) : (
-            <div className="inline-flex max-w-full items-center gap-2 rounded-vx-sm bg-vx-surface-2 px-3 py-2 text-[13px] leading-5 text-vx-text-2">
+            <div className="inline-flex max-w-full items-center gap-2 rounded-vx-sm border border-vx-hair bg-vx-surface-2 px-3 py-2 text-[13px] leading-5 text-vx-text-2">
               <span aria-hidden className="h-2 w-2 shrink-0 rounded-full bg-vx-accent" />
               <span className="min-w-0 truncate">
                 <span className="font-semibold text-vx-text-1">Now</span> · the latest version of {wsName}
@@ -120,8 +120,8 @@ function DuplicateBody({ ws, wsName, at, onClose }: { ws: string; wsName: string
           )}
         </div>
         <div>
-          <p className="vx-body text-vx-text-2">Creates a separate workspace from this version. Your current workspace does not change.</p>
-          <p className="vx-meta mt-1 text-vx-text-3">The copy counts toward your storage quota. Its history starts at this version.</p>
+          <p className="vx-body text-vx-text-2">Creates a separate drive from this version. Your current drive does not change.</p>
+          <p className="vx-micro mt-1 text-vx-text-3">The copy counts toward your storage quota. Its history starts at this version.</p>
         </div>
       </div>
     </Dialog>

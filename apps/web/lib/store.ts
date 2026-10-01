@@ -193,7 +193,7 @@ export const useVx = create<VxState>()((set, get) => ({
         duplicate: null,
         refreshKey: s.refreshKey + 1,
       }));
-      get().toast({ kind: 'info', message: 'That workspace is no longer available. Showing your default workspace.' });
+      get().toast({ kind: 'info', message: 'That drive is no longer available. Showing your default drive.' });
       void revalidateAll();
       return;
     }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useLayoutEffect, useRef } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { CircleAlert, X } from 'lucide-react';
 import { cx } from './cx';
@@ -52,6 +52,31 @@ const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:n
  * right-aligned footer. ↵ submits, Esc closes, focus is trapped and returned.
  * Below 720 px it becomes a bottom sheet with stacked full-width buttons.
  */
+/** The dialog body: scrolls past 80vh and fades its bottom edge while more content sits below. */
+function ScrollBody({ children }: { children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [more, setMore] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const update = () => setMore(el.scrollTop + el.clientHeight < el.scrollHeight - 2);
+    update();
+    el.addEventListener('scroll', update, { passive: true });
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(update);
+    ro?.observe(el);
+    if (el.firstElementChild) ro?.observe(el.firstElementChild);
+    return () => {
+      el.removeEventListener('scroll', update);
+      ro?.disconnect();
+    };
+  }, []);
+  return (
+    <div ref={ref} data-more-bottom={more ? 'true' : undefined} className="vx-fade-y min-h-0 flex-1 overflow-auto px-5 pb-4">
+      {children}
+    </div>
+  );
+}
+
 export function Dialog({
   open,
   onClose,
@@ -192,7 +217,7 @@ export function Dialog({
             <X size={16} strokeWidth={1.75} aria-hidden />
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-auto px-5 pb-4">{children}</div>
+        <ScrollBody>{children}</ScrollBody>
         {error ? (
           <div role="alert" className="mx-5 mb-3 flex items-start gap-2 rounded-vx-sm bg-vx-danger-wash px-3 py-2 text-[13px] leading-5 text-vx-danger">
             <CircleAlert size={16} strokeWidth={1.75} className="mt-0.5 shrink-0" aria-hidden />

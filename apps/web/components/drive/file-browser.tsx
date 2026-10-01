@@ -7,6 +7,7 @@
 // In the past (store.timeTravel) every read passes `at`, writes are disabled
 // with the reason, and rows say how they differ from now.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useDocumentTitle } from '@/lib/use-document-title';
 import { useRouter } from 'next/navigation';
 import { ArrowDown, ArrowUp, CircleAlert } from 'lucide-react';
 import { basename, dirname, type FileEntry } from '@volumes/shared';
@@ -31,7 +32,7 @@ import {
   type Rect,
 } from '@/lib/drive/selection';
 import { DEFAULT_SORT, loadSort, nextSort, saveSort, sortEntries, type SortKey, type SortSpec } from '@/lib/drive/sort';
-import { formatTimeTravelLabel } from '@/lib/format';
+import { formatMoment } from '@/lib/format';
 import { isTypingTarget, useHotkeys } from '@/lib/keys';
 import { useShellIntents } from '@/lib/shell-intents';
 import { useVx } from '@/lib/store';
@@ -55,7 +56,7 @@ import s from './drive.module.css';
 
 type MenuState = { x: number; y: number; flipY?: number; align?: 'start' | 'end'; targets: FileEntry[] } | null;
 
-/** Column header button (DESIGN-v2 §5): 13/500 text-3; the sort column is text-1 with a 16 px arrow. */
+/** Column header button (UNIFY-SPEC §12.1): `.vx-colhead` (Mono 11 UPPERCASE); the sort column is text-1 with a 12 px arrow. */
 function SortHead({ label, k, sort, onSort, align = 'left' }: { label: string; k: SortKey; sort: SortSpec; onSort: (k: SortKey) => void; align?: 'left' | 'right' }) {
   const on = sort.key === k;
   const Arrow = sort.dir === 'asc' ? ArrowUp : ArrowDown;
@@ -65,13 +66,13 @@ function SortHead({ label, k, sort, onSort, align = 'left' }: { label: string; k
       onClick={() => onSort(k)}
       aria-sort={on ? (sort.dir === 'asc' ? 'ascending' : 'descending') : undefined}
       className={cx(
-        'inline-flex h-8 items-center gap-1 rounded-vx-sm text-[13px] font-medium leading-5 transition-colors duration-[120ms] hover:text-vx-text-1',
-        on ? 'text-vx-text-1' : 'text-vx-text-3',
+        'vx-colhead -mx-1 inline-flex h-7 items-center gap-1 rounded-vx-sm px-1 transition-colors duration-[120ms] hover:!text-vx-text-1',
+        on ? '!text-vx-text-1' : '!text-vx-text-3',
         align === 'right' && 'flex-row-reverse',
       )}
     >
       {label}
-      <Arrow size={16} strokeWidth={1.75} aria-hidden className={cx('shrink-0', on ? 'opacity-100' : 'opacity-0')} />
+      <Arrow size={12} strokeWidth={2} aria-hidden className={cx('shrink-0', on ? 'opacity-100' : 'opacity-0')} />
     </button>
   );
 }
@@ -88,17 +89,17 @@ function useMedia(query: string): boolean {
   return match;
 }
 
-/** The drag ghost (DESIGN-v2 §6.2): a float pill with the icon + name or "2 items". */
+/** The drag ghost (DESIGN-v2 §6.2): a float chip (r4, shadow-3 incl. its hair ring) with the icon + name or "2 items". */
 function dragGhost(paths: string[], first: FileEntry | undefined): HTMLElement {
   const chip = document.createElement('div');
   chip.style.cssText =
-    'position:fixed;top:-200px;left:-200px;display:flex;align-items:center;gap:8px;height:36px;padding:0 14px 0 10px;border-radius:999px;border:1px solid var(--vx-hair);background:var(--vx-float);color:var(--vx-text-1);box-shadow:var(--vx-shadow-3);font:500 13px/20px var(--vx-font-sans);white-space:nowrap';
+    'position:fixed;top:-200px;left:-200px;display:flex;align-items:center;gap:8px;height:32px;padding:0 12px 0 10px;border-radius:4px;background:var(--vx-float);color:var(--vx-text-1);box-shadow:var(--vx-shadow-3);font:500 13px/20px var(--vx-font-sans);white-space:nowrap';
   const kind = first ? fileKind(first.name, first.type) : 'other';
   const icon = document.createElement('span');
   icon.style.cssText =
     kind === 'folder'
-      ? 'width:16px;height:13px;border:1.75px solid var(--vx-ft-folder);border-radius:3px;box-sizing:border-box'
-      : `width:14px;height:16px;border-radius:3px;background:${fileKindColor(kind)}`;
+      ? 'width:16px;height:13px;border:1.6px solid var(--vx-ft-folder);border-radius:2px;box-sizing:border-box'
+      : `width:14px;height:16px;border-radius:2px;border:1.6px solid ${fileKindColor(kind)};background:color-mix(in srgb, ${fileKindColor(kind)} var(--vx-ft-tint), transparent);box-sizing:border-box`;
   const label = document.createElement('span');
   label.textContent = paths.length === 1 ? basename(paths[0]) : `${paths.length} items`;
   chip.append(icon, label);
@@ -121,8 +122,12 @@ export default function FileBrowser({ path }: { path: string }) {
 
   const at = tt?.commitId ?? null;
   const past = !!tt;
-  const pastLabel = tt ? formatTimeTravelLabel(tt.createdAt) : '';
+  const pastLabel = tt ? formatMoment(tt.createdAt) : '';
   const rootName = me?.workspaces.find((w) => w.id === ws)?.name ?? 'My Drive';
+
+  // The tab names what is open: the previewed file, else the folder (the drive's name at the root).
+  const leaf = (p: string) => p.split('/').filter(Boolean).pop() ?? '';
+  useDocumentTitle(`${(panel?.path && leaf(panel.path)) || (path === '/' ? rootName : leaf(path)) || rootName} · KDRIVE`);
 
   const listing = useListing(path);
   const nowListing = useNowListing(path, past);
@@ -417,9 +422,11 @@ export default function FileBrowser({ path }: { path: string }) {
       },
       ...(past
         ? {
+            // R restores the selected item; with nothing selected, the folder in view (the whole drive at the root).
             r: () => {
               const t = single();
               if (t) cmd.restore(t);
+              else if (at) vx().openRestore(path === '/' ? { scope: 'drive', at } : { scope: 'folder', path, at });
             },
           }
         : {
@@ -718,68 +725,72 @@ export default function FileBrowser({ path }: { path: string }) {
           detailsOpen={detailsOpen}
           onDetails={() => (detailsOpen ? vx().closePanel() : vx().openPreview(path))}
           phone={phone}
+          missing={hardError}
         />
 
-        {/* Column header ⇄ selection bar: same 52 px slot, so the list never jumps. */}
-        <div className="flex h-[52px] shrink-0 flex-col justify-end px-2 pt-2">
-          {selectedEntries.length > 0 ? (
-            <SelectionBar
-              key="sel"
-              entries={selectedEntries}
-              total={entries.length}
-              past={past}
-              cmd={cmd}
-              phone={phone}
-              onClear={() => vx().clearSelection()}
-              onSelectAll={() => vx().select(order, 'replace')}
-              onMore={(e) => {
-                const r = e.currentTarget.getBoundingClientRect();
-                setMenu({ x: r.right, y: r.bottom + 4, flipY: r.top - 4, align: 'end', targets: selectedEntries });
-              }}
-            />
-          ) : listView ? (
-            <div
-              key="head"
-              className={cx(s.item, s.selIn, 'grid h-11 items-center border-b border-vx-hair', density === 'wide' ? 'pr-1' : 'pr-2')}
-              style={{ gridTemplateColumns: listCols(density) }}
-            >
-              <span className="flex items-center justify-center">
-                <RowCheck
-                  on={allSelected}
-                  onToggle={() => (allSelected ? vx().clearSelection() : vx().select(order, 'replace'))}
-                  label="Select all"
-                  className={cx(!allSelected && s.reveal)}
-                />
-              </span>
-              {/* compact columns have no actions column for the count, and beside Modified it reads as a label: leave it out */}
-              <span className="flex min-w-0 items-center pr-4">
+        {/* Column header ⇄ selection bar: same 44 px slot, so the list never jumps. An empty or missing
+            folder has no columns to head, so the slot (and its "0 items") is left out. */}
+        {empty && !selectedEntries.length ? null : (
+          <div className={cx('flex h-11 shrink-0 flex-col justify-end', selectedEntries.length > 0 && 'px-2 pb-0.5')}>
+            {selectedEntries.length > 0 ? (
+              <SelectionBar
+                key="sel"
+                entries={selectedEntries}
+                total={entries.length}
+                past={past}
+                cmd={cmd}
+                phone={phone}
+                onClear={() => vx().clearSelection()}
+                onSelectAll={() => vx().select(order, 'replace')}
+                onMore={(e) => {
+                  const r = e.currentTarget.getBoundingClientRect();
+                  setMenu({ x: r.right, y: r.bottom + 4, flipY: r.top - 4, align: 'end', targets: selectedEntries });
+                }}
+              />
+            ) : listView ? (
+              <div
+                key="head"
+                className={cx(s.item, s.selIn, 'grid h-9 items-center border-b border-vx-hair pl-1', density === 'wide' ? 'pr-2' : 'pr-3')}
+                style={{ gridTemplateColumns: listCols(density) }}
+              >
+                <span className="flex items-center justify-center">
+                  <RowCheck
+                    on={allSelected}
+                    onToggle={() => (allSelected ? vx().clearSelection() : vx().select(order, 'replace'))}
+                    label="Select all"
+                    className={cx(!allSelected && s.reveal)}
+                  />
+                </span>
+                {/* compact columns have no actions column for the count, and beside Modified it reads as a label: leave it out */}
+                <span className="flex min-w-0 items-center pr-4">
+                  <SortHead label="Name" k="name" sort={sort} onSort={onSort} />
+                </span>
+                <span className="vx-col-mtime min-w-0 pr-3">
+                  <SortHead label="Modified" k="mtime" sort={sort} onSort={onSort} />
+                </span>
+                <span className="flex min-w-0 justify-end pr-2">
+                  <SortHead label="Size" k="size" sort={sort} onSort={onSort} align="right" />
+                </span>
+                {density === 'wide' ? <span className="truncate pr-2 text-right font-mono text-[11px] leading-4 text-vx-text-3">{countLabel}</span> : null}
+              </div>
+            ) : (
+              <div key="head" className={cx(s.selIn, 'flex h-9 items-center gap-5 border-b border-vx-hair', phone ? 'px-3' : 'pl-4 pr-3')}>
                 <SortHead label="Name" k="name" sort={sort} onSort={onSort} />
-              </span>
-              <span className="vx-col-mtime min-w-0 pr-3">
-                <SortHead label="Modified" k="mtime" sort={sort} onSort={onSort} />
-              </span>
-              <span className="flex min-w-0 justify-end pr-2">
-                <SortHead label="Size" k="size" sort={sort} onSort={onSort} align="right" />
-              </span>
-              {density === 'wide' ? <span className="vx-meta truncate pr-3 text-right text-vx-text-3">{countLabel}</span> : null}
-            </div>
-          ) : (
-            <div key="head" className={cx(s.selIn, 'flex h-11 items-center gap-4 border-b border-vx-hair', phone ? 'px-2' : 'pl-3 pr-3')}>
-              <SortHead label="Name" k="name" sort={sort} onSort={onSort} />
-              <span className="vx-col-mtime">
-                <SortHead label="Modified" k="mtime" sort={sort} onSort={onSort} />
-              </span>
-              <SortHead label="Size" k="size" sort={sort} onSort={onSort} />
-              <span className="vx-meta ml-auto truncate text-vx-text-3">{countLabel}</span>
-            </div>
-          )}
-        </div>
+                <span className="vx-col-mtime">
+                  <SortHead label="Modified" k="mtime" sort={sort} onSort={onSort} />
+                </span>
+                <SortHead label="Size" k="size" sort={sort} onSort={onSort} />
+                <span className="ml-auto truncate font-mono text-[11px] leading-4 text-vx-text-3">{countLabel}</span>
+              </div>
+            )}
+          </div>
+        )}
 
         {err && data && !hardError ? (
-          <div className="mx-4 mt-2 flex shrink-0 items-center gap-2 rounded-vx-sm bg-vx-danger-wash px-3 py-2 text-[13px] leading-5 text-vx-del-fg" role="alert">
+          <div className="mx-3 mt-2 flex shrink-0 items-center gap-2 rounded-vx-sm border border-vx-danger-edge bg-vx-danger-wash px-3 py-1.5 text-[13px] leading-5 text-vx-danger" role="alert">
             <CircleAlert size={16} strokeWidth={1.75} className="shrink-0" aria-hidden />
             <span className="min-w-0 flex-1">Couldn't refresh this folder.</span>
-            <button type="button" className="shrink-0 rounded-vx-sm px-2 font-medium text-vx-accent hover:bg-vx-hover" onClick={() => void listing.mutate()}>
+            <button type="button" className="h-7 shrink-0 rounded-vx-sm px-2 font-medium text-vx-text-1 underline-offset-[3px] hover:underline" onClick={() => void listing.mutate()}>
               Retry
             </button>
           </div>
@@ -794,15 +805,15 @@ export default function FileBrowser({ path }: { path: string }) {
             if ((e.target as HTMLElement).closest('[role="option"]')) return;
             ctx.onContextMenu(e, null);
           }}
-          className={cx('vx-inset-focus relative min-h-0 flex-1 overflow-auto rounded-b-vx-lg outline-none', stale && 'opacity-60 transition-opacity duration-[120ms]')}
+          className={cx(s.scroller, 'vx-inset-focus relative min-h-0 flex-1 overflow-auto rounded-b-vx-lg outline-none', stale && 'opacity-60 transition-opacity duration-[120ms]')}
         >
           {loadingFirst ? (
-            <div aria-busy className="px-2 pt-1">
+            <div aria-busy>
               {Array.from({ length: 12 }, (_, i) => (
-                <div key={i} className="grid items-center" style={{ height: rowH, gridTemplateColumns: phone ? '40px minmax(0,1fr)' : listCols(density) }}>
+                <div key={i} className={cx(s.row, 'relative grid items-center', phone ? 'pl-2' : 'pl-1 pr-3')} style={{ height: rowH, gridTemplateColumns: phone ? '40px minmax(0,1fr)' : listCols(density) }}>
                   {phone ? null : <span />}
                   <span className="flex min-w-0 items-center gap-3 pl-0.5 pr-4">
-                    <span className="skeleton h-5 w-5 shrink-0" />
+                    <span className="skeleton h-5 w-5 shrink-0 !rounded-vx-xs" />
                     {phone ? null : <span className="skeleton skel-line" style={{ width: `${30 + ((i * 37) % 40)}%` }} />}
                   </span>
                   {phone ? (

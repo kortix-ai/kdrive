@@ -1,6 +1,6 @@
 'use client';
 
-// Admin (DESIGN-v2 §6.19): users (usage, inline quota editor) and the audit log. Admins only; a 403 view otherwise.
+// Admin (UNIFY-SPEC §14.4): users (usage, inline quota editor) and the audit log. Admins only; a 403 view otherwise.
 import { useEffect, useMemo, useState } from 'react';
 import useSWR, { mutate as globalMutate } from 'swr';
 import { Search } from 'lucide-react';
@@ -10,6 +10,7 @@ import { UsersTable } from '@/components/admin/users-table';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
+import { Page, PageHeader } from '@/components/ui/page';
 import { Tabs } from '@/components/ui/tabs';
 import { isApiError } from '@/lib/api/client';
 import { api } from '@/lib/api/endpoints';
@@ -28,6 +29,7 @@ function Forbidden() {
   return (
     <EmptyState
       className="h-full"
+      art="admins"
       title="Admins only."
       body="This page manages every account on this server. Your account is not on the admin list."
     />
@@ -52,8 +54,8 @@ function UsersTab({ query }: { query: string }) {
   return (
     <div aria-busy={isLoading || undefined}>
       {error && !data ? (
-        <div className="flex items-center gap-2 rounded-vx-md bg-vx-surface-2 px-4 py-3">
-          <span className="text-[13px] text-vx-del-fg">Couldn&apos;t load users.</span>
+        <div className="flex items-center gap-2 rounded-vx-sm bg-vx-danger-wash px-4 py-3">
+          <span className="text-[13px] text-vx-danger">Couldn&apos;t load users.</span>
           <Button size="sm" variant="text" onClick={() => void mutate()}>
             Retry
           </Button>
@@ -69,7 +71,7 @@ function UsersTab({ query }: { query: string }) {
       ) : (
         <UsersTable users={data.users} capBytes={data.workspaceCapBytes} onUpdated={onUpdated} />
       )}
-      <p className="vx-meta mt-4 text-vx-text-3">Quotas go up to 50 GB. Usage is each workspace&apos;s current size; history is not counted.</p>
+      <p className="vx-micro mt-4 text-vx-text-3">Quotas go up to 50 GB. Usage is each drive&apos;s current size; history is not counted.</p>
     </div>
   );
 }
@@ -86,7 +88,7 @@ function Totals() {
   return (
     <span className="vx-meta-row text-vx-text-3">
       {totals.users} {totals.users === 1 ? 'user' : 'users'} · {formatBytes(totals.stored)} stored ·{' '}
-      <span className={totals.high ? 'font-semibold text-vx-text-1' : undefined}>{totals.high}</span> over 80%
+      <span className={totals.high ? 'font-medium text-vx-warn' : undefined}>{totals.high}</span> over 80%
     </span>
   );
 }
@@ -99,12 +101,9 @@ export default function AdminPage() {
   if (!me) return null;
   if (!me.isAdmin) return <Forbidden />;
   return (
-    <div className="mx-auto w-full max-w-[1180px] px-5 pb-12 pt-6 max-[720px]:px-4">
-      <div className="flex flex-col gap-1">
-        <h1 className="vx-h1">Admin</h1>
-        <Totals />
-      </div>
-      <div className="mb-4 mt-4 flex flex-wrap items-end justify-between gap-x-4 gap-y-3 border-b border-vx-hair-soft">
+    <Page>
+      <PageHeader eyebrow="Server" title="Admin" lead={<Totals />} />
+      <div className="mt-5 flex flex-wrap items-end justify-between gap-x-4 gap-y-3 border-b border-vx-hair">
         <Tabs
           className="-mb-px border-b-0"
           value={tab}
@@ -115,7 +114,7 @@ export default function AdminPage() {
           ]}
         />
         {tab === 'users' ? (
-          <div className="mb-2 w-full max-w-[320px] max-[720px]:max-w-none">
+          <div className="mb-1.5 w-full max-w-[320px] max-[720px]:max-w-none">
             <Input
               size="sm"
               leading={<Search size={16} strokeWidth={1.75} />}
@@ -128,6 +127,6 @@ export default function AdminPage() {
         ) : null}
       </div>
       {tab === 'users' ? <UsersTab query={query} /> : <AuditTable />}
-    </div>
+    </Page>
   );
 }

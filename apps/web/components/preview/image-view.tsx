@@ -13,7 +13,7 @@ export const CHECKERBOARD: React.CSSProperties = {
   backgroundColor: 'var(--vx-surface-2)',
   backgroundImage:
     'conic-gradient(var(--vx-surface-3) 25%, transparent 0 50%, var(--vx-surface-3) 0 75%, transparent 0)',
-  backgroundSize: '16px 16px',
+  backgroundSize: '8px 8px',
 };
 
 export const ZOOM_STEPS = [0.1, 0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4, 8];
@@ -86,7 +86,7 @@ export function ImageView({ src, name, keys = true }: { src: string; name: strin
               setState('ok');
             }}
             onError={() => setState('error')}
-            className="block rounded-vx-xs shadow-vx-1"
+            className="block rounded-vx-xs"
             style={
               fit
                 ? { maxWidth: '100%', maxHeight: 'calc(70vh - 32px)', objectFit: 'contain', opacity: state === 'ok' ? 1 : 0 }
@@ -95,7 +95,7 @@ export function ImageView({ src, name, keys = true }: { src: string; name: strin
           />
         </div>
       </div>
-      <div className="flex h-11 items-center gap-1 px-2">
+      <div className="flex h-11 items-center gap-1 border-t border-vx-hair px-2">
         <span className="vx-meta min-w-0 flex-1 truncate pl-1 text-vx-text-3">
           {dims ? `${dims.w} × ${dims.h} px` : '—'}
         </span>
@@ -118,11 +118,11 @@ export function ImageView({ src, name, keys = true }: { src: string; name: strin
           aria-pressed={zoom === 1}
           title="Actual size (1)"
           className={cx(
-            'inline-flex h-8 items-center gap-1.5 rounded-full px-2.5 text-[13px] font-medium transition-colors duration-[120ms] disabled:opacity-[.38]',
-            zoom === 1 ? 'bg-vx-accent-wash text-vx-on-accent-wash' : 'text-vx-text-2 hover:bg-vx-surface-3 hover:text-vx-text-1',
+            'inline-flex h-7 items-center gap-1.5 rounded-vx-sm px-2 font-mono text-[12px] font-medium transition-colors duration-[120ms] disabled:opacity-[.38]',
+            zoom === 1 ? 'bg-vx-accent-wash text-vx-on-accent-wash' : 'text-vx-text-2 hover:bg-vx-raise hover:text-vx-text-1',
           )}
         >
-          1:1 <Kbd>1</Kbd>
+          1:1 <Kbd hint>1</Kbd>
         </button>
       </div>
     </div>

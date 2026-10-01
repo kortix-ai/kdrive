@@ -136,9 +136,9 @@ describe('inbox', () => {
     expect(a.textContent).toContain('Tidy the notes');
     expect(host.querySelector('[data-agent-badge]')?.textContent).toContain('Research agent');
     expect(a.textContent).toContain('+2');
-    expect(a.textContent).toContain('~1');
+    expect(a.textContent).toContain('M1');
     expect(a.textContent).toContain('−1');
-    expect(a.textContent).not.toContain('↪');
+    expect(a.textContent).not.toMatch(/R\d/);
     expect(a.textContent).toContain('4 files');
     expect(a.textContent).not.toContain('Accepted');
     await unmount();
@@ -159,8 +159,8 @@ describe('inbox', () => {
     }
     const r = await render(<ProposalRow proposal={summary({ message: '  ', counts: { added: 2, modified: 1, removed: 0, moved: 1, copied: 0, folders: 1 } })} />);
     expect(r.host.textContent).toContain('Add 2 files, edit 1, move 1, create 1 folder');
-    expect(r.host.textContent).toContain('↪1');
-    expect(r.host.textContent).toContain('▢1');
+    expect(r.host.textContent).toContain('R1');
+    expect(r.host.textContent).toContain('1 folder');
     await r.unmount();
   });
 
@@ -372,7 +372,7 @@ describe('review', () => {
     expect(host.querySelector('[data-seq="1"]')?.getAttribute('aria-current')).toBe('true');
     // Neither the source (made by change 0) nor the destination folder is in the drive yet.
     expect(host.querySelector('[data-view="move"] a')).toBeNull();
-    expect(host.textContent).toContain('Also accepts: Added /Projects/brief.md');
+    expect(host.textContent).toContain('Also accepts: added /Projects/brief.md');
     await click(byText(host, 'button', 'Accept this file'));
     await until(() => accepts().length > 0);
     expect(accepts()[0].body).toEqual({ seqs: [0, 1], force: false });

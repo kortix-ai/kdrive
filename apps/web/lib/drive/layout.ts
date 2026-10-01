@@ -1,13 +1,13 @@
-// Grid view layout (DESIGN-v2 §6.2): an eyebrow `Folders`, folder cards (52 px) in
+// Grid view layout (DESIGN-v2 §6.2): an eyebrow `FOLDERS`, folder cards (44 px) in
 // `repeat(auto-fill, minmax(220px, 1fr))`, then an eyebrow `Files` and file cards in
-// `minmax(200px, 1fr)`: a 44 px head, a 4:3 mat and a caption, all inside a 6 px inset.
+// `minmax(200px, 1fr)`: a 40 px head, a 4:3 mat and a caption, all inside a 6 px inset.
 // 12 px gaps, 20 px side padding. Rows are virtualised; item rects feed the marquee hit-test.
 import type { FileEntry } from '@volumes/shared';
 import { gridColumns, gridItemRects, type ItemRect } from './selection';
 
-export const FOLDER_TILE_H = 52;
+export const FOLDER_TILE_H = 44;
 /** File card head: type icon (checkbox on hover), name, ⋮. */
-export const HEAD_H = 44;
+export const HEAD_H = 40;
 /** File card caption under the mat, including the 6 px bottom inset. */
 export const CAPTION_H = 30;
 /** Side inset of the mat inside a file card. */

@@ -1,7 +1,7 @@
 'use client';
 
-// Virtualised grid view (by row of cards). An eyebrow `Folders` over 52 px folder cards,
-// then `Files` over thumbnail cards. The layout comes from lib/drive/layout (also used by
+// Virtualised grid view (by row of cards). An eyebrow `FOLDERS` over 44 px folder cards,
+// then `FILES` over thumbnail cards. The layout comes from lib/drive/layout (also used by
 // the marquee hit-test in FileBrowser).
 import { useEffect } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
