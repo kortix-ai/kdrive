@@ -39,7 +39,7 @@ export function restoreEffects(changes: DriveChange[], root?: string): EffectLin
   const removed = count('removed');
   if (removed.n) out.push({ mark: '+', count: removed.n, text: `${things(removed.files, removed.dirs)} ${removed.n === 1 ? 'comes' : 'come'} back` });
   const added = count('added');
-  if (added.n) out.push({ mark: '−', count: added.n, text: `${things(added.files, added.dirs)} added after ${added.n === 1 ? 'is' : 'are'} removed` });
+  if (added.n) out.push({ mark: '−', count: added.n, text: `${things(added.files, added.dirs)} added since then ${added.n === 1 ? 'is' : 'are'} removed` });
   const moved = count('moved');
   if (moved.n) out.push({ mark: '→', count: moved.n, text: `${things(moved.files, moved.dirs)} ${moved.n === 1 ? 'moves' : 'move'} back to where ${moved.n === 1 ? 'it was' : 'they were'}` });
   return out;

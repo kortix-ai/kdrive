@@ -223,7 +223,8 @@ export function fileStatusLabel(f: UploadFileState, fmt: (n: number) => string):
 export function fileProgress(f: UploadFileState): number {
   if (f.status === 'done') return 1;
   if (!f.size) return f.status === 'committing' ? 0.9 : 0;
-  return Math.min(1, (f.hashed / f.size) * 0.5 + (f.sent / f.size) * 0.5);
+  // Hashing and planning are quick local work: at most a tenth of the bar; the transfer is the rest.
+  return Math.min(1, (f.hashed / f.size) * 0.1 + (f.sent / f.size) * 0.9);
 }
 
 // ── runtime ─────────────────────────────────────────────────────────────────

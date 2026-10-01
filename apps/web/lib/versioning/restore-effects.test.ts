@@ -17,7 +17,7 @@ describe('restore effects', () => {
     expect(restoreEffects(changes)).toEqual([
       { mark: '~', count: 2, text: '2 files go back to that version' },
       { mark: '+', count: 1, text: '1 file comes back' },
-      { mark: '−', count: 3, text: '2 files and 1 folder added after are removed' },
+      { mark: '−', count: 3, text: '2 files and 1 folder added since then are removed' },
       { mark: '→', count: 1, text: '1 file moves back to where it was' },
     ]);
   });
@@ -27,7 +27,7 @@ describe('restore effects', () => {
     expect(scoped.map((c) => c.path)).not.toContain('/Photos/x.png');
     expect(scoped.map((c) => c.path)).toContain('/Archive/a.txt');
     const lines = restoreEffects(changes, '/Reports');
-    expect(lines.find((l) => l.mark === '−')?.text).toBe('1 file and 1 folder added after are removed');
+    expect(lines.find((l) => l.mark === '−')?.text).toBe('1 file and 1 folder added since then are removed');
   });
 
   test('no changes', () => {
