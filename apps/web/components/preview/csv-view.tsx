@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import Papa from 'papaparse';
+import { useOverflowFade } from '@/lib/use-overflow-fade';
 import { useTextContent } from './content';
 import { PreviewError, PreviewSkeleton } from './states';
 
@@ -75,6 +76,7 @@ export function CsvView({ src }: { src: string }) {
 
 /** The parsed table (no fetching). */
 export function CsvTableView({ table }: { table: CsvTable }) {
+  const scroller = useOverflowFade<HTMLDivElement>();
   if (table.columns === 0) return <p className="vx-body px-4 py-6 text-vx-text-3">This file is empty.</p>;
   const cols = Array.from({ length: table.shownColumns }, (_, i) => i);
   const note = csvShownNote(table);
@@ -86,13 +88,13 @@ export function CsvTableView({ table }: { table: CsvTable }) {
         </span>
         {note ? <span>· {note}</span> : null}
       </div>
-      <div className="mx-3 mb-3 max-h-[70vh] overflow-auto rounded-vx-sm border border-vx-hair bg-vx-surface">
+      <div ref={scroller} className="vx-fade-x mx-3 mb-3 max-h-[70vh] overflow-auto rounded-vx-sm border border-vx-hair bg-vx-surface">
         <table className="w-max min-w-full border-collapse text-[13px] leading-5">
           <thead>
             <tr>
-              <th className="sticky top-0 z-10 w-10 border-b border-r border-vx-hair bg-vx-surface-2 px-2 py-1.5 text-right font-medium text-vx-text-4">#</th>
+              <th className="vx-colhead sticky top-0 z-10 w-10 border-b border-r border-vx-hair bg-vx-bg-2 px-2 py-2 text-right">#</th>
               {cols.map((c) => (
-                <th key={c} className="sticky top-0 z-10 border-b border-r border-vx-hair bg-vx-surface-2 px-3 py-1.5 text-left font-semibold text-vx-text-1 last:border-r-0">
+                <th key={c} className="vx-datahead sticky top-0 z-10 border-b border-r border-vx-hair bg-vx-bg-2 px-3 py-2 text-left last:border-r-0">
                   {cellText(table.header[c])}
                 </th>
               ))}
@@ -100,8 +102,8 @@ export function CsvTableView({ table }: { table: CsvTable }) {
           </thead>
           <tbody>
             {table.rows.map((r, i) => (
-              <tr key={i} className="hover:bg-vx-hover">
-                <td className="border-b border-r border-vx-hair-soft px-2 py-1 text-right tabular-nums text-vx-text-4">{i + 1}</td>
+              <tr key={i} className="hover:bg-vx-raise">
+                <td className="border-b border-r border-vx-hair-soft px-2 py-1 text-right font-mono text-[12px] tabular-nums text-vx-text-3">{i + 1}</td>
                 {cols.map((c) => (
                   <td key={c} className="max-w-[320px] truncate border-b border-r border-vx-hair-soft px-3 py-1 font-mono text-[12.5px] text-vx-text-2 last:border-r-0" title={r[c] === undefined ? undefined : cellText(r[c])}>
                     {cellText(r[c])}

@@ -6,8 +6,9 @@ import { Brand } from '@/components/shell/brand';
 import { ThemeToggle } from '@/components/shell/theme-toggle';
 import { Badge } from '@/components/ui/badge';
 import { buttonClass } from '@/components/ui/button';
+import { cx } from '@/components/ui/cx';
 import { ApiError } from '@/lib/api/client';
-import { formatDate, formatTimeTravelLabel, isoTitle } from '@/lib/format';
+import { formatDate, formatMoment, isoTitle } from '@/lib/format';
 
 /** `Live` or `Pinned · 14 Sep 16:40`: always a neutral badge (visitors are not "in the past"). */
 export function ModeChip({ meta }: { meta: Pick<PublicShareMeta, 'mode' | 'pinnedAt'> }) {
@@ -20,12 +21,18 @@ export function ModeChip({ meta }: { meta: Pick<PublicShareMeta, 'mode' | 'pinne
   }
   return (
     <Badge icon={<Pin strokeWidth={2} aria-hidden />} title={meta.pinnedAt ? `Shows the version from ${isoTitle(meta.pinnedAt)}` : 'Shows one saved version'}>
-      Pinned{meta.pinnedAt ? ` · ${formatTimeTravelLabel(meta.pinnedAt).replace(',', '')}` : ''}
+      Pinned{meta.pinnedAt ? ` · ${formatMoment(meta.pinnedAt)}` : ''}
     </Badge>
   );
 }
 
-/** The public page frame (DESIGN-v2 §6.12): a 64 px top bar (brand, item name, mode badge, Download), content, footer with the theme button. */
+/** One column for the bar, the content and the footer, so the lockup, the title and the footer copy share an edge. */
+const FRAME = 'mx-auto w-full max-w-[1180px] px-4 min-[720px]:px-6';
+
+/**
+ * The public page frame (UNIFY-SPEC §14.4): a 56 px glass top bar on a hair rule (flat KDRIVE lockup, item name,
+ * mode badge, primary Download), the content, and a hair-ruled footer with the theme toggle.
+ */
 export function PublicShell({
   meta,
   download,
@@ -38,31 +45,35 @@ export function PublicShell({
   return (
     <div className="flex h-dvh flex-col overflow-auto bg-vx-bg">
       <meta name="robots" content="noindex, nofollow" />
-      <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center gap-3 bg-vx-bg px-4 min-[720px]:px-6">
-        <Brand href={null} className="shrink-0 max-[520px]:[&>span:last-child]:hidden" />
-        {meta ? (
-          <>
-            <span aria-hidden className="h-6 w-px shrink-0 bg-vx-hair" />
-            <span className="min-w-0 truncate text-[16px] font-semibold leading-6 text-vx-text-1" title={meta.name}>
-              {meta.name}
-            </span>
-            <span className="shrink-0 max-[400px]:hidden">
-              <ModeChip meta={meta} />
-            </span>
-          </>
-        ) : null}
-        <span className="flex-1" />
-        {download ? (
-          <a href={download.href} className={buttonClass('primary', 'md', { withIcon: true, className: 'max-[520px]:w-9 max-[520px]:px-0' })} aria-label={download.label}>
-            <Download size={18} strokeWidth={1.75} aria-hidden />
-            <span className="max-[520px]:hidden">{download.label}</span>
-          </a>
-        ) : null}
+      <header className="sticky top-0 z-20 h-14 shrink-0 border-b border-vx-hair bg-vx-nav-glass backdrop-blur-[14px]">
+        <div className={FRAME + ' flex h-full items-center gap-3'}>
+          <Brand href={null} className={cx('shrink-0', meta && 'max-[520px]:[&>span:last-child]:hidden')} />
+          {meta ? (
+            <>
+              <span aria-hidden className="h-5 w-px shrink-0 bg-vx-hair" />
+              <span className="min-w-0 truncate text-[15px] font-semibold leading-5 text-vx-text-1" title={meta.name}>
+                {meta.name}
+              </span>
+              <span className="shrink-0 max-[400px]:hidden">
+                <ModeChip meta={meta} />
+              </span>
+            </>
+          ) : null}
+          <span className="flex-1" />
+          {download ? (
+            <a href={download.href} className={buttonClass('primary', 'sm', { withIcon: true, className: 'max-[520px]:w-[30px] max-[520px]:px-0' })} aria-label={download.label}>
+              <Download size={14} strokeWidth={1.75} aria-hidden />
+              <span className="max-[520px]:hidden">{download.label}</span>
+            </a>
+          ) : null}
+        </div>
       </header>
-      <main className="mx-auto flex w-full max-w-[1180px] flex-1 flex-col px-4 pb-10 pt-8 min-[720px]:px-6">{children}</main>
-      <footer className="flex min-h-14 shrink-0 items-center justify-between gap-3 px-4 min-[720px]:px-6">
-        <span className="vx-micro text-vx-text-3">Shared with Volumes. Every change is a version.</span>
-        <ThemeToggle size="sm" />
+      <main className={FRAME + ' flex flex-1 flex-col pb-12 pt-10 max-[720px]:pt-7'}>{children}</main>
+      <footer className="shrink-0 border-t border-vx-hair">
+        <div className={FRAME + ' flex min-h-14 items-center justify-between gap-3'}>
+          <span className="vx-micro text-vx-text-3">Shared with KDRIVE. Every change is a version.</span>
+          <ThemeToggle size="sm" />
+        </div>
       </footer>
     </div>
   );
@@ -75,7 +86,7 @@ export function PublicHero({ meta }: { meta: PublicShareMeta }) {
   facts.push(
     meta.mode === 'pinned' && meta.pinnedAt ? (
       <span key="v" title={isoTitle(meta.pinnedAt)}>
-        as it was on {formatTimeTravelLabel(meta.pinnedAt)}
+        as it was on {formatMoment(meta.pinnedAt)}
       </span>
     ) : (
       'always the latest version'
@@ -89,10 +100,10 @@ export function PublicHero({ meta }: { meta: PublicShareMeta }) {
     );
   }
   return (
-    <div className="mb-6">
+    <div className="mb-8 max-[720px]:mb-6">
       <div className="vx-eyebrow">{meta.targetType === 'dir' ? 'Shared folder' : 'Shared file'}</div>
-      <h1 className="vx-display mt-2 break-words">{meta.name}</h1>
-      <p className="vx-body mt-2 text-vx-text-3">
+      <h1 className="vx-display mt-3 break-words">{meta.name}</h1>
+      <p className="vx-meta mt-3 text-vx-text-3">
         {facts.map((f, i) => (
           <span key={i}>
             {i > 0 ? ' · ' : null}

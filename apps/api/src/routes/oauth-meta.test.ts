@@ -56,7 +56,7 @@ describe('protected-resource document', () => {
         authorization_servers: ['http://localhost:4100'],
         bearer_methods_supported: ['header'],
         scopes_supported: ['drive:read', 'drive:propose', 'drive:write'],
-        resource_name: 'Volumes',
+        resource_name: 'KDRIVE',
         resource_documentation: 'http://localhost:4100/settings/agents',
       });
     });

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useLayoutEffect, useRef } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { CircleAlert, X } from 'lucide-react';
 import { cx } from './cx';
@@ -52,6 +52,31 @@ const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:n
  * right-aligned footer. ↵ submits, Esc closes, focus is trapped and returned.
  * Below 720 px it becomes a bottom sheet with stacked full-width buttons.
  */
+/** The dialog body: scrolls past 80vh and fades its bottom edge while more content sits below. */
+function ScrollBody({ children }: { children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [more, setMore] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const update = () => setMore(el.scrollTop + el.clientHeight < el.scrollHeight - 2);
+    update();
+    el.addEventListener('scroll', update, { passive: true });
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(update);
+    ro?.observe(el);
+    if (el.firstElementChild) ro?.observe(el.firstElementChild);
+    return () => {
+      el.removeEventListener('scroll', update);
+      ro?.disconnect();
+    };
+  }, []);
+  return (
+    <div ref={ref} data-more-bottom={more ? 'true' : undefined} className="vx-fade-y min-h-0 flex-1 overflow-auto px-5 pb-4">
+      {children}
+    </div>
+  );
+}
+
 export function Dialog({
   open,
   onClose,
@@ -169,10 +194,10 @@ export function Dialog({
         )}
         style={{ maxWidth: width }}
       >
-        <div className="flex shrink-0 items-start gap-3 px-6 pb-4 pt-5">
+        <div className="flex shrink-0 items-start gap-3 px-5 pb-3.5 pt-[18px]">
           {icon ? <span className="mt-0.5 inline-flex shrink-0">{icon}</span> : null}
           <div className="min-w-0 flex-1">
-            <h2 id={titleId} className="text-[20px] font-semibold leading-[26px] tracking-[-0.02em] text-vx-text-1">
+            <h2 id={titleId} className="text-[18px] font-semibold leading-6 tracking-[-0.02em] text-vx-text-1">
               {title}
             </h2>
             {description ? (
@@ -187,24 +212,24 @@ export function Dialog({
             aria-label="Close"
             onClick={onClose}
             disabled={busy}
-            className="-mr-2 -mt-1.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-vx-text-2 transition-colors duration-[120ms] hover:bg-vx-surface-3 hover:text-vx-text-1 disabled:opacity-[.38]"
+            className="-mr-1 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-vx-sm text-vx-text-2 transition-colors duration-[120ms] hover:bg-vx-raise hover:text-vx-text-1 disabled:opacity-[.38]"
           >
-            <X size={20} strokeWidth={1.75} aria-hidden />
+            <X size={16} strokeWidth={1.75} aria-hidden />
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-auto px-6 pb-2">{children}</div>
+        <ScrollBody>{children}</ScrollBody>
         {error ? (
-          <div role="alert" className="mx-6 mt-2 flex items-start gap-2 rounded-vx-sm bg-vx-danger-wash px-3 py-2 text-[13px] leading-5 text-vx-del-fg">
+          <div role="alert" className="mx-5 mb-3 flex items-start gap-2 rounded-vx-sm bg-vx-danger-wash px-3 py-2 text-[13px] leading-5 text-vx-danger">
             <CircleAlert size={16} strokeWidth={1.75} className="mt-0.5 shrink-0" aria-hidden />
             <span className="min-w-0">{error}</span>
           </div>
         ) : null}
         {footer ? (
-          <div ref={footerRef} className="flex shrink-0 items-center justify-end gap-2 px-6 pb-4 pt-4 max-[720px]:flex-col-reverse max-[720px]:items-stretch max-[720px]:[&>*]:w-full">
+          <div ref={footerRef} className="flex shrink-0 items-center justify-end gap-2 border-t border-vx-hair px-5 py-3.5 max-[720px]:flex-col-reverse max-[720px]:items-stretch max-[720px]:[&>*]:w-full">
             {footer}
           </div>
         ) : null}
-        {note ? <div className="vx-meta flex shrink-0 items-center gap-2 bg-vx-surface-2 px-6 py-3 text-vx-text-3">{note}</div> : null}
+        {note ? <div className="vx-micro flex shrink-0 items-center gap-2 border-t border-vx-hair bg-vx-surface-2 px-5 py-3 text-vx-text-3">{note}</div> : null}
       </div>
     </div>,
     document.body,

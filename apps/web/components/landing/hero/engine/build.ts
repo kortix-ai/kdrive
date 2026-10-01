@@ -51,8 +51,12 @@ export function boxEdges(h: THREE.Vector3, c = new THREE.Vector3()): Seg {
   return out;
 }
 
-/** Inner grid lines on every face of the box (the n-grid of a ghost). */
-export function faceGrid(h: THREE.Vector3, cells: [number, number, number]): Seg {
+/**
+ * Inner grid lines on every face of the box (the n-grid of a ghost, a solid's panel lines). `endInset` (a fraction
+ * of each half extent) stops every line where the face stops being flat, so on a bevelled block no line end pokes
+ * out past the rounded silhouette.
+ */
+export function faceGrid(h: THREE.Vector3, cells: [number, number, number], endInset = 0): Seg {
   const out: Seg = [];
   const ext = [h.x, h.y, h.z];
   for (let axis = 0; axis < 3; axis++) {
@@ -70,8 +74,8 @@ export function faceGrid(h: THREE.Vector3, cells: [number, number, number]): Seg
           const p1 = [0, 0, 0];
           p0[axis] = p1[axis] = side * ext[axis];
           p0[a] = p1[a] = q;
-          p0[b] = -ext[b];
-          p1[b] = ext[b];
+          p0[b] = -ext[b] * (1 - endInset);
+          p1[b] = ext[b] * (1 - endInset);
           out.push(...p0, ...p1);
         }
       }

@@ -1,7 +1,7 @@
 // Time-travel stage data (LANDING-SPEC §6.2). Each version is the whole drive's
 // state; change chips are computed against the previous shown version.
 
-export type Chip = 'added' | 'changed' | 'renamed' | 'deleted';
+export type Chip = 'added' | 'changed' | 'moved' | 'deleted';
 
 interface Entry {
   name: string;
@@ -81,7 +81,7 @@ export function rowsAt(list: Version[], index: number): Row[] {
     if (now) {
       let chip: Chip | undefined;
       if (prev && !before) chip = 'added';
-      else if (before && before.name !== now.name) chip = 'renamed';
+      else if (before && before.name !== now.name) chip = 'moved';
       else if (before && before.size !== now.size) chip = 'changed';
       rows.push({ id, ...now, dir: !!now.dir, modified: TOUCHED[touched] ?? cur.when, chip });
     } else if (before) {

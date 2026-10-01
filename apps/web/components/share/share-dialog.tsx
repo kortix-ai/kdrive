@@ -2,20 +2,19 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import useSWR from 'swr';
-import { Bookmark, CircleAlert, Link2, Lock } from 'lucide-react';
+import { CircleAlert, Link2, Lock, Pin } from 'lucide-react';
 import { TAG_BUDGET, basename, formatBytes, previewKind, shortId, type ShareLink } from '@volumes/shared';
 import { kindLabel } from '@/components/preview/names';
 import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
 import { cx } from '@/components/ui/cx';
 import { Dialog } from '@/components/ui/dialog';
-import { EmptyArt } from '@/components/ui/empty-state';
 import { FileIcon } from '@/components/ui/file-icon';
 import { Input } from '@/components/ui/input';
 import { ApiError } from '@/lib/api/client';
 import { api } from '@/lib/api/endpoints';
 import { useStat } from '@/lib/api/hooks';
-import { formatTimeTravelLabel, isoTitle } from '@/lib/format';
+import { formatMoment, isoTitle } from '@/lib/format';
 import { useVx } from '@/lib/store';
 import { copyText, CopyButton } from './copy-button';
 import { expiryToIso, linkStatus, sortLinks, toLocalInput, type ExpiryChoice } from './expiry';
@@ -26,14 +25,14 @@ const noRetry = { revalidateOnFocus: false, shouldRetryOnError: false } as const
 /** A danger row inside the dialog body (budget full, create errors). */
 function ErrorRow({ children }: { children: React.ReactNode }) {
   return (
-    <div role="alert" className="flex items-start gap-2 rounded-vx-sm bg-vx-danger-wash px-3 py-2 text-[13px] leading-5 text-vx-del-fg">
+    <div role="alert" className="flex items-start gap-2 rounded-vx-sm bg-vx-danger-wash px-3 py-2 text-[13px] leading-5 text-vx-danger">
       <CircleAlert size={16} strokeWidth={1.75} className="mt-0.5 shrink-0" aria-hidden />
       <span className="min-w-0">{children}</span>
     </div>
   );
 }
 
-/** Option card (r12): a 36 px icon disc, a title and one line; `on` gets a 2 px accent border and the selection tint. */
+/** Option card (r6): a 32 px r4 icon tile, a title and one line; `on` gets a 1 px accent-edge ring and the selection fill. */
 function OptionCard({
   on,
   disabled,
@@ -57,16 +56,16 @@ function OptionCard({
       disabled={disabled}
       onClick={onSelect}
       className={cx(
-        'vx-inset-focus flex min-w-0 items-center gap-3 rounded-vx-md px-4 py-3.5 text-left transition-colors duration-[120ms] ease-vx disabled:cursor-not-allowed disabled:opacity-[.38]',
+        'vx-inset-focus flex min-h-[60px] min-w-0 items-center gap-3 rounded-vx-md px-3.5 py-3 text-left transition-colors duration-[120ms] ease-vx disabled:cursor-not-allowed disabled:opacity-[.38]',
         on
-          ? 'bg-vx-selection shadow-[inset_0_0_0_2px_var(--vx-accent)]'
-          : 'shadow-[inset_0_0_0_1px_var(--vx-hair-strong)] enabled:hover:bg-vx-hover',
+          ? 'bg-vx-selection shadow-[inset_0_0_0_1px_var(--vx-accent-edge)]'
+          : 'shadow-[inset_0_0_0_1px_var(--vx-hair-strong)] enabled:hover:bg-vx-raise',
       )}
     >
       <span
         aria-hidden
         className={cx(
-          'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full',
+          'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-vx-sm',
           on ? 'bg-vx-accent text-vx-on-accent' : 'bg-vx-surface-3 text-vx-text-2',
         )}
       >
@@ -74,7 +73,7 @@ function OptionCard({
       </span>
       <span className="min-w-0">
         <span className={cx('block text-[14px] font-semibold leading-5', on ? 'text-vx-on-selection' : 'text-vx-text-1')}>{title}</span>
-        <span className="vx-meta block text-vx-text-3">{body}</span>
+        <span className="mt-0.5 block text-[13px] leading-[18px] text-vx-text-3">{body}</span>
       </span>
     </button>
   );
@@ -177,7 +176,7 @@ function ShareBody({ ws, path, onClose }: { ws: string; path: string; onClose: (
     await Promise.all([links.mutate(), link.mode === 'pinned' ? budget.mutate() : null]);
   };
 
-  const label = 'mb-2 block text-[13px] font-semibold leading-5 text-vx-text-2';
+  const label = 'mb-2 block text-[13px] font-medium leading-5 text-vx-text-2';
 
   return (
     <Dialog
@@ -218,9 +217,9 @@ function ShareBody({ ws, path, onClose }: { ws: string; path: string; onClose: (
             <OptionCard
               on={mode === 'live'}
               disabled={past}
-              icon={<Link2 size={18} strokeWidth={1.75} />}
+              icon={<Link2 size={16} strokeWidth={1.75} />}
               title="Live link"
-              body="Always shows the latest version"
+              body="Always the latest"
               onSelect={() => {
                 setMode('live');
                 setError(null);
@@ -228,7 +227,7 @@ function ShareBody({ ws, path, onClose }: { ws: string; path: string; onClose: (
             />
             <OptionCard
               on={mode === 'pinned'}
-              icon={<Bookmark size={18} strokeWidth={1.75} />}
+              icon={<Pin size={16} strokeWidth={1.75} />}
               title="Pinned link"
               body="Frozen at this version"
               onSelect={() => {
@@ -237,27 +236,25 @@ function ShareBody({ ws, path, onClose }: { ws: string; path: string; onClose: (
               }}
             />
           </div>
-          <p className="vx-meta mt-2 text-vx-text-3">
-            {mode === 'live' ? (
-              <>Follows every change: visitors always see the latest {isDir ? 'contents' : 'version'}.</>
-            ) : (
+          {mode === 'pinned' ? (
+            <p className="vx-meta mt-2 text-vx-text-3">
               <>
                 Pinned to{' '}
                 <span className={past ? 'font-medium text-vx-past' : 'text-vx-text-2'} title={pinnedAt ? isoTitle(pinnedAt) : undefined}>
-                  {pinnedAt ? formatTimeTravelLabel(pinnedAt) : past ? '…' : 'the current version'}
+                  {pinnedAt ? formatMoment(pinnedAt) : past ? '…' : 'the current version'}
                 </span>
                 {pinnedCommit ? (
                   <>
                     {' · '}
-                    <span className="font-mono">{shortId(pinnedCommit)}</span>
+                    <span>{shortId(pinnedCommit)}</span>
                   </>
                 ) : null}{' '}
                 · uses 1 of {max} checkpoint slots
-                {b ? <span className="text-vx-text-4"> ({b.used} used)</span> : null}
+                {b ? <span className="text-vx-text-3"> ({b.used} used)</span> : null}
               </>
-            )}
-          </p>
-          {past ? <p className="vx-meta mt-1 text-vx-text-3">In the past, links are pinned to the version you are viewing.</p> : null}
+            </p>
+          ) : null}
+          {past ? <p className="vx-micro mt-1 text-vx-text-3">In the past, links are pinned to the version you are viewing.</p> : null}
         </div>
 
         <div>
@@ -300,27 +297,27 @@ function ShareBody({ ws, path, onClose }: { ws: string; path: string; onClose: (
         {error && error.code !== 'tag_budget_exceeded' ? <ErrorRow>{error.message}</ErrorRow> : null}
 
         {created ? (
-          <div className="flex h-12 items-center gap-2 rounded-vx-sm bg-vx-surface-2 pl-3 pr-2">
-            <Link2 size={18} strokeWidth={1.75} className="shrink-0 text-vx-text-3" aria-hidden />
+          <div className="flex h-10 items-center gap-2 rounded-vx-sm border border-vx-hair bg-vx-surface-2 pl-3 pr-1">
+            <Link2 size={16} strokeWidth={1.75} className="shrink-0 text-vx-text-3" aria-hidden />
             <input
               readOnly
               value={created.url}
               aria-label="Share link"
               onFocus={(e) => e.currentTarget.select()}
-              className="vx-inset-focus min-w-0 flex-1 truncate rounded-vx-xs bg-transparent px-1 py-1 font-mono text-[13px] text-vx-text-1 outline-none"
+              className="vx-inset-focus min-w-0 flex-1 truncate rounded-vx-xs bg-transparent px-1 py-1 font-mono text-[12.5px] text-vx-text-1 outline-none"
             />
             <CopyButton key={created.id} text={created.url} flashOnMount={autoCopied} />
           </div>
         ) : null}
 
-        <section className="border-t border-vx-hair-soft pt-4">
-          <div className="mb-1 flex items-center justify-between">
-            <h3 className="text-[13px] font-semibold leading-5 text-vx-text-2">Active links</h3>
+        <section className="border-t border-vx-hair pt-4">
+          <div className="flex h-8 items-center justify-between border-b border-vx-hair">
+            <h3 className="vx-colhead">Active links</h3>
             <span className="vx-meta text-vx-text-3">{links.data ? activeCount : ''}</span>
           </div>
           {links.error ? (
             <div className="flex items-center gap-2 py-3">
-              <span className="text-[13px] text-vx-del-fg">Couldn&apos;t load the links.</span>
+              <span className="text-[13px] text-vx-danger">Couldn&apos;t load the links.</span>
               <Button size="sm" variant="text" onClick={() => void links.mutate()}>
                 Retry
               </Button>
@@ -331,11 +328,7 @@ function ShareBody({ ws, path, onClose }: { ws: string; path: string; onClose: (
               <span className="skeleton skel-line w-2/3" />
             </div>
           ) : sorted.length === 0 ? (
-            <div className="flex flex-col items-center py-6 text-center">
-              <EmptyArt size={72} float={false} className="mb-3" />
-              <div className="text-[15px] font-semibold leading-6 text-vx-text-1">No links yet.</div>
-              <p className="vx-body mt-1 text-vx-text-3">Live links follow changes. Pinned links freeze a version.</p>
-            </div>
+            <p className="vx-body py-3 text-vx-text-3">No links yet.</p>
           ) : (
             <ul>
               {sorted.map((l) => (

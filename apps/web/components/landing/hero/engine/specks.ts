@@ -1,6 +1,7 @@
 // Distant specks (LANDING-SPEC §5.3): 90 fixed-size points far behind the
 // field, drifting .02 u/s. They give the space its depth. Desktop only.
 import * as THREE from 'three';
+import { palette, type ScenePalette } from './palette';
 import { rng } from './springs';
 
 export class Specks {
@@ -25,17 +26,24 @@ export class Specks {
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(this.pos, 3).setUsage(THREE.DynamicDrawUsage));
     const mat = new THREE.PointsMaterial({
-      color: 0x8b82c9,
+      color: palette().specks.color,
       size: 1.4,
       sizeAttenuation: false,
       transparent: true,
-      opacity: 0.35,
+      opacity: palette().specks.opacity,
       depthWrite: false,
       fog: false,
       toneMapped: false,
     });
     this.points = new THREE.Points(geo, mat);
     this.points.frustumCulled = false;
+  }
+
+  /** Live theme switch. */
+  retheme(p: ScenePalette): void {
+    const m = this.points.material as THREE.PointsMaterial;
+    m.color.set(p.specks.color);
+    m.opacity = p.specks.opacity;
   }
 
   /** Slow drift: .02 u/s along a per-speck direction that turns over minutes. */

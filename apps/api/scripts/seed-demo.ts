@@ -255,7 +255,7 @@ function wav(seconds = 1.8, rate = 22050): Uint8Array {
   return out;
 }
 
-const planV1 = `# Volumes launch plan
+const planV1 = `# KDRIVE launch plan
 
 ## Goal
 Ship a personal drive where every change is a version.
@@ -299,7 +299,7 @@ const websiteIndex = `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>Volumes</title>
+    <title>KDRIVE</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -358,7 +358,7 @@ export function describe`,
 
 const readme = `# Website
 
-Static landing page for Volumes.
+Static landing page for KDRIVE.
 
 \`\`\`sh
 bun x serve .
@@ -461,7 +461,7 @@ async function main() {
   }
 
   const step = (s: string) => console.log(`  ${s}`);
-  const P = '/Projects/Volumes launch';
+  const P = '/Projects/KDRIVE launch';
   const W = '/Projects/Website';
   const L = '/Photos/2026 Lisbon';
 
@@ -489,7 +489,7 @@ async function main() {
   );
   step(
     await upload(ws, {
-      '/Documents/Quarterly report.pdf': pdf('Volumes - Q3 report', [
+      '/Documents/Quarterly report.pdf': pdf('KDRIVE - Q3 report', [
         'Storage used grew 38% quarter on quarter.',
         'Restores: 1,204 files, 96 folders, 3 whole drives.',
         'Median time to open a past version: 240 ms.',

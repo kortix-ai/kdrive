@@ -24,7 +24,7 @@ export function AuditRows({ events, showActor }: { events: AuditEvent[]; showAct
   return (
     <>
       {events.map((e) => (
-        <tr key={e.id} className="h-11 border-b border-vx-hair-soft transition-colors duration-[120ms] last:border-b-0 hover:bg-vx-hover">
+        <tr key={e.id} className="h-10 border-b border-vx-hair-soft transition-colors duration-[120ms] last:border-b-0 hover:bg-vx-raise">
           <td className="vx-meta-row whitespace-nowrap py-2 pl-3 pr-3 text-vx-text-3" title={isoTitle(e.createdAt)}>
             {formatWhen(e.createdAt)}
           </td>
@@ -46,8 +46,8 @@ export function AuditRows({ events, showActor }: { events: AuditEvent[]; showAct
   );
 }
 
-/** Column header cell for the audit tables (13/500 text-3). */
-export const auditTh = 'h-10 pr-3 text-left text-[13px] font-medium leading-5 text-vx-text-3 first:pl-3';
+/** Column header cell for the audit tables (`.vx-colhead`: Mono 11 UPPERCASE text-3). */
+export const auditTh = 'vx-colhead h-9 pr-3 text-left first:pl-3';
 
 /** Activity: the signed-in user's audit events (`/api/me/audit`), paged. */
 export function ActivitySection() {
@@ -68,7 +68,7 @@ export function ActivitySection() {
     <Section id="activity" label="Activity" description="Sign-ins, restores, checkpoints and links on your account.">
       {error && !data ? (
         <div className="flex items-center gap-2">
-          <span className="text-[13px] text-vx-del-fg">Couldn&apos;t load activity.</span>
+          <span className="text-[13px] text-vx-danger">Couldn&apos;t load activity.</span>
           <Button size="sm" variant="text" onClick={() => void mutate()}>
             Retry
           </Button>

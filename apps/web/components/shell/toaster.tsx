@@ -15,9 +15,9 @@ export function toastBottom(pathname: string): string {
 }
 
 function LeadIcon({ t }: { t: Toast }) {
-  if (t.kind === 'error') return <CircleAlert size={18} strokeWidth={1.75} className="shrink-0 text-vx-danger-edge" aria-hidden />;
-  if (/^(Restored|Undone)\b/.test(t.message)) return <RotateCcw size={18} strokeWidth={1.75} className="shrink-0 text-vx-inverse-accent" aria-hidden />;
-  if (t.kind === 'success') return <CircleCheck size={18} strokeWidth={1.75} className="shrink-0 text-vx-add-word" aria-hidden />;
+  if (t.kind === 'error') return <CircleAlert size={16} strokeWidth={1.75} className="shrink-0 text-vx-danger" aria-hidden />;
+  if (/^(Restored|Undone)\b/.test(t.message)) return <RotateCcw size={16} strokeWidth={1.75} className="shrink-0 text-vx-past" aria-hidden />;
+  if (t.kind === 'success') return <CircleCheck size={16} strokeWidth={1.75} className="shrink-0 text-vx-ok" aria-hidden />;
   return null;
 }
 
@@ -41,7 +41,7 @@ export function Toaster() {
         <div
           key={t.id}
           role={t.kind === 'error' ? 'alert' : 'status'}
-          className="vx-toast pointer-events-auto relative flex min-h-12 w-full min-w-[min(344px,100%)] max-w-[520px] items-center gap-3 overflow-hidden rounded-vx-sm bg-vx-inverse py-2 pl-4 pr-2 text-vx-on-inverse shadow-vx-3"
+          className="vx-toast pointer-events-auto relative flex min-h-11 w-full min-w-[min(320px,100%)] max-w-[520px] items-center gap-3 overflow-hidden rounded-vx-sm bg-vx-float py-1.5 pl-3.5 pr-1.5 text-vx-text-1 shadow-vx-3"
         >
           <LeadIcon t={t} />
           <span className="min-w-0 flex-1 text-[14px] leading-5">{t.message}</span>
@@ -50,7 +50,7 @@ export function Toaster() {
               type="button"
               onClick={() => void undo(t.id)}
               title="Undo (⌘Z)"
-              className="inline-flex h-9 shrink-0 items-center rounded-vx-sm px-3 text-[14px] font-semibold text-vx-inverse-accent hover:bg-vx-on-inverse/10"
+              className="inline-flex h-8 shrink-0 items-center rounded-vx-sm px-2.5 text-[14px] font-semibold text-vx-text-1 underline-offset-[3px] hover:underline"
             >
               Undo
             </button>
@@ -59,12 +59,12 @@ export function Toaster() {
             type="button"
             aria-label="Dismiss"
             onClick={() => dismiss(t.id)}
-            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full opacity-80 hover:bg-vx-on-inverse/10 hover:opacity-100"
+            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-vx-sm text-vx-text-2 hover:bg-vx-raise hover:text-vx-text-1"
           >
             <X size={18} strokeWidth={1.75} aria-hidden />
           </button>
           {t.undoActionId ? (
-            <span className={cx('vx-drain absolute bottom-0 left-0 h-[3px] w-full bg-vx-inverse-accent')} style={{ animationDuration: `${t.durationMs}ms` }} />
+            <span className={cx('vx-drain absolute bottom-0 left-0 h-0.5 w-full bg-vx-accent')} style={{ animationDuration: `${t.durationMs}ms` }} />
           ) : null}
         </div>
       ))}

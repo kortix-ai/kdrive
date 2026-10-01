@@ -43,17 +43,17 @@ function WorkspaceRow({ ws, current, onDelete }: { ws: WorkspaceSummary; current
       setEditing(false);
       toast({ kind: 'success', message: `Renamed to ${name.trim()}` });
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not rename the workspace.');
+      setError(e instanceof Error ? e.message : 'Could not rename the drive.');
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <li className="-mx-2 rounded-vx-sm px-2 py-2.5 transition-colors duration-[120ms] hover:bg-vx-hover">
+    <li className="-mx-3 border-t border-vx-hair-soft px-3 py-3 transition-colors duration-[120ms] first:border-t-0 hover:bg-vx-raise">
       <div className="flex items-center gap-3 max-[520px]:flex-wrap">
-        <span aria-hidden className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-vx-surface-3 text-vx-text-2">
-          <Layers size={18} strokeWidth={1.75} />
+        <span aria-hidden className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-vx-sm border border-vx-hair bg-vx-surface-2 text-vx-text-2">
+          <Layers size={16} strokeWidth={1.75} />
         </span>
         <div className="min-w-0 flex-[1_1_200px]">
           {editing ? (
@@ -67,7 +67,7 @@ function WorkspaceRow({ ws, current, onDelete }: { ws: WorkspaceSummary; current
               <Input
                 autoFocus
                 size="sm"
-                aria-label="Workspace name"
+                aria-label="Drive name"
                 value={name}
                 maxLength={80}
                 onChange={(e) => setName(e.target.value)}
@@ -117,7 +117,7 @@ function WorkspaceRow({ ws, current, onDelete }: { ws: WorkspaceSummary; current
           ) : null}
         </div>
         {!editing ? (
-          <div className="-mr-1 flex shrink-0 items-center max-[520px]:-ml-3 max-[520px]:w-full max-[520px]:pl-12">
+          <div className="-mr-1 flex shrink-0 items-center max-[520px]:-ml-3 max-[520px]:w-full max-[520px]:pl-11">
             <Button size="sm" variant="text" onClick={() => setEditing(true)}>
               Rename
             </Button>
@@ -125,7 +125,7 @@ function WorkspaceRow({ ws, current, onDelete }: { ws: WorkspaceSummary; current
               size="sm"
               variant="danger-text"
               disabled={ws.isDefault}
-              title={ws.isDefault ? 'Your default workspace cannot be deleted.' : undefined}
+              title={ws.isDefault ? 'Your default drive cannot be deleted.' : undefined}
               onClick={() => onDelete(ws)}
             >
               Delete
@@ -159,17 +159,17 @@ export function WorkspacesSection() {
   return (
     <Section
       id="workspaces"
-      label="Workspaces"
+      label="Drives"
       description="Separate drives, each with its own history and checkpoints."
       aside={
         <Button size="sm" variant="outline" icon={<Plus size={16} strokeWidth={1.75} aria-hidden />} onClick={() => setCreating(true)}>
-          New workspace
+          New drive
         </Button>
       }
     >
       {error && !list ? (
         <div className="flex items-center gap-2">
-          <span className="text-[13px] text-vx-del-fg">Couldn&apos;t load workspaces.</span>
+          <span className="text-[13px] text-vx-danger">Couldn&apos;t load drives.</span>
           <Button size="sm" variant="text" onClick={() => void reload()}>
             Retry
           </Button>
@@ -183,14 +183,14 @@ export function WorkspacesSection() {
           ))}
         </ul>
       )}
-      <p className="vx-meta mt-3 text-vx-text-3">Deleting a workspace removes its files, history, checkpoints and share links. It cannot be undone.</p>
+      <p className="vx-micro mt-3 text-vx-text-3">Deleting a drive removes its files, history, checkpoints and share links. It cannot be undone.</p>
       <ConfirmDialog
         open={!!deleting}
         onClose={() => setDeleting(null)}
-        title="Delete workspace"
+        title="Delete drive"
         danger
         typeToConfirm={deleting?.name}
-        confirmLabel="Delete workspace"
+        confirmLabel="Delete drive"
         onConfirm={remove}
         body={
           deleting ? (

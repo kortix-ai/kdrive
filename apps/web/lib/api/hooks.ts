@@ -27,6 +27,26 @@ export function useMe() {
   return useSWR('me', () => api.me.get(), noRetryOn4xx);
 }
 
+/**
+ * For signed-out pages (sign-in, OAuth consent): asks whether a session exists without a 401 (the auth server's
+ * session probe answers 200 with null), then loads `me` only when one does. `signedOut` is true once known.
+ */
+export function useMeIfSignedIn() {
+  const probe = useSWR(
+    'session-probe',
+    async () => {
+      const r = await fetch('/api/auth/get-session', { credentials: 'include', cache: 'no-store' });
+      if (!r.ok) throw new ApiError(r.status, 'session_probe', 'Could not check the session.');
+      const j = (await r.json().catch(() => null)) as { session?: unknown } | null;
+      return !!j?.session;
+    },
+    noRetryOn4xx,
+  );
+  const me = useSWR(probe.data ? 'me' : null, () => api.me.get(), noRetryOn4xx);
+  const signedOut = probe.data === false || (me.error instanceof ApiError && me.error.status === 401);
+  return { data: me.data, error: me.error ?? probe.error, signedOut };
+}
+
 export function useUsage() {
   return useSWR('usage', () => api.me.usage(), noRetryOn4xx);
 }

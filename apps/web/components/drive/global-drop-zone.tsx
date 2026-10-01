@@ -1,8 +1,8 @@
 'use client';
 
 // OS drop target (DESIGN-v2 §6.13). Dragging files from the OS over /drive draws a 2 px
-// dashed accent ring with a light accent tint on the drive sheet, or on the folder row /
-// card / crumb under the pointer, with one centred float pill:
+// dashed accent-edge ring with a light accent-wash tint on the drive sheet, or on the folder
+// row / card / crumb under the pointer, with one centred float label (r4, shadow-3):
 //   Drop 3 items → q3-report · 1 version
 // Danger when storage is already full, amber in the past (uploads are refused).
 // Drops keep the folder tree, empty folders included.
@@ -144,11 +144,11 @@ export default function GlobalDropZone() {
       <div className={cx('absolute inset-x-0 flex justify-center', below ? 'top-full mt-2' : 'inset-y-0 items-center')}>
         <span
           className={cx(
-            'inline-flex h-10 max-w-[calc(100vw-32px)] items-center gap-2 truncate whitespace-nowrap rounded-full border border-vx-hair bg-vx-float px-4 text-[14px] font-medium leading-5 shadow-vx-3',
-            past ? 'text-vx-past' : full ? 'text-vx-del-fg' : 'text-vx-text-1',
+            'inline-flex h-9 max-w-[calc(100vw-32px)] items-center gap-2 truncate whitespace-nowrap rounded-vx-sm bg-vx-float px-3 text-[14px] font-medium leading-5 shadow-vx-3',
+            past ? 'text-vx-past' : full ? 'text-vx-danger' : 'text-vx-text-1',
           )}
         >
-          {past ? <Clock size={18} strokeWidth={1.75} className="shrink-0" aria-hidden /> : full ? <CircleAlert size={18} strokeWidth={1.75} className="shrink-0" aria-hidden /> : <Upload size={18} strokeWidth={1.75} className="shrink-0 text-vx-accent" aria-hidden />}
+          {past ? <Clock size={16} strokeWidth={1.75} className="shrink-0" aria-hidden /> : full ? <CircleAlert size={16} strokeWidth={1.75} className="shrink-0" aria-hidden /> : <Upload size={16} strokeWidth={1.75} className="shrink-0 text-vx-text-2" aria-hidden />}
           <span className="truncate">{readout}</span>
         </span>
       </div>

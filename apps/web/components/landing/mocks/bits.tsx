@@ -1,12 +1,14 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { FileIcon as AppFileIcon } from '@/components/ui/file-icon';
 
 // Small shared pieces for the landing mocks (LANDING-SPEC §7): file icons, an
 // accessible tab strip, and a copy button that confirms for 1.4 s.
 
-export function FileIcon({ dir = false, ghost = false }: { dir?: boolean; ghost?: boolean }) {
-  return <span className={`kd-ficon${dir ? ' is-dir' : ''}${ghost ? ' is-ghost' : ''}`} aria-hidden="true" />;
+/** The app's own tinted type tiles (so the mocks look like the product); `ghost` dims a row that is not here. */
+export function FileIcon({ name = '', dir = false, ghost = false }: { name?: string; dir?: boolean; ghost?: boolean }) {
+  return <AppFileIcon name={name} type={dir ? 'dir' : 'file'} size={18} muted={ghost} />;
 }
 
 /** A tablist with roving focus: arrow keys move and select, Home/End jump. */

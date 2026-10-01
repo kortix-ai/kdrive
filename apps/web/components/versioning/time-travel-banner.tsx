@@ -2,15 +2,14 @@
 
 import { useEffect, useRef } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { format } from 'date-fns';
-import { ArrowLeftRight, Bookmark, Clock, Copy, Ellipsis, Link2, RotateCcw } from 'lucide-react';
+import { ArrowLeftRight, Clock, Copy, Diamond, Ellipsis, Link2, RotateCcw } from 'lucide-react';
 import useSWR from 'swr';
 import type { TimelineEntry } from '@volumes/shared';
 import { Button } from '@/components/ui/button';
 import { IconButton } from '@/components/ui/icon-button';
 import { Menu, type MenuItem } from '@/components/ui/menu';
 import { isTypingTarget } from '@/lib/keys';
-import { actionText, formatTimeTravelLabel } from '@/lib/format';
+import { actionText, formatMoment } from '@/lib/format';
 import { useVx, type TimeTravel } from '@/lib/store';
 import { driveCompareHref } from '@/lib/urls';
 import { useCommit, useTimelineEntries } from '@/lib/versioning/hooks';
@@ -20,7 +19,7 @@ import { CommitId } from './readout';
 import './versioning.css';
 
 /**
- * Amber "you are viewing the past" card at the top of the drive sheet (DESIGN-v2 §6.3), plus the time keys
+ * The past band at the top of the work sheet (UNIFY-SPEC §12.2; behaviour DESIGN-v2 §6.3), plus the time keys
  * (`,` `.` step, `⇧,` `⇧.` checkpoints, `p` checkpoint, `c` compare with now, `Esc` back to now).
  */
 export default function TimeTravelBanner() {
@@ -43,6 +42,7 @@ function Banner({ tt, entry, version }: { tt: NonNullable<TimeTravel>; entry: Ti
   const openDuplicate = useVx((s) => s.openDuplicate);
   const openShare = useVx((s) => s.openShare);
   const drivePath = useVx((s) => s.path);
+  const driveName = useVx((s) => s.me?.workspaces.find((w) => w.id === s.workspaceId)?.name) ?? 'My Drive';
   const { headCommitId } = useTimelineEntries();
   const summary = entry ? actionText(entry.summary, entry.restoredTo) : null;
   const commit = useCommit(summary ? null : tt.commitId);
@@ -57,71 +57,63 @@ function Banner({ tt, entry, version }: { tt: NonNullable<TimeTravel>; entry: Ti
 
   const compare = () => router.push(driveCompareHref(tt.commitId, headCommitId ?? 'head'));
   const restore = () => openRestore({ scope: 'drive', at: tt.commitId });
-  const full = format(new Date(tt.createdAt), 'd MMM yyyy, HH:mm');
-  const short = formatTimeTravelLabel(tt.createdAt);
+  const full = formatMoment(tt.createdAt);
+  const short = formatMoment(tt.createdAt, { weekday: false });
   const checkpoints = entry?.checkpoints ?? [];
 
   const more: MenuItem[] = [
-    { id: 'cmp', label: 'Compare with now', icon: <ArrowLeftRight size={18} strokeWidth={1.75} />, kbd: 'C', onSelect: compare },
-    { id: 'rst', label: 'Restore drive…', icon: <RotateCcw size={18} strokeWidth={1.75} />, tone: 'past', onSelect: restore },
+    { id: 'cmp', label: 'Compare with now', icon: <ArrowLeftRight size={16} strokeWidth={1.75} />, kbd: 'C', onSelect: compare },
+    { id: 'rst', label: 'Restore drive…', icon: <RotateCcw size={16} strokeWidth={1.75} />, tone: 'past', onSelect: restore },
     { id: 'sep', type: 'separator' },
-    { id: 'cp', label: 'Checkpoint this version…', icon: <Bookmark size={18} strokeWidth={1.75} />, kbd: 'P', onSelect: () => openCheckpoint(tt.commitId) },
-    { id: 'dup', label: 'Duplicate as new workspace…', icon: <Copy size={18} strokeWidth={1.75} />, onSelect: () => openDuplicate(tt.commitId) },
-    { id: 'link', label: 'Copy pinned link to drive…', icon: <Link2 size={18} strokeWidth={1.75} />, onSelect: () => openShare('/') },
+    { id: 'cp', label: 'Checkpoint this version…', icon: <Diamond size={16} strokeWidth={1.75} />, kbd: 'P', onSelect: () => openCheckpoint(tt.commitId) },
+    { id: 'dup', label: 'Duplicate as new drive…', icon: <Copy size={16} strokeWidth={1.75} />, onSelect: () => openDuplicate(tt.commitId) },
+    { id: 'link', label: 'Copy pinned link to drive…', icon: <Link2 size={16} strokeWidth={1.75} />, onSelect: () => openShare('/') },
   ];
 
+  // The past band (UNIFY-SPEC §12.2): full width at the top of the work sheet, wash + brass hatch, past-edge rule.
   return (
-    <div className="relative shrink-0 px-3 pt-3">
+    <div className="@container relative shrink-0">
       {loadingFrame ? <span className="vxv-progress" aria-hidden /> : null}
       <div
         role="status"
         aria-live="polite"
-        className="vxv-banner flex flex-wrap items-center gap-x-3.5 gap-y-2.5 rounded-vx-md bg-vx-past-wash py-3 pl-4 pr-3 shadow-[inset_0_0_0_1px_var(--vx-past-edge)] max-[720px]:flex-nowrap max-[720px]:py-2 max-[720px]:pl-3 max-[720px]:pr-2"
+        className="vxv-banner vxv-band flex min-h-12 flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2 @max-[720px]:flex-nowrap @max-[720px]:pl-3 @max-[720px]:pr-2"
       >
-        <span
-          aria-hidden
-          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-vx-surface text-vx-past shadow-[inset_0_0_0_1px_var(--vx-past-edge)] max-[720px]:h-8 max-[720px]:w-8"
-        >
-          <Clock size={18} strokeWidth={1.75} />
-        </span>
-        <div className="min-w-0 flex-[1_1_360px] max-[720px]:flex-1">
-          <p className="text-[15px] font-semibold leading-5 tracking-[-0.005em] text-vx-past-strong" title={new Date(tt.createdAt).toString()}>
-            <span className="max-[720px]:hidden">Viewing your drive as it was on </span>
-            <span className="hidden max-[720px]:inline">Viewing </span>
-            <span className="tabular-nums max-[720px]:hidden">{full}</span>
-            <span className="hidden tabular-nums max-[720px]:inline">{short}</span>
+        <div className="flex min-w-0 flex-[1_1_320px] items-center gap-2.5 @max-[720px]:flex-1">
+          <Clock size={16} strokeWidth={1.75} aria-hidden className="shrink-0 text-vx-past" />
+          <p className="min-w-0 truncate text-[14px] leading-5 text-vx-text-1" title={text ? `${text} · ${new Date(tt.createdAt).toString()}` : new Date(tt.createdAt).toString()}>
+            <span className="@max-[720px]:hidden">
+              Viewing <span className="font-semibold">{driveName}</span> as it was ·{' '}
+            </span>
+            <span className="hidden @max-[720px]:inline">Viewing </span>
+            <span className="whitespace-nowrap font-mono text-[12.5px] text-vx-past-strong">
+              <span className="@max-[720px]:hidden">{full}</span>
+              <span className="hidden @max-[720px]:inline">{short}</span>
+              {version ? <span className="@max-[720px]:hidden"> · {version}</span> : null}
+              <span className="@max-[960px]:hidden">
+                {' · '}
+                <CommitId id={tt.commitId} className="!text-[1em]" />
+              </span>
+            </span>
+            <span className="sr-only">. Read-only. Restore, or go back to now to make changes.</span>
           </p>
-          <p className="vx-meta mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1.5 text-vx-past max-[720px]:hidden">
-            {version ? <span className="tabular-nums">{version}</span> : null}
-            {version ? <span aria-hidden>·</span> : null}
-            <CommitId id={tt.commitId} />
-            {text ? (
-              <>
-                <span aria-hidden>·</span>
-                <span className="min-w-0 max-w-[320px] truncate" title={text}>
-                  {text}
-                </span>
-              </>
-            ) : null}
-            {checkpoints.map((c) => (
-              <CheckpointBadge key={c.id} name={c.name} className="max-w-[180px]" />
-            ))}
-          </p>
-          <p className="vx-meta text-vx-past max-[720px]:hidden">Read-only. Restore, or go back to now to make changes.</p>
+          {checkpoints.map((c) => (
+            <CheckpointBadge key={c.id} name={c.name} className="max-w-[160px] @max-[1100px]:hidden" />
+          ))}
         </div>
         <div className="ml-auto flex shrink-0 items-center gap-1.5">
-          <Button variant="outline" size="sm" kbd="C" onClick={compare} className="max-[720px]:hidden">
-            Compare with now
-          </Button>
-          <Button variant="restore" size="sm" onClick={restore} className="max-[720px]:hidden">
+          <Button variant="restore" size="sm" icon={<RotateCcw size={14} strokeWidth={1.75} aria-hidden />} onClick={restore} className="@max-[720px]:hidden">
             Restore drive…
+          </Button>
+          <Button variant="outline" size="sm" kbd="C" onClick={compare} className="@max-[960px]:hidden">
+            Compare with now
           </Button>
           <Menu
             align="end"
             items={more}
             trigger={(p) => (
-              <IconButton {...p} size="sm" label="More actions for this version" className="!text-vx-past hover:!bg-vx-surface">
-                <Ellipsis size={18} strokeWidth={1.75} aria-hidden />
+              <IconButton {...p} size="sm" label="More actions for this version">
+                <Ellipsis size={16} strokeWidth={1.75} aria-hidden />
               </IconButton>
             )}
           />

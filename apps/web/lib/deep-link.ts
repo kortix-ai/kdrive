@@ -93,7 +93,7 @@ export function useDeepLink(): void {
     }
     handled.current = key;
     const s = useVx.getState();
-    if (plan.unknownWs) s.toast({ kind: 'info', message: "That workspace isn't available." });
+    if (plan.unknownWs) s.toast({ kind: 'info', message: "That drive isn't available." });
     if (plan.switchTo) s.setWorkspace(plan.switchTo);
     setPending(plan.file);
     router.replace(plan.cleanUrl, { scroll: false });

@@ -1,6 +1,6 @@
 'use client';
 
-// One row of the proposals inbox (MCP.md §14.6): 56 h, r8, the whole row links to the review
+// One row of the proposals inbox (UNIFY-SPEC §14.4, §12.1): 56 h, full-bleed with a hair-soft divider; the whole row links to the review
 // page. Line 1: the message (or a generated summary) and the time; line 2: the agent badge,
 // count chips and the number of changes. Decided rows add their state badge.
 import Link from 'next/link';
@@ -13,15 +13,15 @@ import { When } from '@/components/versioning/readout';
 import { proposalHref } from '@/lib/urls';
 import { countChips, countWord, proposalTitle, statusBadge } from './format';
 
-/** The 32 px Bot disc in front of a proposal. */
+/** The 32 px Bot tile in front of a proposal (r4, surface-2, hair). */
 export function AgentDisc({ size = 32, className }: { size?: number; className?: string }) {
   return (
     <span
       aria-hidden
-      className={cx('inline-flex shrink-0 items-center justify-center rounded-full bg-vx-accent-wash text-vx-on-accent-wash', className)}
+      className={cx('inline-flex shrink-0 items-center justify-center rounded-vx-sm border border-vx-hair bg-vx-surface-2 text-vx-text-2', className)}
       style={{ width: size, height: size }}
     >
-      <Bot size={size >= 40 ? 22 : 18} strokeWidth={1.75} />
+      <Bot size={size >= 40 ? 20 : 16} strokeWidth={1.75} />
     </span>
   );
 }
@@ -36,7 +36,7 @@ export function ProposalRow({ proposal: p }: { proposal: ProposalSummary }) {
       href={proposalHref(p.id)}
       data-proposal={p.id}
       className={cx(
-        'vx-inset-focus group flex min-h-14 items-center gap-3 rounded-vx-sm px-3 py-2 transition-colors duration-[120ms] hover:bg-vx-hover max-[720px]:min-h-[60px]',
+        'vx-inset-focus group flex min-h-14 items-center gap-3 px-3 py-2 transition-colors duration-[120ms] hover:bg-vx-raise max-[720px]:min-h-[60px]',
       )}
     >
       <AgentDisc className={decided ? 'opacity-70' : undefined} />
@@ -50,7 +50,7 @@ export function ProposalRow({ proposal: p }: { proposal: ProposalSummary }) {
         <span className="flex min-w-0 flex-wrap items-center gap-1.5">
           <AgentBadge agent={p.agent} />
           {chips.map((c) => (
-            <Badge key={c.key} tone={c.tone} title={c.title}>
+            <Badge key={c.key} tone={c.tone} title={c.title} className="font-mono !font-medium">
               {c.text}
             </Badge>
           ))}

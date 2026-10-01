@@ -1,9 +1,9 @@
 'use client';
 
-// Grid cards (DESIGN-v2 §5, §6.2). File card: r12 on `--vx-surface-2` with a 6 px inset,
-// a 44 px head (type icon that swaps to the checkbox on hover, name, ⋮), a 4:3 mat and a
-// `size · modified` caption. Folder card: 52 px, r12, outline folder + name + ⋮. Same
-// states as rows; past mode filters thumbnails.
+// Grid cards (UNIFY-SPEC §12.1, §14.2; DESIGN-v2 §6.2). File card: r6 on `--vx-surface-2`
+// with a 1 px hair, a 6 px inset, a 40 px head (type icon that swaps to the checkbox on hover,
+// name, ⋮), a 4:3 r4 mat and a Mono `size · modified` caption. Folder card: 44 px, r6, hair,
+// outline folder + name + ⋮. Same states as rows; past mode filters thumbnails.
 import { memo } from 'react';
 import { MoreVertical } from 'lucide-react';
 import { formatBytes, type FileEntry } from '@volumes/shared';
@@ -59,10 +59,11 @@ function cardTone(st: ReturnType<typeof useItemState>) {
   const { selected, focused, dropTarget, dragging, removing } = st;
   return cx(
     s.item,
-    'group relative cursor-default select-none rounded-vx-md transition-[background-color,box-shadow] duration-[120ms] ease-vx',
-    !selected && !dropTarget && 'bg-vx-surface-2',
+    'group relative cursor-default select-none rounded-vx-md border transition-[background-color,border-color,box-shadow] duration-[120ms] ease-vx',
+    !selected && !dropTarget && 'border-vx-hair bg-vx-surface-2 hover:border-vx-hair-strong',
+    selected && !dropTarget && 'border-vx-accent-edge',
+    dropTarget && 'border-transparent',
     itemTone({ selected, focused, dropTarget, dragging }),
-    !selected && !dropTarget && 'hover:shadow-vx-1',
     removing && s.removing,
   );
 }
@@ -82,13 +83,13 @@ function MenuDots({ entry }: { entry: FileEntry }) {
       }}
       className={cx(s.reveal, 'group-aria-selected:text-vx-on-selection')}
     >
-      <MoreVertical size={18} strokeWidth={1.75} aria-hidden />
+      <MoreVertical size={16} strokeWidth={1.75} aria-hidden />
     </IconButton>
   );
 }
 
 /** Type icon that becomes the checkbox on hover, focus or selection. */
-function IconOrCheck({ entry, selected, size = 24 }: { entry: FileEntry; selected: boolean; size?: number }) {
+function IconOrCheck({ entry, selected, size = 20 }: { entry: FileEntry; selected: boolean; size?: number }) {
   const ctx = useDriveCtx();
   return (
     <span className="relative inline-flex shrink-0 items-center justify-center" style={{ width: size, height: size }}>
@@ -110,7 +111,7 @@ function FileTileImpl({ entry, style }: { entry: FileEntry; style?: React.CSSPro
   const { ctx, selected, focused, drift, pending, renaming } = st;
   return (
     <div {...itemProps(ctx, entry, renaming, pending, focused)} aria-selected={selected} style={style} className={cx(cardTone(st), 'flex flex-col px-1.5')}>
-      <div className="flex shrink-0 items-center gap-3 pl-2.5" style={{ height: HEAD_H }}>
+      <div className="flex shrink-0 items-center gap-2.5 pl-2" style={{ height: HEAD_H }}>
         <IconOrCheck entry={entry} selected={selected} />
         <span className="flex min-w-0 flex-1 items-center">
           {renaming ? (
@@ -124,13 +125,13 @@ function FileTileImpl({ entry, style }: { entry: FileEntry; style?: React.CSSPro
       <Thumbnail ws={ctx.ws} entry={entry} at={ctx.at} past={ctx.past}>
         {drift ? (
           <span className="absolute left-2 top-2">
-            <DriftChip drift={drift} className={drift === 'changed' ? 'bg-vx-float shadow-vx-1' : 'shadow-vx-1'} />
+            <DriftChip drift={drift} className={drift === 'changed' ? '!bg-vx-float shadow-vx-1' : 'shadow-vx-1'} />
           </span>
         ) : null}
         {drift === 'gone' ? <GoneRestore entry={entry} className="absolute bottom-2 right-2 shadow-vx-1" /> : null}
       </Thumbnail>
       <div
-        className={cx('flex shrink-0 items-center gap-1 px-1.5 text-[12px] leading-4 tabular-nums', selected ? 'text-vx-on-selection' : 'text-vx-text-3')}
+        className={cx('vx-meta flex shrink-0 items-center gap-1.5 px-1', selected ? 'text-vx-on-selection' : 'text-vx-text-3')}
         style={{ height: CAPTION_H }}
         title={isoTitle(entry.mtime)}
       >
@@ -152,7 +153,7 @@ function FolderTileImpl({ entry, style }: { entry: FileEntry; style?: React.CSSP
       {...itemProps(ctx, entry, renaming, pending, focused)}
       aria-selected={selected}
       style={{ ...style, height: FOLDER_TILE_H }}
-      className={cx(cardTone(st), 'flex items-center gap-3 pl-4 pr-1.5')}
+      className={cx(cardTone(st), 'flex items-center gap-2.5 pl-3 pr-1')}
       title={isoTitle(entry.mtime)}
     >
       <IconOrCheck entry={entry} selected={selected} />
@@ -169,7 +170,7 @@ function FolderTileImpl({ entry, style }: { entry: FileEntry; style?: React.CSSP
       {dropTarget && moving ? (
         <span
           role="status"
-          className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 whitespace-nowrap rounded-vx-xs bg-vx-inverse px-2.5 py-1.5 text-[12px] leading-4 text-vx-on-inverse shadow-vx-3"
+          className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 whitespace-nowrap rounded-vx-sm bg-vx-inverse px-2 py-[5px] text-[12px] leading-4 text-vx-on-inverse shadow-vx-3"
         >
           Drop to move {moving === 1 ? '1 item' : `${moving} items`} into {entry.name}
         </span>
@@ -188,15 +189,15 @@ export function GhostTile({ entry, style }: { entry: FileEntry; style?: React.CS
       aria-disabled
     >
       {isDir ? (
-        <div className="flex h-full items-center gap-3 pl-2.5">
-          <FileIcon name={entry.name} type="dir" size={24} muted />
+        <div className="flex h-full items-center gap-2.5 pl-1.5">
+          <FileIcon name={entry.name} type="dir" size={20} muted />
           <MiddleName name={entry.name} className="min-w-0 flex-1 text-[14px] font-medium leading-5" />
           <DriftChip drift="ghost" className="mr-1" />
         </div>
       ) : (
         <>
-          <div className="flex shrink-0 items-center gap-3 pl-2.5" style={{ height: HEAD_H }}>
-            <FileIcon name={entry.name} type={entry.type} size={24} muted />
+          <div className="flex shrink-0 items-center gap-2.5 pl-2" style={{ height: HEAD_H }}>
+            <FileIcon name={entry.name} type={entry.type} size={20} muted />
             <MiddleName name={entry.name} className="min-w-0 flex-1 text-[14px] font-medium leading-5" />
           </div>
           <div className="relative flex min-h-0 flex-1 items-center justify-center rounded-vx-sm">

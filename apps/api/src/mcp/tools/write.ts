@@ -194,7 +194,7 @@ async function propose(p: AgentPrincipal, ws: WorkspaceCtx, args: Args, ops: Bat
     checkpoint: null,
     summary,
   };
-  const links: Link[] = [{ uri: url, name: 'Proposal', title: 'Review the proposal in Volumes' }];
+  const links: Link[] = [{ uri: url, name: 'Proposal', title: 'Review the proposal in KDRIVE' }];
   return { data, links };
 }
 

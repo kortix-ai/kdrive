@@ -67,19 +67,19 @@ export function OptionCard({
       title={disabled ? reason : undefined}
       onClick={onSelect}
       className={cx(
-        'vx-inset-focus flex min-w-0 items-center gap-3 rounded-vx-md px-4 py-3.5 text-left transition-colors duration-[120ms] ease-vx disabled:cursor-not-allowed disabled:opacity-[.38] max-[720px]:min-h-11',
-        on ? 'bg-vx-selection shadow-[inset_0_0_0_2px_var(--vx-accent)]' : 'shadow-[inset_0_0_0_1px_var(--vx-hair-strong)] enabled:hover:bg-vx-hover',
+        'vx-inset-focus flex min-w-0 items-center gap-3 rounded-vx-md px-3.5 py-3 text-left transition-colors duration-[120ms] ease-vx disabled:cursor-not-allowed disabled:opacity-[.38] max-[720px]:min-h-11',
+        on ? 'bg-vx-selection shadow-[inset_0_0_0_1px_var(--vx-accent-edge)]' : 'shadow-[inset_0_0_0_1px_var(--vx-hair-strong)] enabled:hover:bg-vx-raise',
       )}
     >
       <span
         aria-hidden
-        className={cx('inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full', on ? 'bg-vx-accent text-vx-on-accent' : 'bg-vx-surface-3 text-vx-text-2')}
+        className={cx('inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-vx-sm', on ? 'bg-vx-accent text-vx-on-accent' : 'bg-vx-surface-3 text-vx-text-2')}
       >
         {icon}
       </span>
       <span className="min-w-0">
         <span className={cx('block text-[14px] font-semibold leading-5', on ? 'text-vx-on-selection' : 'text-vx-text-1')}>{title}</span>
-        <span className="vx-meta block text-vx-text-3">{disabled && reason ? reason : body}</span>
+        <span className="mt-0.5 block text-[13px] leading-[18px] text-vx-text-3">{disabled && reason ? reason : body}</span>
       </span>
     </button>
   );
@@ -155,20 +155,20 @@ export function WorkspacePicker({
   workspaces,
   value,
   onChange,
-  label = 'Workspace',
+  label = 'Drive',
 }: {
   workspaces: { id: string; name: string }[];
   value: string | null;
   onChange: (id: string | null) => void;
   label?: string;
 }) {
-  const current = value ? workspaces.find((w) => w.id === value)?.name ?? 'Unknown workspace' : 'All my workspaces';
+  const current = value ? workspaces.find((w) => w.id === value)?.name ?? 'Unknown drive' : 'All my drives';
   return (
     <div className="min-w-0">
       <p className="mb-2 text-[13px] font-medium leading-5 text-vx-text-2">{label}</p>
       <Menu
         items={[
-          { id: 'all', label: 'All my workspaces', checked: value === null, onSelect: () => onChange(null) },
+          { id: 'all', label: 'All my drives', checked: value === null, onSelect: () => onChange(null) },
           ...(workspaces.length ? [{ type: 'separator' as const, id: 'sep' }] : []),
           ...workspaces.map((w) => ({ id: w.id, label: w.name, checked: value === w.id, onSelect: () => onChange(w.id) })),
         ]}
@@ -177,9 +177,9 @@ export function WorkspacePicker({
             type="button"
             {...p}
             aria-label={`${label}: ${current}`}
-            className="vx-inset-focus inline-flex h-11 w-full min-w-0 items-center gap-2 rounded-vx-sm border border-vx-outline bg-vx-surface px-3 text-left text-[15px] text-vx-text-1 transition-colors duration-[120ms] hover:border-vx-text-3"
+            className="vx-inset-focus inline-flex h-9 w-full min-w-0 items-center gap-2 rounded-vx-sm border border-vx-hair-strong bg-vx-field px-3 text-left text-[14px] text-vx-text-1 transition-colors duration-[120ms] hover:border-vx-outline"
           >
-            <Layers size={18} strokeWidth={1.75} aria-hidden className="shrink-0 text-vx-text-2" />
+            <Layers size={16} strokeWidth={1.75} aria-hidden className="shrink-0 text-vx-text-2" />
             <span className="min-w-0 flex-1 truncate">{current}</span>
             <ChevronDown size={16} strokeWidth={1.75} aria-hidden className="shrink-0 text-vx-text-2" />
           </button>
@@ -195,7 +195,7 @@ export function AccessBadges({ scope, mode, workspaceName, workspaceId }: { scop
     <>
       <Badge>{SCOPE_BADGE[scope]}</Badge>
       {scope !== 'drive:read' ? <Badge tone={mode === 'direct' ? 'accent' : 'neutral'}>{MODE_BADGE[mode]}</Badge> : null}
-      <Badge title={workspaceId ? workspaceName ?? undefined : undefined}>{workspaceId ? workspaceName ?? 'Removed workspace' : 'All workspaces'}</Badge>
+      <Badge title={workspaceId ? workspaceName ?? undefined : undefined}>{workspaceId ? workspaceName ?? 'Removed drive' : 'All drives'}</Badge>
     </>
   );
 }

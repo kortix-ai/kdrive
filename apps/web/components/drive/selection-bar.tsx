@@ -1,7 +1,7 @@
 'use client';
 
-// Selection bar (DESIGN-v2 §5): a 44 px pill on the selection tint that replaces the column
-// header while anything is selected: ✕ · "2 selected" + size · divider · Download, Move,
+// Selection bar (UNIFY-SPEC §14.2): a 40 px r4 bar on `--vx-raise` with a 1 px hair-strong
+// edge that replaces the column header while anything is selected: ✕ · "2 selected" + size · divider · Download, Move,
 // Copy, Share*, Versions*, Delete, More (* single item only). In the past, write actions stay
 // visible but disabled with the reason, and a single item offers Restore.
 import { Clock, Copy, Download, FolderInput, MoreHorizontal, RotateCcw, Share2, Trash, X } from 'lucide-react';
@@ -20,8 +20,10 @@ function Act({
   disabled,
   reason,
   className,
+  tone,
   children,
 }: {
+  tone?: 'past' | 'danger';
   label: string;
   kbd?: string;
   onClick: (e: React.MouseEvent<HTMLButtonElement>) => void;
@@ -38,7 +40,10 @@ function Act({
         nativeTitle={false}
         disabled={disabled}
         onClick={onClick}
-        className={cx('text-vx-on-selection hover:bg-vx-accent-wash hover:text-vx-on-accent-wash', className)}
+        className={cx(
+          tone === 'past' ? '!text-vx-past hover:!bg-vx-past-wash' : tone === 'danger' ? '!text-vx-danger hover:!bg-vx-danger-wash' : 'hover:!bg-vx-pressed',
+          className,
+        )}
       >
         {children}
       </IconButton>
@@ -46,7 +51,7 @@ function Act({
   );
 }
 
-const I = { size: 18, strokeWidth: 1.75, 'aria-hidden': true } as const;
+const I = { size: 16, strokeWidth: 1.75, 'aria-hidden': true } as const;
 
 export default function SelectionBar({
   entries,
@@ -74,16 +79,16 @@ export default function SelectionBar({
     <div
       role="toolbar"
       aria-label="Selection"
-      className={cx(s.selIn, 'flex h-11 min-w-0 items-center gap-0.5 rounded-full bg-vx-selection pl-1.5 pr-2 text-vx-on-selection')}
+      className={cx(s.selIn, 'flex h-10 min-w-0 items-center gap-0.5 rounded-vx-sm border border-vx-hair-strong bg-vx-raise pl-1.5 pr-1.5 text-vx-text-1')}
     >
       <Act label="Clear selection" kbd="Esc" onClick={onClear}>
         <X {...I} />
       </Act>
       <span className="ml-1 mr-2 flex min-w-0 items-baseline gap-2 whitespace-nowrap">
         <span className="text-[14px] font-semibold leading-5">{n} selected</span>
-        {size && !phone ? <span className="vx-meta truncate">{formatBytes(size)}</span> : null}
+        {size && !phone ? <span className="vx-meta truncate text-vx-text-3">{formatBytes(size)}</span> : null}
       </span>
-      <span aria-hidden className="mx-1 h-5 w-px shrink-0 bg-vx-hair-strong" />
+      <span aria-hidden className="mx-1 h-4 w-px shrink-0 bg-vx-hair-strong" />
       <Act label={one?.type === 'file' ? 'Download' : 'Download .zip'} kbd="D" onClick={() => cmd.download(entries)}>
         <Download {...I} />
       </Act>
@@ -104,7 +109,7 @@ export default function SelectionBar({
         </Act>
       ) : null}
       {past && one ? (
-        <Act label="Restore this…" kbd="R" onClick={() => cmd.restore(one)} className="text-vx-past hover:bg-vx-past-wash hover:text-vx-past">
+        <Act label="Restore this…" kbd="R" onClick={() => cmd.restore(one)} tone="past">
           <RotateCcw {...I} />
         </Act>
       ) : null}
@@ -114,7 +119,7 @@ export default function SelectionBar({
         onClick={() => cmd.remove(entries)}
         disabled={past}
         reason={READ_ONLY_REASON}
-        className="text-vx-del-fg hover:bg-vx-danger-wash hover:text-vx-del-fg"
+        tone="danger"
       >
         <Trash {...I} />
       </Act>
@@ -126,7 +131,7 @@ export default function SelectionBar({
         <button
           type="button"
           onClick={onSelectAll}
-          className="hidden h-8 shrink-0 items-center rounded-vx-sm px-3 text-[13px] font-medium text-vx-accent transition-colors duration-[120ms] hover:bg-vx-accent-wash min-[900px]:inline-flex"
+          className="hidden h-7 shrink-0 items-center rounded-vx-sm px-2.5 text-[13px] font-medium text-vx-text-1 underline-offset-[3px] transition-colors duration-[120ms] hover:bg-vx-pressed min-[900px]:inline-flex"
         >
           Select all {total.toLocaleString()}
         </button>

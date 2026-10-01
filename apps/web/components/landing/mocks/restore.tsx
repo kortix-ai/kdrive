@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { RotateCcw } from 'lucide-react';
 import { FileIcon } from './bits';
 
 // Restore (LANDING-SPEC §6.3b): restore a file to an earlier version and undo
@@ -32,11 +33,12 @@ export function RestoreMock() {
         ) : (
           <>
             <span className="kd-rs__file">
-              <FileIcon />
+              <FileIcon name="proposal.md" />
               <span className="kd-rs__name">proposal.md</span>
               <span className="kd-rs__meta kd-mono">v19 · now</span>
             </span>
-            <button type="button" className="kd-mbtn kd-mbtn--primary" onClick={() => setRestored(true)}>
+            <button type="button" className="kd-mbtn" onClick={() => setRestored(true)}>
+              <RotateCcw size={14} strokeWidth={1.75} aria-hidden />
               Restore to v14
             </button>
           </>
@@ -56,7 +58,7 @@ export function RestoreMock() {
             ) : (
               <>
                 <span className="kd-rs__file">
-                  <FileIcon dir={d.dir} ghost />
+                  <FileIcon name={d.name} dir={d.dir} ghost />
                   <span className="kd-rs__name">{d.name}</span>
                   <span className="kd-rs__meta kd-mono">
                     {d.meta}

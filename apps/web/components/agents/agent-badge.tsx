@@ -1,6 +1,6 @@
 'use client';
 
-// "Agent" badge (MCP.md §14.8): a neutral 20 px pill with a 12 px Bot icon and the agent's
+// "Agent" badge (UNIFY-SPEC §14.4): a neutral 20 px r2 badge with a 12 px Bot icon and the agent's
 // name, marking changes an AI agent made (timeline, strip card, versions, proposals).
 import { Bot } from 'lucide-react';
 import type { AgentRef } from '@volumes/shared';
@@ -25,7 +25,7 @@ export function AgentBadge({ agent, size = 'sm', className }: { agent: AgentRef;
       title={agentTitle(agent)}
       data-agent-badge=""
       className={cx(
-        'inline-flex max-w-full shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-vx-surface-3 px-2 font-semibold tabular-nums text-vx-text-2',
+        'inline-flex max-w-full shrink-0 items-center gap-1 whitespace-nowrap rounded-vx-xs bg-vx-surface-3 px-1.5 font-sans font-semibold tracking-normal tabular-nums text-vx-text-2',
         size === 'md' ? 'h-6 text-[12px] leading-4' : 'h-5 text-[11px] leading-4',
         className,
       )}

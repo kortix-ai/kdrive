@@ -1,5 +1,6 @@
 // Pure helpers for the history strip and the History rail (DESIGN-v2 §6.4). No React.
 
+import { formatMoment } from '@/lib/format';
 import { format, isSameDay, isSameYear, subDays } from 'date-fns';
 import { formatBytes, type TimelineEntry, type TimelineEntryKind } from '@volumes/shared';
 
@@ -72,17 +73,17 @@ export function axisDayLabel(d: Date | string, now: Date = new Date()): string {
   return isSameYear(date, now) ? format(date, 'MMM d') : format(date, 'MMM d yyyy');
 }
 
-/** Strip readout date: "28 Sep 2026, 10:41". */
-export const timecode = (d: Date | string) => format(typeof d === 'string' ? new Date(d) : d, 'd MMM yyyy, HH:mm');
-/** Phones: "28 Sep, 10:41". */
-export const shortTimecode = (d: Date | string) => format(typeof d === 'string' ? new Date(d) : d, 'd MMM, HH:mm');
+/** Strip readout date: the one moment format, "Mon 28 Sep 10:41". */
+export const timecode = (d: Date | string) => formatMoment(d);
+/** Phones: "28 Sep 10:41". */
+export const shortTimecode = (d: Date | string) => formatMoment(d, { weekday: false });
 
-/** Tooltip card time: "12 Sep · 14:22". */
-export const tooltipTime = (d: Date | string) => format(typeof d === 'string' ? new Date(d) : d, 'd MMM · HH:mm');
+/** Tooltip card time: "Sat 12 Sep 14:22". */
+export const tooltipTime = (d: Date | string) => formatMoment(d);
 
 /**
  * Friendly time (DESIGN-v2 §3): "Just now", "4 min ago", "2 hours ago", "Today 09:12",
- * "Yesterday, 18:02", "Tue 16:40", then "14 Sep, 16:40" ("14 Sep 2025, 16:40" in another year).
+ * "Yesterday, 18:02", "Tue 16:40", then the moment format "Mon 14 Sep 16:40".
  */
 export function friendlyWhen(d: Date | string, now: Date = new Date()): string {
   const date = typeof d === 'string' ? new Date(d) : d;
@@ -96,7 +97,7 @@ export function friendlyWhen(d: Date | string, now: Date = new Date()): string {
   if (isSameDay(date, now)) return `Today ${format(date, 'HH:mm')}`;
   if (isSameDay(date, subDays(now, 1))) return `Yesterday, ${format(date, 'HH:mm')}`;
   if (diff > 0 && diff < 7 * 24 * 60 * 60_000) return format(date, 'EEE HH:mm');
-  return isSameYear(date, now) ? format(date, 'd MMM, HH:mm') : format(date, 'd MMM yyyy, HH:mm');
+  return formatMoment(date, { year: !isSameYear(date, now) });
 }
 
 export type Target = { commitId: string; createdAt: string } | 'now' | null;

@@ -51,7 +51,7 @@ describe('timeline helpers', () => {
     expect(friendlyWhen(new Date(2026, 8, 28, 10, 0), now)).toBe('2 hours ago');
     expect(friendlyWhen(new Date(2026, 8, 28, 1, 12), now)).toBe('Today 01:12');
     expect(friendlyWhen(new Date(2026, 8, 27, 18, 2), now)).toBe('Yesterday, 18:02');
-    expect(friendlyWhen(new Date(2026, 8, 14, 16, 40), now)).toBe('14 Sep, 16:40');
+    expect(friendlyWhen(new Date(2026, 8, 14, 16, 40), now)).toBe('Mon 14 Sep 16:40');
     expect(axisDayLabel(new Date(2026, 8, 28, 1), now)).toBe('Today');
     expect(axisDayLabel(new Date(2026, 8, 3, 1), now)).toBe('Sep 3');
   });

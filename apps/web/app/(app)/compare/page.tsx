@@ -1,6 +1,6 @@
 'use client';
 
-// /compare?path=&a=&b= — compare two versions of one file (DESIGN-v2 §6.7).
+// /compare?path=&a=&b= — compare two versions of one file (UNIFY-SPEC §12.4; DESIGN-v2 §6.7).
 import { Suspense, useEffect, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -9,7 +9,7 @@ import { dirname, TEXT_DIFF_MAX_BYTES, formatBytes } from '@volumes/shared';
 import { Button, buttonClass } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { CompareCsv } from '@/components/versioning/compare-csv';
-import { CompareHeader, SummaryBar, type CompareModes } from '@/components/versioning/compare-header';
+import { CompareHeader, SummaryBar, type CompareModes, type CompareSides } from '@/components/versioning/compare-header';
 import { CompareImage } from '@/components/versioning/compare-image';
 import { CompareMeta } from '@/components/versioning/compare-meta';
 import { CompareText } from '@/components/versioning/compare-text';
@@ -72,6 +72,7 @@ function CompareFile() {
   if (!path || !refA || !refB) {
     return (
       <EmptyState
+        art="history"
         className="h-full"
         title="Pick two versions to compare."
         body="Open a file's Versions tab, choose A and B, then Compare."
@@ -89,6 +90,11 @@ function CompareFile() {
   const b = d?.b ?? null;
   const kind = d?.kind ?? null;
 
+  // A side at the head reads "Now" in the pane heads too, exactly like its picker.
+  const sides: CompareSides = {
+    ...(isNow(refA, a?.commitId) ? { a: { label: 'Now' } } : {}),
+    ...(isNow(refB, b?.commitId) ? { b: { label: 'Now' } } : {}),
+  };
   let body: React.ReactNode;
   if (cmp.error) {
     body = isGone(cmp.error) ? (
@@ -120,7 +126,7 @@ function CompareFile() {
     body = (
       <div className="flex min-h-0 flex-1 flex-col" aria-busy>
         <SummaryBar>Loading versions…</SummaryBar>
-        <div className="grid flex-1 grid-cols-2 gap-px bg-vx-hair-soft max-[720px]:grid-cols-1">
+        <div className="grid flex-1 grid-cols-2 gap-px bg-vx-hair max-[720px]:grid-cols-1">
           {[0, 1].map((k) => (
             <div key={k} className="bg-vx-surface p-5">
               {Array.from({ length: 10 }, (_, i) => (
@@ -140,16 +146,29 @@ function CompareFile() {
       </div>
     );
   } else if (kind === 'text') {
-    body = <CompareText a={a} b={b} path={path} mode={phone ? 'unified' : modes.text} />;
+    body = <CompareText a={a} b={b} path={path} mode={phone ? 'unified' : modes.text} sides={sides} />;
   } else if (kind === 'image') {
-    body = <CompareImage a={a} b={b} mode={modes.image} />;
+    body = <CompareImage a={a} b={b} mode={modes.image} sides={sides} />;
   } else if (kind === 'csv') {
     body = <CompareCsv a={a} b={b} path={path} changesOnly={modes.changesOnly} />;
   } else {
     body = (
       <div className="flex min-h-0 flex-1 flex-col">
         <SummaryBar>
-          <span className="truncate tabular-nums">{a && b ? `${formatBytes(a.size)} → ${formatBytes(b.size)} · compared by facts` : a ? 'Only in A' : 'Only in B'}</span>
+          <span className="truncate tabular-nums">
+            {a && b ? (
+              <>
+                <span className="font-mono text-[12px]">
+                  {formatBytes(a.size)} → {formatBytes(b.size)}
+                </span>{' '}
+                · compared by facts
+              </>
+            ) : a ? (
+              'Only in A'
+            ) : (
+              'Only in B'
+            )}
+          </span>
         </SummaryBar>
         <div className="min-h-0 flex-1 overflow-auto">
           <CompareMeta a={a} b={b} />

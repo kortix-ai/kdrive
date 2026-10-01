@@ -1,21 +1,23 @@
 'use client';
 
-// Top bar (DESIGN-v2 §6.0, §7): brand block · the "Search in Drive" pill · Help,
-// theme cycle and the account avatar. On phones it is one 48 px pill holding the
-// menu button, the search placeholder and a 28 px avatar.
+// Top bar (UNIFY-SPEC §11): the KDRIVE lockup · the "Search in Drive" field · Help,
+// the sun/moon theme toggle and the account avatar, over a 1px hair rule. On phones
+// it is a glass bar holding the menu button, the search field and a 28 px avatar.
+import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { CircleHelp, Clock, LogOut, Menu as MenuIcon, Monitor, Moon, Search, Settings, Sun } from 'lucide-react';
+import { CubeMark } from '@/components/brand/cube-mark';
 import { Avatar } from '@/components/ui/avatar';
 import { IconButton } from '@/components/ui/icon-button';
 import { Kbd } from '@/components/ui/kbd';
 import { Menu, type MenuItem } from '@/components/ui/menu';
 import { Tooltip } from '@/components/ui/tooltip';
 import { cx } from '@/components/ui/cx';
-import { formatTimeTravelLabel } from '@/lib/format';
+import { formatMoment } from '@/lib/format';
 import { signOutAndEnd } from '@/lib/session';
 import { sendShellIntent } from '@/lib/shell-intents';
 import { useVx } from '@/lib/store';
-import { THEME_LABEL, type ThemePref } from '@/lib/theme';
+import { THEME_LABEL, THEME_PREFS, switchThemePref } from '@/lib/theme';
 import { useThemePref } from '@/lib/use-theme';
 import { Brand } from './brand';
 import { ThemeToggle } from './theme-toggle';
@@ -36,28 +38,28 @@ function PastChip() {
   const tt = useVx((s) => s.timeTravel);
   if (!tt) return null;
   return (
-    <span className="fade-in inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full bg-vx-past-wash px-2.5 text-[12px] font-medium text-vx-past shadow-[inset_0_0_0_1px_var(--vx-past-edge)] max-[720px]:hidden">
-      <Clock size={16} strokeWidth={1.75} aria-hidden />
-      <span className="tabular-nums">{formatTimeTravelLabel(tt.createdAt)}</span>
+    <span className="fade-in inline-flex h-6 shrink-0 items-center gap-1.5 rounded-vx-xs bg-vx-past-wash px-2 font-mono text-[11px] font-medium text-vx-past shadow-[inset_0_0_0_1px_var(--vx-past-edge)] max-[720px]:hidden">
+      <Clock size={13} strokeWidth={1.75} aria-hidden />
+      <span className="tabular-nums">{formatMoment(tt.createdAt)}</span>
     </span>
   );
 }
 
-/** The 48 px search pill. `phone` adds the menu button and the avatar inside it. */
+/** The 36 px search field (opens the palette). `phone` puts the menu button before it and the avatar after it. */
 function SearchPill({ onMenu, phone }: { onMenu?: () => void; phone?: boolean }) {
   const open = useOpenSearch();
   return (
-    <div
-      role="search"
-      className={cx(
-        'flex h-12 w-full min-w-0 items-center gap-3 rounded-full bg-vx-field text-vx-text-3 transition-[background-color,box-shadow] duration-[120ms] ease-vx hover:bg-vx-field-hover',
-        phone ? 'pl-1 pr-2' : 'max-w-[720px] px-4',
-      )}
-    >
+    <div role="search" className={cx('flex w-full min-w-0 items-center gap-2', phone ? '' : 'max-w-[640px]')}>
       {phone ? (
-        <IconButton label="Open navigation" size="md" onClick={onMenu} className="text-vx-text-2">
-          <MenuIcon size={20} strokeWidth={1.75} aria-hidden />
-        </IconButton>
+        <>
+          <IconButton label="Open navigation" size="md" onClick={onMenu}>
+            <MenuIcon size={18} strokeWidth={1.75} aria-hidden />
+          </IconButton>
+          {/* The brand on phones too: the 16 px cube mark, home to the drive. */}
+          <Link href="/drive" aria-label="KDRIVE home" className="inline-flex h-9 w-6 shrink-0 items-center justify-center rounded-vx-sm">
+            <CubeMark size={16} />
+          </Link>
+        </>
       ) : null}
       <button
         type="button"
@@ -65,40 +67,45 @@ function SearchPill({ onMenu, phone }: { onMenu?: () => void; phone?: boolean })
         aria-label="Search in Drive"
         aria-keyshortcuts="/ Meta+K"
         data-testid="search-pill"
-        className="flex h-full min-w-0 flex-1 items-center gap-3 rounded-full text-left outline-offset-0"
+        className="flex h-9 min-w-0 flex-1 items-center gap-2.5 rounded-vx-sm border border-vx-hair-strong bg-vx-field px-3 text-left text-vx-text-3 transition-[border-color,background-color] duration-[120ms] ease-vx hover:border-vx-outline hover:bg-vx-field-hover"
       >
-        {phone ? null : <Search size={20} strokeWidth={1.75} className="shrink-0" aria-hidden />}
-        <span className="min-w-0 flex-1 truncate text-[15px] leading-6">Search in Drive</span>
+        <Search size={16} strokeWidth={1.75} className="shrink-0" aria-hidden />
+        <span className="min-w-0 flex-1 truncate text-[14px] leading-5">Search in Drive</span>
         <PastChip />
         {phone ? null : <Kbd className="max-[900px]:hidden">/</Kbd>}
       </button>
-      {phone ? <AccountMenu size={28} /> : null}
+      {phone ? (
+        <>
+          <ThemeToggle size="sm" />
+          <AccountMenu size={28} />
+        </>
+      ) : null}
     </div>
   );
 }
 
-const THEME_ICON = { light: Sun, dark: Moon, system: Monitor } as const;
+const THEME_ICON = { dark: Moon, light: Sun, system: Monitor } as const;
 
-/** Avatar + account menu: email, Settings, Theme (Light / Dark / System), Sign out. */
-export function AccountMenu({ size = 32 }: { size?: number }) {
+/** Avatar + account menu: email, Settings, Theme (Dark / Light / System), Sign out. */
+export function AccountMenu({ size = 28 }: { size?: number }) {
   const router = useRouter();
   const me = useVx((s) => s.me);
-  const [pref, setPref] = useThemePref();
+  const [pref] = useThemePref();
   const displayName = me?.user.name || me?.user.email || '';
   const items: MenuItem[] = [
     { id: 'who', type: 'label', label: <span className="block truncate">{me?.user.email ?? ''}</span> },
-    { id: 'settings', label: 'Settings', icon: <Settings size={18} strokeWidth={1.75} />, kbd: 'g ,', onSelect: () => router.push('/settings') },
+    { id: 'settings', label: 'Settings', icon: <Settings size={16} strokeWidth={1.75} />, kbd: 'G ,', onSelect: () => router.push('/settings') },
     { id: 'sep-theme', type: 'separator' },
-    { id: 'theme', type: 'label', label: 'Theme' },
-    ...(['light', 'dark', 'system'] as ThemePref[]).map<MenuItem>((p) => {
+    { id: 'theme', type: 'label', label: <span className="vx-eyebrow">Theme</span> },
+    ...THEME_PREFS.map<MenuItem>((p) => {
       const Icon = THEME_ICON[p];
-      return { id: `theme-${p}`, label: THEME_LABEL[p], checked: pref === p, icon: <Icon size={18} strokeWidth={1.75} />, onSelect: () => setPref(p) };
+      return { id: `theme-${p}`, label: THEME_LABEL[p], checked: pref === p, icon: <Icon size={16} strokeWidth={1.75} />, onSelect: () => switchThemePref(p) };
     }),
     { id: 'sep', type: 'separator' },
     {
       id: 'signout',
       label: 'Sign out',
-      icon: <LogOut size={18} strokeWidth={1.75} />,
+      icon: <LogOut size={16} strokeWidth={1.75} />,
       onSelect: async () => {
         await signOutAndEnd();
         router.replace('/signin');
@@ -117,7 +124,7 @@ export function AccountMenu({ size = 32 }: { size?: number }) {
           aria-label="Account menu"
           title={displayName}
           data-testid="account-menu"
-          className="inline-flex shrink-0 items-center justify-center rounded-full p-1 transition-colors duration-[120ms] hover:bg-vx-surface-3"
+          className="inline-flex shrink-0 items-center justify-center rounded-full p-0.5 transition-shadow duration-[120ms] hover:shadow-[0_0_0_2px_var(--vx-hair-strong)]"
         >
           <Avatar name={displayName} image={me?.user.image ?? null} size={size} />
         </button>
@@ -130,22 +137,24 @@ export function TopBar({ onMenu, onHelp }: { onMenu: () => void; onHelp: () => v
   return (
     <header className="vx-topbar">
       {/* ≥ 721 px: brand · pill · tools */}
-      <div className="flex items-center pl-4 max-[720px]:hidden">
+      <div className="flex items-center pl-4 max-[1023px]:justify-center max-[1023px]:pl-0 max-[720px]:hidden">
         <Brand compactBelow />
       </div>
-      <div className="flex min-w-0 justify-center px-2 max-[720px]:hidden">
+      <div className="flex min-w-0 justify-start px-3 max-[720px]:hidden">
         <SearchPill />
       </div>
       <div className="flex items-center gap-1 pl-2 max-[720px]:hidden">
         <Tooltip label="Keyboard shortcuts" kbd="?" side="bottom">
           <IconButton label="Keyboard shortcuts" nativeTitle={false} onClick={onHelp}>
-            <CircleHelp size={20} strokeWidth={1.75} aria-hidden />
+            <CircleHelp size={16} strokeWidth={1.75} aria-hidden />
           </IconButton>
         </Tooltip>
         <ThemeToggle />
-        <AccountMenu />
+        <span className="ml-1 inline-flex">
+          <AccountMenu />
+        </span>
       </div>
-      {/* Phones: a single pill. */}
+      {/* Phones: menu · search field · theme · avatar. */}
       <div className="hidden w-full min-w-0 max-[720px]:flex">
         <SearchPill phone onMenu={onMenu} />
       </div>

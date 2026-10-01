@@ -8,7 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cx } from '@/components/ui/cx';
 import { FileIcon } from '@/components/ui/file-icon';
-import { CHANGE_LABEL, CHANGE_TONE, fileLabel, middleTruncate } from './format';
+import { ChangeTag } from '@/components/versioning/change-kind';
+import { CHANGE_KIND, fileLabel, middleTruncate } from './format';
 
 const CONFLICT_TEXT: Record<ProposalConflict['reason'], string> = {
   changed: 'Changed in the drive after the agent read it.',
@@ -17,18 +18,31 @@ const CONFLICT_TEXT: Record<ProposalConflict['reason'], string> = {
   type: 'Turned into a folder (or a file) after the agent read it.',
 };
 
-/** "Changed since" (DESIGN-v2 drift chip): 22 px pill, 12/500, a 6 px tick dot. */
+/** "Changed since" (UNIFY-SPEC §12.1 row tag): Mono 11, r2, h 18, a hair-strong ring and a 6 px tick dot. */
 export function ChangedSinceChip({ conflict }: { conflict: ProposalConflict }) {
   return (
     <span
       title={CONFLICT_TEXT[conflict.reason]}
       data-drift=""
-      className="inline-flex h-[22px] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-vx-surface-3 px-2 text-[12px] font-medium leading-4 text-vx-text-2"
+      className="inline-flex h-[18px] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-vx-xs border border-vx-hair-strong px-1.5 font-mono text-[11px] leading-4 text-vx-text-3"
     >
       <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-vx-tick" />
       Changed since
     </span>
   );
+}
+
+const folderOf = (p: string) => p.slice(0, p.lastIndexOf('/')) || '/';
+
+/** What a row shows: the file name (a move reads "name → /Dest", a rename "old → new") over its folder. */
+export function rowText(f: Pick<ProposalFile, 'path' | 'fromPath' | 'op'>): { title: string; folder: string } {
+  const name = basename(f.path) || f.path;
+  if ((f.op === 'move' || f.op === 'copy') && f.fromPath) {
+    const from = basename(f.fromPath) || f.fromPath;
+    const sameFolder = folderOf(f.fromPath) === folderOf(f.path);
+    return { title: sameFolder ? `${from} → ${name}` : from === name ? `${from} → ${folderOf(f.path)}` : `${from} → ${f.path}`, folder: folderOf(f.fromPath) };
+  }
+  return { title: name, folder: folderOf(f.path) };
 }
 
 export function ReviewFileList({
@@ -65,28 +79,29 @@ export function ReviewFileList({
   return (
     <div data-review-list="" className={cx('flex min-h-0 flex-col', className)}>
       {onCheckAll && pending.length ? (
-        <div className="flex h-10 shrink-0 items-center gap-3 border-b border-vx-hair-soft px-3 text-[13px] font-medium leading-5 text-vx-text-3">
+        <div className="flex h-9 shrink-0 items-center gap-3 border-b border-vx-hair bg-vx-bg-2 px-3 text-vx-text-3">
           <Checkbox
             label="Select every waiting file"
             checked={tickedShown > 0 && tickedShown === pending.length}
             indeterminate={tickedShown > 0 && tickedShown < pending.length}
             onChange={(on) => onCheckAll(on)}
           />
-          <span className="tabular-nums">{tickedShown ? `${tickedShown} of ${pending.length} selected` : `${pending.length} waiting`}</span>
+          <span className="vx-colhead">{tickedShown ? `${tickedShown} of ${pending.length} selected` : `${pending.length} waiting`}</span>
         </div>
       ) : null}
-      <ul aria-label="Proposed changes" className="min-h-0 flex-1 overflow-y-auto p-1.5">
+      <ul aria-label="Proposed changes" className="min-h-0 flex-1 overflow-y-auto">
         {files.map((f, i) => {
           const on = f.seq === selected;
           const label = fileLabel(f);
           const name = basename(f.path) || f.path;
+          const text = rowText(f);
           const decided = f.status !== 'pending';
           return (
             <li
               key={f.seq}
               className={cx(
-                'group grid min-h-10 grid-cols-[18px_minmax(0,1fr)] items-center gap-x-3 rounded-vx-sm pl-2.5 pr-2 transition-colors duration-[120ms] max-[720px]:min-h-11',
-                on ? 'bg-vx-selection text-vx-on-selection' : 'hover:bg-vx-hover',
+                'group grid min-h-12 grid-cols-[16px_minmax(0,1fr)] items-center gap-x-3 border-b border-vx-hair-soft pl-3 pr-2 transition-colors duration-[120ms] max-[720px]:min-h-14',
+                on ? 'vx-selected' : 'hover:bg-vx-raise',
               )}
             >
               {decided ? (
@@ -104,14 +119,14 @@ export function ReviewFileList({
               >
                 <FileIcon name={name} type={f.entryType === 'dir' ? 'dir' : 'file'} size={20} muted={decided} />
                 <span className="flex min-w-0 flex-1 flex-col">
-                  <span
-                    title={label}
-                    className={cx('truncate text-[14px] leading-5', decided ? 'text-vx-text-3' : on ? 'font-medium' : 'text-vx-text-1')}
-                  >
-                    {middleTruncate(label, 44)}
+                  <span title={label} className={cx('truncate text-[14px] font-medium leading-5', decided ? 'text-vx-text-3' : 'text-vx-text-1')}>
+                    {text.title}
                   </span>
-                  <span className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1">
-                    <Badge tone={CHANGE_TONE[f.change]}>{CHANGE_LABEL[f.change]}</Badge>
+                  <span className="mt-0.5 flex min-w-0 items-center gap-1.5">
+                    <ChangeTag kind={CHANGE_KIND[f.change]} />
+                    <span className="min-w-0 truncate font-mono text-[12px] leading-4 text-vx-text-3" title={text.folder}>
+                      {middleTruncate(text.folder, 32)}
+                    </span>
                     {f.conflict && !decided ? <ChangedSinceChip conflict={f.conflict} /> : null}
                     {f.status === 'accepted' ? (
                       <Badge tone="live" pip>

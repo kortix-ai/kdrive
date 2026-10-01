@@ -33,9 +33,9 @@ export function AgentsCard() {
       }
       aside={
         <Link href="/settings/agents" className={buttonClass('outline', 'md', { withIcon: true })}>
-          <Bot size={18} strokeWidth={1.75} aria-hidden />
+          <Bot size={16} strokeWidth={1.75} aria-hidden />
           Manage
-          <ChevronRight size={16} strokeWidth={1.75} aria-hidden className="-mr-1" />
+          <ChevronRight size={14} strokeWidth={1.75} aria-hidden className="-mr-1 text-vx-text-3" />
         </Link>
       }
     >

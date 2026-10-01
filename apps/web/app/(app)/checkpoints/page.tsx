@@ -1,9 +1,9 @@
 'use client';
 
-// /checkpoints — named versions kept until removed (DESIGN-v2 §6.9).
+// /checkpoints — named versions kept until removed (UNIFY-SPEC §14.3; DESIGN-v2 §6.9).
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeftRight, Bookmark, Copy, Ellipsis, Eye, Pencil, Plus, RotateCcw, StickyNote, Trash } from 'lucide-react';
+import { ArrowLeftRight, Copy, Ellipsis, Eye, Pencil, Plus, RotateCcw, StickyNote, Trash } from 'lucide-react';
 import type { Checkpoint, TagBudget } from '@volumes/shared';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,9 @@ import { cx } from '@/components/ui/cx';
 import { EmptyState } from '@/components/ui/empty-state';
 import { IconButton } from '@/components/ui/icon-button';
 import { ContextMenu, type MenuItem } from '@/components/ui/menu';
+import { Page, PageHeader } from '@/components/ui/page';
 import { Tooltip } from '@/components/ui/tooltip';
+import { CheckpointDiamond } from '@/components/versioning/checkpoint-badge';
 import { CheckpointEditDialog } from '@/components/versioning/checkpoint-dialog';
 import { Bytes, When } from '@/components/versioning/readout';
 import { RetentionNote } from '@/components/versioning/retention-note';
@@ -23,9 +25,9 @@ import { errorText, useCheckpoints, useCommit, useTimelineEntries } from '@/lib/
 import { plural } from '@/lib/versioning/timeline';
 
 const CP_GRID =
-  'grid grid-cols-[40px_minmax(0,1.3fr)_minmax(0,1fr)_132px_88px_64px] items-center gap-x-3 pr-3 max-[900px]:grid-cols-[40px_minmax(0,1fr)_132px_88px_64px] max-[720px]:grid-cols-[40px_minmax(0,1fr)_32px] max-[720px]:pr-1';
+  'grid grid-cols-[36px_minmax(0,1.3fr)_minmax(0,1fr)_132px_88px_64px] items-center gap-x-3 pr-3 max-[900px]:grid-cols-[36px_minmax(0,1fr)_132px_88px_64px] max-[720px]:grid-cols-[28px_minmax(0,1fr)_32px] max-[720px]:pr-1';
 
-/** 6 px pill meter split in two: checkpoints (accent) then pinned links (accent-wash). */
+/** 6 px r2 meter split in two: checkpoints (accent ink) then pinned links (the outline grey, so it reads on the track). */
 function BudgetMeter({ budget }: { budget: TagBudget }) {
   const max = Math.max(1, budget.max);
   const cp = Math.min(100, (budget.checkpoints / max) * 100);
@@ -34,10 +36,10 @@ function BudgetMeter({ budget }: { budget: TagBudget }) {
     <span
       role="img"
       aria-label={`${budget.used} of ${budget.max} slots used`}
-      className="flex h-1.5 w-full overflow-hidden rounded-full bg-vx-meter-track"
+      className="flex h-1.5 w-full gap-px overflow-hidden rounded-vx-xs bg-vx-meter-track"
     >
       <span className="h-full bg-vx-accent" style={{ width: `${cp}%` }} />
-      <span className="h-full bg-vx-accent-wash-2" style={{ width: `${links}%` }} />
+      <span className="h-full bg-vx-outline" style={{ width: `${links}%` }} />
     </span>
   );
 }
@@ -77,11 +79,11 @@ export default function CheckpointsPage() {
   };
 
   const items = (cp: Checkpoint): MenuItem[] => [
-    { id: 'view', label: 'View', icon: <Eye size={18} strokeWidth={1.75} />, onSelect: () => void view(cp) },
+    { id: 'view', label: 'View', icon: <Eye size={16} strokeWidth={1.75} />, onSelect: () => void view(cp) },
     {
       id: 'cmp',
       label: 'Compare with now',
-      icon: <ArrowLeftRight size={18} strokeWidth={1.75} />,
+      icon: <ArrowLeftRight size={16} strokeWidth={1.75} />,
       disabled: cp.commitId === headCommitId,
       reason: 'This checkpoint is the current version.',
       onSelect: () => router.push(driveCompareHref(cp.commitId, headCommitId ?? 'head')),
@@ -89,18 +91,18 @@ export default function CheckpointsPage() {
     {
       id: 'restore',
       label: 'Restore drive…',
-      icon: <RotateCcw size={18} strokeWidth={1.75} />,
+      icon: <RotateCcw size={16} strokeWidth={1.75} />,
       tone: 'past',
       disabled: cp.commitId === headCommitId,
       reason: 'The drive is already at this version.',
       onSelect: () => openRestore({ scope: 'drive', at: cp.commitId }),
     },
-    { id: 'dup', label: 'Duplicate as workspace…', icon: <Copy size={18} strokeWidth={1.75} />, onSelect: () => openDuplicate(cp.commitId) },
+    { id: 'dup', label: 'Duplicate as new drive…', icon: <Copy size={16} strokeWidth={1.75} />, onSelect: () => openDuplicate(cp.commitId) },
     { id: 'sep', type: 'separator' },
-    { id: 'rename', label: 'Rename', icon: <Pencil size={18} strokeWidth={1.75} />, onSelect: () => setEditing({ cp, focus: 'name' }) },
-    { id: 'note', label: 'Edit note', icon: <StickyNote size={18} strokeWidth={1.75} />, onSelect: () => setEditing({ cp, focus: 'note' }) },
+    { id: 'rename', label: 'Rename', icon: <Pencil size={16} strokeWidth={1.75} />, onSelect: () => setEditing({ cp, focus: 'name' }) },
+    { id: 'note', label: 'Edit note', icon: <StickyNote size={16} strokeWidth={1.75} />, onSelect: () => setEditing({ cp, focus: 'note' }) },
     { id: 'sep2', type: 'separator' },
-    { id: 'del', label: 'Delete', icon: <Trash size={18} strokeWidth={1.75} />, danger: true, onSelect: () => setRemoving(cp) },
+    { id: 'del', label: 'Delete', icon: <Trash size={16} strokeWidth={1.75} />, danger: true, onSelect: () => setRemoving(cp) },
   ];
 
   const full = !!budget && budget.used >= budget.max;
@@ -110,47 +112,51 @@ export default function CheckpointsPage() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-[960px] px-6 pb-10 pt-6 max-[720px]:px-4">
-      <header className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="vx-h1">Checkpoints</h1>
-        <Button
-          variant="primary"
-          kbd="P"
-          icon={<Plus size={18} strokeWidth={1.75} aria-hidden />}
-          disabled={full}
-          title={full ? 'All 100 checkpoint slots are used. Remove one first.' : undefined}
-          onClick={() => openCheckpoint(null)}
-        >
-          New checkpoint
-        </Button>
-      </header>
-      <p className="vx-body mt-2 max-w-[640px] text-vx-text-3">
-        A checkpoint names a version and keeps it until you remove it. Checkpoints and pinned share links use the same 100 slots.
-      </p>
+    <Page>
+      <PageHeader
+        eyebrow="History"
+        title="Checkpoints"
+        lead="A checkpoint names a version and keeps it until you remove it. Checkpoints and pinned share links use the same 100 slots."
+        actions={
+          <Button
+            variant="outline"
+            kbd="P"
+            icon={<Plus size={16} strokeWidth={1.75} aria-hidden />}
+            disabled={full}
+            title={full ? 'All 100 checkpoint slots are used. Remove one first.' : undefined}
+            onClick={() => openCheckpoint(null)}
+          >
+            New checkpoint
+          </Button>
+        }
+      />
 
       <div className="mt-5 rounded-vx-md bg-vx-surface-2 px-4 py-3">
         {budget ? (
           <>
-            <p className="text-[14px] leading-5 tabular-nums text-vx-text-2">
-              <span className="font-semibold text-vx-text-1">
-                {budget.used} of {budget.max}
-              </span>{' '}
-              kept
-              {budget.pinnedLinks ? (
-                <span className="text-vx-text-3">
-                  {' '}
-                  · {budget.pinnedLinks} used by pinned {budget.pinnedLinks === 1 ? 'link' : 'links'}
-                </span>
-              ) : null}
-            </p>
-            <div className="mt-2 max-w-[480px]">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+              <span className="vx-eyebrow">Slots</span>
+              <p className="font-mono text-[12px] leading-5 tabular-nums text-vx-text-3">
+                <span className="font-medium text-vx-text-1">
+                  {budget.used} of {budget.max}
+                </span>{' '}
+                kept
+                {budget.pinnedLinks ? (
+                  <>
+                    {' '}
+                    · {budget.pinnedLinks} used by pinned {budget.pinnedLinks === 1 ? 'link' : 'links'}
+                  </>
+                ) : null}
+              </p>
+            </div>
+            <div className="mt-2.5">
               <BudgetMeter budget={budget} />
             </div>
           </>
         ) : (
           <>
             <span className="skeleton skel-line w-56" />
-            <span className="skeleton mt-3 block h-1.5 w-full max-w-[480px] !rounded-full" />
+            <span className="skeleton mt-3 block h-1.5 w-full" />
           </>
         )}
       </div>
@@ -159,8 +165,8 @@ export default function CheckpointsPage() {
         {isLoading ? (
           <div aria-busy>
             {Array.from({ length: 6 }, (_, i) => (
-              <div key={i} className="flex h-[52px] items-center gap-4 px-3">
-                <span className="skeleton h-5 w-5" />
+              <div key={i} className="flex h-11 items-center gap-4 border-b border-vx-hair-soft px-3">
+                <span className="skeleton h-2 w-2 rotate-45" />
                 <span className="skeleton skel-line w-40" />
                 <span className="skeleton skel-line w-64 max-[720px]:hidden" />
               </div>
@@ -179,17 +185,18 @@ export default function CheckpointsPage() {
           />
         ) : !list.length ? (
           <EmptyState
+            art="checkpoints"
             title="Name a moment to keep it forever."
             body="Press P on any version."
             actions={
-              <Button variant="tonal" icon={<Plus size={18} strokeWidth={1.75} aria-hidden />} onClick={() => openCheckpoint(null)}>
+              <Button variant="tonal" icon={<Plus size={16} strokeWidth={1.75} aria-hidden />} onClick={() => openCheckpoint(null)}>
                 New checkpoint
               </Button>
             }
           />
         ) : (
           <div role="table" aria-label="Checkpoints">
-            <div role="row" className={cx(CP_GRID, 'h-10 border-b border-vx-hair text-[13px] font-medium leading-5 text-vx-text-3')}>
+            <div role="row" className={cx(CP_GRID, 'vx-colhead h-9 border-b border-vx-hair')}>
               <span role="columnheader" aria-label="Checkpoint" />
               <span role="columnheader">Name</span>
               <span role="columnheader" className="max-[900px]:hidden">
@@ -206,33 +213,33 @@ export default function CheckpointsPage() {
               </span>
               <span role="columnheader" aria-label="Actions" className="hidden max-[720px]:block" />
             </div>
-            <div className="pt-1">
+            <div>
               {list.map((cp) => {
                 const isNow = cp.commitId === headCommitId;
                 return (
                   <div
                     key={cp.id}
                     role="row"
-                    className={cx(CP_GRID, 'group relative min-h-[52px] rounded-vx-sm py-1.5 transition-colors duration-[120ms] hover:bg-vx-hover focus-within:bg-vx-hover')}
+                    className={cx(CP_GRID, 'group relative min-h-11 border-b border-vx-hair-soft py-1.5 transition-colors duration-[120ms] hover:bg-vx-raise focus-within:bg-vx-raise')}
                     onContextMenu={(e) => {
                       e.preventDefault();
                       setMenu({ at: { x: e.clientX, y: e.clientY }, items: items(cp) });
                     }}
                     onDoubleClick={() => void view(cp)}
                   >
-                    <span role="cell" className="flex justify-center text-vx-accent">
-                      <Bookmark size={20} strokeWidth={1.75} fill="currentColor" aria-hidden />
+                    <span role="cell" className="flex justify-center text-vx-text-1">
+                      <CheckpointDiamond size={8} />
                     </span>
                     <span role="cell" className="flex min-w-0 flex-col">
                       <span className="flex min-w-0 items-center gap-2">
                         <span className="truncate text-[14px] font-semibold leading-5 text-vx-text-1" title={cp.name}>
                           {cp.name}
                         </span>
-                        {cp.auto ? <Badge>Auto</Badge> : null}
+                        {cp.auto ? <Badge tone="dashed">Auto</Badge> : null}
                         {isNow ? <Badge tone="current">Now</Badge> : null}
                       </span>
                       {cp.note ? (
-                        <span className="vx-meta truncate text-vx-text-3 min-[901px]:hidden" title={cp.note}>
+                        <span className="vx-micro truncate text-vx-text-3 min-[901px]:hidden" title={cp.note}>
                           {cp.note}
                         </span>
                       ) : null}
@@ -241,7 +248,7 @@ export default function CheckpointsPage() {
                       </span>
                     </span>
                     <span role="cell" className="min-w-0 truncate text-[14px] leading-5 text-vx-text-3 max-[900px]:hidden" title={cp.note || undefined}>
-                      {cp.note || <span className="text-vx-text-4">—</span>}
+                      {cp.note || <span className="text-vx-text-3">—</span>}
                     </span>
                     <span role="cell" className="vx-meta-row text-vx-text-3 max-[720px]:hidden">
                       <VersionDate cp={cp} known={commitTimes.get(cp.commitId)} />
@@ -255,12 +262,12 @@ export default function CheckpointsPage() {
                     {/* hover actions overlay the right end of the row */}
                     <span
                       role="cell"
-                      className="vxv-reveal absolute inset-y-0 right-0 flex items-center gap-0.5 rounded-r-vx-sm bg-vx-hover pl-3 pr-2 max-[720px]:static max-[720px]:bg-transparent max-[720px]:p-0 max-[720px]:opacity-100"
+                      className="vxv-reveal absolute inset-y-0 right-0 flex items-center gap-0.5 bg-vx-raise pl-3 pr-2 max-[720px]:static max-[720px]:bg-transparent max-[720px]:p-0 max-[720px]:!opacity-100"
                     >
                       <span className="flex items-center gap-0.5 max-[720px]:hidden">
                         <Tooltip label="View">
-                          <IconButton size="sm" label={`View ${cp.name}`} nativeTitle={false} onClick={() => void view(cp)}>
-                            <Eye size={18} strokeWidth={1.75} aria-hidden />
+                          <IconButton size="sm" label={`View ${cp.name}`} nativeTitle={false} className="hover:!bg-vx-pressed" onClick={() => void view(cp)}>
+                            <Eye size={16} strokeWidth={1.75} aria-hidden />
                           </IconButton>
                         </Tooltip>
                         <Tooltip label={isNow ? 'This checkpoint is the current version.' : 'Compare with now'}>
@@ -268,10 +275,11 @@ export default function CheckpointsPage() {
                             size="sm"
                             label={`Compare ${cp.name} with now`}
                             nativeTitle={false}
+                            className="hover:!bg-vx-pressed"
                             disabled={isNow}
                             onClick={() => router.push(driveCompareHref(cp.commitId, headCommitId ?? 'head'))}
                           >
-                            <ArrowLeftRight size={18} strokeWidth={1.75} aria-hidden />
+                            <ArrowLeftRight size={16} strokeWidth={1.75} aria-hidden />
                           </IconButton>
                         </Tooltip>
                         <Tooltip label={isNow ? 'The drive is already at this version.' : 'Restore drive…'}>
@@ -283,12 +291,12 @@ export default function CheckpointsPage() {
                             className="!text-vx-past hover:!bg-vx-past-wash"
                             onClick={() => openRestore({ scope: 'drive', at: cp.commitId })}
                           >
-                            <RotateCcw size={18} strokeWidth={1.75} aria-hidden />
+                            <RotateCcw size={16} strokeWidth={1.75} aria-hidden />
                           </IconButton>
                         </Tooltip>
                       </span>
-                      <IconButton size="sm" label={`More actions for ${cp.name}`} onClick={(e) => openMenu(cp, e.currentTarget)}>
-                        <Ellipsis size={18} strokeWidth={1.75} aria-hidden />
+                      <IconButton size="sm" label={`More actions for ${cp.name}`} className="hover:!bg-vx-pressed" onClick={(e) => openMenu(cp, e.currentTarget)}>
+                        <Ellipsis size={16} strokeWidth={1.75} aria-hidden />
                       </IconButton>
                     </span>
                   </div>
@@ -297,7 +305,7 @@ export default function CheckpointsPage() {
             </div>
           </div>
         )}
-        {list.length ? <RetentionNote className="mt-4 px-3" /> : null}
+        {list.length ? <RetentionNote className="mt-4" /> : null}
       </div>
 
       <ContextMenu at={menu?.at ?? null} items={menu?.items ?? []} onClose={() => setMenu(null)} />
@@ -324,6 +332,6 @@ export default function CheckpointsPage() {
           void mutate();
         }}
       />
-    </div>
+    </Page>
   );
 }

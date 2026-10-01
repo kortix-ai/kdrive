@@ -84,7 +84,7 @@ export function TokenDialog({ open, onClose }: { open: boolean; onClose: () => v
         isApiError(e, 'conflict')
           ? e.message
           : isApiError(e, 'not_found')
-            ? 'That workspace is no longer available. Choose another one.'
+            ? 'That drive is no longer available. Choose another one.'
             : e instanceof Error && e.message
               ? e.message
               : 'Could not create the token.',
@@ -124,7 +124,7 @@ export function TokenDialog({ open, onClose }: { open: boolean; onClose: () => v
             role={leaving ? 'alert' : undefined}
             className={
               leaving
-                ? 'flex items-start gap-2 rounded-vx-sm bg-vx-danger-wash px-3 py-2 text-[13px] leading-5 text-vx-del-fg'
+                ? 'flex items-start gap-2 rounded-vx-sm bg-vx-danger-wash px-3 py-2 text-[13px] leading-5 text-vx-danger'
                 : 'flex items-start gap-2 rounded-vx-sm bg-vx-surface-2 px-3 py-2 text-[13px] leading-5 text-vx-text-2'
             }
           >
@@ -146,7 +146,7 @@ export function TokenDialog({ open, onClose }: { open: boolean; onClose: () => v
               className="min-w-0 flex-1"
               data-secret
             />
-            <CopyButton text={created.secret} className="mb-1.5" onCopied={didCopy} />
+            <CopyButton text={created.secret} className="mb-[3px]" onCopied={didCopy} />
           </div>
           <Snippet label="MCP client configuration with this token" text={mcpConfigSnippet(url, created.secret)} onCopied={didCopy} />
         </div>

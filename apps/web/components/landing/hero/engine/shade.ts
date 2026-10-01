@@ -3,6 +3,7 @@
 // atmosphere, so a shade writes black with alpha (premultiplied), darkening
 // whatever is behind it; distance fades it like the fog.
 import * as THREE from 'three';
+import { palette, type ScenePalette } from './palette';
 
 const VERT = /* glsl */ `
 attribute float aOpacity;
@@ -21,11 +22,13 @@ void main() {
 
 const FRAG = /* glsl */ `
 uniform sampler2D uMap;
+uniform vec3 uColor;
+uniform float uK;
 varying vec2 vUv;
 varying float vAlpha;
 void main() {
-  float a = texture2D(uMap, vUv).a * vAlpha;
-  gl_FragColor = vec4(0.0, 0.0, 0.0, a);
+  float a = texture2D(uMap, vUv).a * vAlpha * uK;
+  gl_FragColor = vec4(uColor, a);
 }`;
 
 const _m = new THREE.Matrix4();
@@ -46,7 +49,13 @@ export class Shades {
     this.material = new THREE.ShaderMaterial({
       vertexShader: VERT,
       fragmentShader: FRAG,
-      uniforms: { uMap: { value: map }, uFogNear: { value: 12 }, uFogFar: { value: 27 } },
+      uniforms: {
+        uMap: { value: map },
+        uFogNear: { value: 12 },
+        uFogFar: { value: 27 },
+        uColor: { value: new THREE.Color(palette().shade.color) },
+        uK: { value: palette().shade.opacity },
+      },
       transparent: true,
       depthWrite: false,
     });
@@ -54,6 +63,12 @@ export class Shades {
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     this.mesh.frustumCulled = false;
     this.mesh.renderOrder = -1;
+  }
+
+  /** Live theme switch: a graphite shade at lower strength on a light ground. */
+  retheme(p: ScenePalette): void {
+    (this.material.uniforms.uColor.value as THREE.Color).set(p.shade.color);
+    this.material.uniforms.uK.value = p.shade.opacity;
   }
 
   setFog(near: number, far: number): void {

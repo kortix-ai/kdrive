@@ -53,7 +53,7 @@ export function useCopied(): [boolean | 'failed', (text: string) => Promise<bool
   return [state, copy, flash];
 }
 
-/** Copy button: `outline` (the created-link field) or `text` (link rows); flips to an `ok` "Copied" for 1.2 s. */
+/** Copy button: `outline` (the created-link field), `ghost` (code wells) or `text` (link rows); flips to an `ok` "Copied" for 1.2 s. */
 export function CopyButton({
   text,
   className,
@@ -66,7 +66,7 @@ export function CopyButton({
   /** Called after the text reached the clipboard. */
   onCopied?: () => void;
   className?: string;
-  variant?: 'outline' | 'text';
+  variant?: 'outline' | 'text' | 'ghost';
   size?: 'xs' | 'sm';
   /** show "Copied" right away (the text was already copied, e.g. on create) */
   flashOnMount?: boolean;
@@ -83,7 +83,7 @@ export function CopyButton({
       variant={copied === true ? 'ok' : copied === 'failed' ? 'danger-text' : variant}
       onClick={() => void copy(text).then((ok) => ok && onCopied?.())}
       aria-live="polite"
-      icon={copied === true ? <Check size={iconSize} strokeWidth={2} aria-hidden /> : variant === 'outline' ? <Copy size={iconSize} strokeWidth={1.75} aria-hidden /> : undefined}
+      icon={copied === true ? <Check size={iconSize} strokeWidth={2} aria-hidden /> : variant !== 'text' ? <Copy size={iconSize} strokeWidth={1.75} aria-hidden /> : undefined}
       className={cx('min-w-[88px]', className)}
     >
       {copied === true ? 'Copied' : copied === 'failed' ? 'Copy failed' : 'Copy'}

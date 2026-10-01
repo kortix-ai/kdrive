@@ -1,11 +1,11 @@
 'use client';
 
-// Drive context menus (DESIGN §6.13, DESIGN-v2 §6.14: 36 px items, 18 px icons, restore items
-// in the past colour, Delete in del-fg): items now, items in the past, gone-now
+// Drive context menus (DESIGN §6.13, UNIFY-SPEC §10: the Menu primitive, 32 px items, 16 px icons, restore items
+// in the past colour, Delete in danger): items now, items in the past, gone-now
 // rows, and blank space. Multi-select trims to what applies. Write actions in
 // the past appear disabled with the reason instead of vanishing.
 import {
-  Bookmark,
+  Diamond,
   Copy,
   Download,
   Eye,
@@ -48,7 +48,7 @@ export interface DriveCommands {
   newFolder(): void;
 }
 
-const I = 18;
+const I = 16;
 const W = 1.75;
 
 export function buildDriveMenu(o: {
@@ -120,7 +120,7 @@ export function buildDriveMenu(o: {
       items.push({ id: 'cmp', label: 'Compare with previous', icon: <GitCompareArrows size={I} strokeWidth={W} />, kbd: 'C', onSelect: () => cmd.comparePrevious(one) });
     }
     items.push({ id: 'share', label: 'Share…', icon: <Share2 size={I} strokeWidth={W} />, kbd: 'S', onSelect: () => cmd.share(one) });
-    items.push({ id: 'cpt', label: 'Checkpoint…', icon: <Bookmark size={I} strokeWidth={W} />, kbd: 'P', onSelect: cmd.checkpoint });
+    items.push({ id: 'cpt', label: 'Checkpoint…', icon: <Diamond size={I} strokeWidth={W} />, kbd: 'P', onSelect: cmd.checkpoint });
   }
   items.push({ id: 's3', type: 'separator' });
   items.push({

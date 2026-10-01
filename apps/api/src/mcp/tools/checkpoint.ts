@@ -44,7 +44,7 @@ export function registerCheckpointTool(server: McpServer, p: AgentPrincipal, ctx
         };
         return ok({
           summary: `Checkpoint ${JSON.stringify(cp.name)} at ${cp.commitId}`,
-          links: [{ uri: url, name: 'Checkpoints', title: 'Checkpoints in Volumes' }],
+          links: [{ uri: url, name: 'Checkpoints', title: 'Checkpoints in KDRIVE' }],
           data,
         });
       },

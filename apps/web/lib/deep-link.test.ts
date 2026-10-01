@@ -127,7 +127,7 @@ describe('useDeepLink', () => {
     const { useVx } = await import('./store');
     const m = await mountAt('/drive?ws=ws-nope');
     expect(useVx.getState().workspaceId).toBe('ws-home');
-    expect(useVx.getState().toasts.map((t) => t.message)).toEqual(["That workspace isn't available."]);
+    expect(useVx.getState().toasts.map((t) => t.message)).toEqual(["That drive isn't available."]);
     expect(replaced).toEqual(['/drive']);
     await m.unmount();
   });

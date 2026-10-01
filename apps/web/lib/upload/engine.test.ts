@@ -91,7 +91,7 @@ describe('splitIntoPlans', () => {
     expect(fileStatusLabel({ ...base, status: 'uploading', sent: 50 }, fmt)).toBe('50 B / 100 B');
     expect(fileStatusLabel({ ...base, status: 'done' }, fmt)).toBe('Already stored');
     expect(fileStatusLabel({ ...base, status: 'done', sent: 100 }, fmt)).toBe('✓');
-    expect(fileProgress({ ...base, status: 'uploading', hashed: 100, sent: 50 })).toBe(0.75);
+    expect(fileProgress({ ...base, status: 'uploading', hashed: 100, sent: 50 })).toBeCloseTo(0.55);
   });
 });
 

@@ -5,14 +5,12 @@
 import { Suspense, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ConsentCard, OAuthShell } from '@/components/agents/consent-card';
-import { isApiError } from '@/lib/api/client';
-import { useMe } from '@/lib/api/hooks';
+import { useMeIfSignedIn } from '@/lib/api/hooks';
 
 function Consent() {
   const params = useSearchParams();
   const query = params.toString();
-  const { data: me, error } = useMe();
-  const signedOut = !!error && isApiError(error) && error.status === 401;
+  const { data: me, error, signedOut } = useMeIfSignedIn();
 
   useEffect(() => {
     if (signedOut) window.location.assign(`/oauth/sign-in${window.location.search}`);
@@ -25,7 +23,7 @@ function Consent() {
           <p className="vx-body text-vx-text-3">Can&apos;t reach the server right now. Reload the page in a moment.</p>
         ) : (
           <div className="flex flex-col gap-3" aria-busy="true">
-            <span className="skeleton block h-12 w-12 !rounded-full" />
+            <span className="skeleton block h-10 w-10 !rounded-vx-sm" />
             <span className="skeleton block h-6 w-3/4" />
           </div>
         )}

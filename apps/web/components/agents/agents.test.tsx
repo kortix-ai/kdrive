@@ -99,9 +99,9 @@ function typeInto(input: HTMLInputElement, value: string) {
 describe('snippets', () => {
   test('the config and command line snippets carry the MCP URL (and the token when given)', () => {
     const { mcpConfigSnippet, cliSnippet, TOKEN_PLACEHOLDER } = mod.connect;
-    expect(JSON.parse(mcpConfigSnippet(MCP_URL))).toEqual({ mcpServers: { volumes: { type: 'http', url: MCP_URL } } });
-    expect(JSON.parse(mcpConfigSnippet(MCP_URL, TOKEN_PLACEHOLDER)).mcpServers.volumes.headers).toEqual({ Authorization: 'Bearer <your token>' });
-    expect(cliSnippet(MCP_URL)).toBe(`your-agent mcp add --transport http volumes ${MCP_URL}`);
+    expect(JSON.parse(mcpConfigSnippet(MCP_URL))).toEqual({ mcpServers: { kdrive: { type: 'http', url: MCP_URL } } });
+    expect(JSON.parse(mcpConfigSnippet(MCP_URL, TOKEN_PLACEHOLDER)).mcpServers.kdrive.headers).toEqual({ Authorization: 'Bearer <your token>' });
+    expect(cliSnippet(MCP_URL)).toBe(`your-agent mcp add --transport http kdrive ${MCP_URL}`);
   });
 
   test('the Connect section shows the URL and both snippet sets', async () => {
@@ -110,14 +110,14 @@ describe('snippets', () => {
     const url = document.querySelector<HTMLInputElement>('input[readonly]');
     expect(url?.value).toBe(MCP_URL);
     expect(document.querySelector('pre[aria-label="MCP client configuration"]')?.textContent).toContain(MCP_URL);
-    expect(document.body.textContent).toContain(`your-agent mcp add --transport http volumes ${MCP_URL}`);
+    expect(document.body.textContent).toContain(`your-agent mcp add --transport http kdrive ${MCP_URL}`);
     await click(radio('Agent token'));
     expect(document.querySelector('pre')?.textContent).toContain('Bearer <your token>');
     expect(document.querySelector('pre')?.textContent).toContain(MCP_URL);
   });
 
   test('a snippet wraps instead of hiding text under its Copy button', async () => {
-    await mount(<mod.connect.Snippet label="Command line example" text={`your-agent mcp add --transport http volumes ${MCP_URL}`} />);
+    await mount(<mod.connect.Snippet label="Command line example" text={`your-agent mcp add --transport http kdrive ${MCP_URL}`} />);
     const pre = document.querySelector('pre')!;
     expect(pre.className).toContain('whitespace-pre-wrap');
     expect(pre.className).not.toContain('overflow-x-auto');
@@ -233,14 +233,14 @@ describe('consent card', () => {
     consentInfo = base;
     await mount(<mod.consent.ConsentCard oauthQuery="client_id=c1&sig=s" />);
     await tick();
-    expect(document.body.textContent).toContain('Connect Helper app to Volumes');
+    expect(document.body.textContent).toContain('Connect Helper app to KDRIVE');
     expect(document.body.textContent).toContain('127.0.0.1:8765');
     const write = radio('Make changes')!;
     expect(write.disabled).toBe(true);
     expect(write.textContent).toContain('Not requested by this app');
     expect(radio('Suggest changes')?.getAttribute('aria-checked')).toBe('true');
     expect(radio('Read only')?.disabled).toBe(false);
-    expect(document.querySelector('[aria-label="Workspace: My Drive"]')).not.toBeNull();
+    expect(document.querySelector('[aria-label="Drive: My Drive"]')).not.toBeNull();
   });
 
   test('an app asking for every scope starts at "Suggest changes"; the copy says what review mode cannot do', async () => {

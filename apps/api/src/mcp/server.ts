@@ -38,7 +38,7 @@ export function toolsForScope(scope: AgentScope, mode: AgentMode = 'review'): Mc
 
 export function buildMcpServer(p: AgentPrincipal, ctx: ToolCtx): McpServer {
   const server = new McpServer(
-    { name: 'volumes', title: 'Volumes', version: MCP_SERVER_VERSION },
+    { name: 'volumes', title: 'KDRIVE', version: MCP_SERVER_VERSION },
     { instructions: serverInstructions(p.scope, p.mode), capabilities: { tools: {}, resources: {} } },
   );
   registerTools(server, p, ctx);

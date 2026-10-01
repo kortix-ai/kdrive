@@ -1,7 +1,7 @@
 'use client';
 
-// The open-proposals count in the sidebar's Proposals item (MCP.md §14.6): an accent-wash
-// pill with the number of proposals waiting in the current workspace, hidden at 0, "99+" above 99.
+// The open-proposals count in the sidebar's Proposals item (UNIFY-SPEC §14.4): the nav count chip in its
+// accent-wash attention variant with the number of proposals waiting in the current workspace, hidden at 0, "99+" above 99.
 import { useProposalCount } from '@/lib/api/hooks';
 
 export function navCountLabel(n: number | null | undefined): string | null {
@@ -16,7 +16,7 @@ export function NavCountPill({ n }: { n: number | null | undefined }) {
   return (
     <span
       data-nav-count=""
-      className="vx-nav-count vx-side-full inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full !bg-vx-accent-wash px-1.5 text-[11px] font-semibold leading-4 tabular-nums !text-vx-on-accent-wash"
+      className="vx-nav-count is-attention vx-side-full shrink-0"
     >
       {label}
       <span className="sr-only"> waiting for review</span>

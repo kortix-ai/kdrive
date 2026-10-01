@@ -20,7 +20,7 @@ export function ShareMock() {
   return (
     <div className="kd-inset kd-sh">
       <p className="kd-sh__file">
-        <FileIcon />
+        <FileIcon name="launch.pdf" />
         <span className="kd-sh__name">launch.pdf</span>
         <span className="kd-mono kd-sh__size">3.9 MB · v44</span>
       </p>

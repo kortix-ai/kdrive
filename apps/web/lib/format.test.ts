@@ -1,16 +1,16 @@
 import { describe, expect, test } from 'bun:test';
-import { actionText, formatRelative, formatTimeTravelLabel } from './format';
+import { actionText, formatRelative, formatMoment } from './format';
 
 describe('actionText', () => {
   test('a restore names its version in the viewer\'s own clock', () => {
     const at = '2026-09-28T05:57:00.000Z';
-    expect(actionText('Restored plan.md to an earlier version', at)).toBe(`Restored plan.md to ${formatTimeTravelLabel(at)}`);
+    expect(actionText('Restored plan.md to an earlier version', at)).toBe(`Restored plan.md to ${formatMoment(at)}`);
     expect(actionText('Undid: Restored plan.md to an earlier version', null)).toBe('Undid: Restored plan.md to an earlier version');
     expect(actionText('Uploaded a.txt')).toBe('Uploaded a.txt');
   });
 
   test('older summaries with a UTC time are shown in local time', () => {
-    const local = formatTimeTravelLabel(new Date(Date.UTC(2026, 8, 28, 5, 57)));
+    const local = formatMoment(new Date(Date.UTC(2026, 8, 28, 5, 57)));
     expect(actionText('Restored hello-copy.txt to 28 Sep 2026, 05:57 UTC')).toBe(`Restored hello-copy.txt to ${local}`);
     expect(actionText('Undid: Restored plan.md to 28 Sep 2026, 05:57 UTC')).not.toContain('UTC');
   });
@@ -27,5 +27,16 @@ describe('formatRelative', () => {
     expect(formatRelative(new Date(2026, 8, 22, 16, 40), now)).toBe('Tue 16:40');
     expect(formatRelative(new Date(2026, 8, 14, 16, 40), now)).toBe('14 Sep');
     expect(formatRelative(new Date(2025, 11, 8, 8, 57), now)).toBe('8 Dec 2025');
+  });
+});
+
+describe('formatMoment', () => {
+  test('one form for every moment: weekday, day, month, time; the year only outside this one', () => {
+    const y = new Date().getFullYear();
+    const d = new Date(y, 9, 2, 1, 5);
+    const day = d.toLocaleDateString('en-GB', { weekday: 'short' });
+    expect(formatMoment(d)).toBe(`${day} 2 Oct 01:05`);
+    expect(formatMoment(d, { weekday: false })).toBe('2 Oct 01:05');
+    expect(formatMoment(new Date(2020, 9, 2, 1, 5))).toBe('Fri 2 Oct 2020 01:05');
   });
 });

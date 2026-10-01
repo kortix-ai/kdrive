@@ -18,8 +18,8 @@ export function TextView({ src, kind = 'text' }: { src: string; kind?: 'text' | 
   if (kind === 'json') {
     return (
       <div className="flex min-w-0 flex-col">
-        {pretty?.status === 'invalid' ? <p className="vx-meta px-4 pb-1 pt-3 text-vx-text-3">Not valid JSON. Shown as it is stored.</p> : null}
-        {pretty?.status === 'too-large' ? <p className="vx-meta px-4 pb-1 pt-3 text-vx-text-3">Too deeply nested to format. Shown as it is stored.</p> : null}
+        {pretty?.status === 'invalid' ? <p className="vx-micro border-b border-vx-hair-soft px-3 py-2.5 text-vx-text-3">Not valid JSON. Shown as it is stored.</p> : null}
+        {pretty?.status === 'too-large' ? <p className="vx-micro border-b border-vx-hair-soft px-3 py-2.5 text-vx-text-3">Too deeply nested to format. Shown as it is stored.</p> : null}
         <SourceLines text={pretty?.text ?? data} />
       </div>
     );

@@ -57,7 +57,7 @@ export function LinkRow({ link, onRevoke }: { link: ShareLink; onRevoke: (link: 
 
   return (
     <li className="border-b border-vx-hair-soft last:border-b-0">
-      <div className="flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1 py-1.5">
+      <div className="-mx-2 flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1 px-2 py-1.5 transition-colors duration-[120ms] hover:bg-vx-raise">
         {status === 'revoked' ? (
           <Badge tone="dashed">Revoked</Badge>
         ) : status === 'expired' ? (
@@ -69,10 +69,10 @@ export function LinkRow({ link, onRevoke }: { link: ShareLink; onRevoke: (link: 
         ) : (
           <Badge icon={<Pin strokeWidth={2} aria-hidden />}>Pinned</Badge>
         )}
-        <div className={cx('vx-meta min-w-0 flex-1 truncate', inactive ? 'text-vx-text-4' : 'text-vx-text-3')} title={metaTitle}>
+        <div className={cx('vx-meta-row min-w-0 flex-1 truncate text-vx-text-3', inactive && 'opacity-70')} title={metaTitle}>
           {link.mode === 'pinned' && link.commitId ? (
             <>
-              <span className="font-mono" title={link.commitId}>
+              <span title={link.commitId}>
                 {shortId(link.commitId)}
               </span>
               {' · '}
@@ -100,7 +100,7 @@ export function LinkRow({ link, onRevoke }: { link: ShareLink; onRevoke: (link: 
         <div className="mb-2 flex flex-wrap items-center gap-3 rounded-vx-md bg-vx-danger-wash px-3.5 py-3 shadow-[inset_0_0_0_1px_var(--vx-danger-edge)]">
           <div className="min-w-0 flex-1">
             <div className="text-[14px] font-semibold leading-5 text-vx-text-1">{removing ? 'Remove this link?' : 'Revoke this link?'}</div>
-            <div className="vx-meta mt-0.5 text-vx-text-2">
+            <div className="mt-0.5 text-[13px] leading-5 text-vx-text-2">
               {removing ? 'It stops counting against your checkpoint slots.' : 'Anyone who has it loses access.'}
             </div>
           </div>
@@ -115,7 +115,7 @@ export function LinkRow({ link, onRevoke }: { link: ShareLink; onRevoke: (link: 
         </div>
       ) : null}
       {error ? (
-        <p role="alert" className="mb-2 flex items-start gap-2 rounded-vx-sm bg-vx-danger-wash px-3 py-2 text-[13px] leading-5 text-vx-del-fg">
+        <p role="alert" className="mb-2 flex items-start gap-2 rounded-vx-sm bg-vx-danger-wash px-3 py-2 text-[13px] leading-5 text-vx-danger">
           <CircleAlert size={16} strokeWidth={1.75} className="mt-0.5 shrink-0" aria-hidden />
           {error}
         </p>

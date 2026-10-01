@@ -29,10 +29,17 @@ export function formatRelative(d: string | number | Date, now: Date = new Date()
   return isSameYear(date, now) ? format(date, 'd MMM') : format(date, 'd MMM yyyy');
 }
 
-/** "14 Sep, 16:40" (the time-travel banner). */
-export function formatTimeTravelLabel(d: string | number | Date): string {
+/**
+ * The one way a moment in a drive's history is written, everywhere (banner, search chip, strip readout and
+ * tooltip, compare pickers and side heads, restore dialog, checkpoints, pinned links): "Fri 2 Oct 01:05".
+ * The year appears only when it is not the current one ("Thu 2 Oct 2025 01:05"); `weekday: false` drops the
+ * day name where space is tight ("2 Oct 01:05").
+ */
+export function formatMoment(d: string | number | Date, opts: { weekday?: boolean; year?: boolean } = {}): string {
   const date = toDate(d);
-  return isSameYear(date, new Date()) ? format(date, 'd MMM, HH:mm') : format(date, 'd MMM yyyy, HH:mm');
+  const year = opts.year ?? !isSameYear(date, new Date());
+  const day = opts.weekday === false ? 'd MMM' : 'EEE d MMM';
+  return format(date, year ? `${day} yyyy HH:mm` : `${day} HH:mm`);
 }
 
 export function formatAgo(d: string | number | Date): string {
@@ -55,10 +62,10 @@ const LEGACY_UTC = /(\d{1,2}) ([A-Z][a-z]{2}) (\d{4}), (\d{2}):(\d{2}) UTC/g;
  * to the local ones around it.
  */
 export function actionText(summary: string, restoredTo?: string | null): string {
-  if (restoredTo && summary.endsWith(EARLIER)) return `${summary.slice(0, -EARLIER.length)} to ${formatTimeTravelLabel(restoredTo)}`;
+  if (restoredTo && summary.endsWith(EARLIER)) return `${summary.slice(0, -EARLIER.length)} to ${formatMoment(restoredTo)}`;
   return summary.replace(LEGACY_UTC, (m, d: string, mon: string, y: string, h: string, min: string) => {
     const mi = MONTHS.indexOf(mon);
     if (mi < 0) return m;
-    return formatTimeTravelLabel(new Date(Date.UTC(Number(y), mi, Number(d), Number(h), Number(min))));
+    return formatMoment(new Date(Date.UTC(Number(y), mi, Number(d), Number(h), Number(min))));
   });
 }

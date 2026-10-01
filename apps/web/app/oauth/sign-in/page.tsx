@@ -7,7 +7,6 @@ import { Suspense, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { CircleAlert, KeyRound } from 'lucide-react';
 import { OAuthShell, START_AGAIN, signedQueryUsable } from '@/components/agents/consent-card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useConfig } from '@/lib/api/hooks';
@@ -17,7 +16,7 @@ const label = (id: string) => (id ? id.charAt(0).toUpperCase() + id.slice(1) : i
 
 function ErrorRow({ children }: { children: React.ReactNode }) {
   return (
-    <p role="alert" className="mt-4 flex items-start gap-2 rounded-vx-sm bg-vx-danger-wash px-3 py-2 text-[13px] leading-5 text-vx-del-fg">
+    <p role="alert" className="mt-4 flex items-start gap-2 rounded-vx-sm bg-vx-danger-wash px-3 py-2 text-[13px] leading-5 text-vx-danger">
       <CircleAlert size={16} strokeWidth={1.75} className="mt-0.5 shrink-0" aria-hidden />
       <span className="min-w-0">{children}</span>
     </p>
@@ -70,9 +69,9 @@ function SignIn() {
 
   const providers = config?.providers ?? [];
   return (
-    <OAuthShell>
-      <h1 className="text-[20px] font-semibold leading-[26px] tracking-[-0.01em] text-vx-text-1">Sign in to connect an app</h1>
-      <p className="vx-body mt-1 text-vx-text-3">An app wants to use your Volumes drive. You&apos;ll choose what it can do next.</p>
+    <OAuthShell width={440}>
+      <h1 className="vx-h2">Sign in to connect an app</h1>
+      <p className="vx-body mt-1 text-vx-text-3">An app wants to use your KDRIVE drive. You&apos;ll choose what it can do next.</p>
       {!usable ? (
         <ErrorRow>This link expired. {START_AGAIN}</ErrorRow>
       ) : (
@@ -85,7 +84,7 @@ function SignIn() {
                 size="lg"
                 variant="outline"
                 block
-                icon={<KeyRound size={18} strokeWidth={1.75} aria-hidden />}
+                icon={<KeyRound size={16} strokeWidth={1.75} aria-hidden />}
                 onClick={() => void social(p)}
                 loading={busy === p}
                 disabled={!!busy}
@@ -96,10 +95,8 @@ function SignIn() {
           </div>
           {config?.devLogin ? (
             <form onSubmit={dev} className="mt-4 rounded-vx-md border border-dashed border-vx-hair-dash p-4">
-              <Badge tone="dashed" className="mb-3">
-                Dev only
-              </Badge>
-              <Input id="dev-email" label="Email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
+              <div className="vx-eyebrow mb-3">Dev only</div>
+              <Input size="lg" id="dev-email" label="Email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
               <Button variant="primary" size="lg" block type="submit" className="mt-4" loading={busy === 'dev'} disabled={!!busy && busy !== 'dev'}>
                 Continue with dev account
               </Button>

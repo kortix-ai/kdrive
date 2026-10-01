@@ -1,7 +1,7 @@
 'use client';
 
 import { useId, useState } from 'react';
-import { Bookmark } from 'lucide-react';
+import { Diamond } from 'lucide-react';
 import type { Checkpoint, TagBudget } from '@volumes/shared';
 import { Button } from '@/components/ui/button';
 import { cx } from '@/components/ui/cx';
@@ -9,7 +9,7 @@ import { Dialog } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { ApiError } from '@/lib/api/client';
 import { api } from '@/lib/api/endpoints';
-import { formatTimeTravelLabel } from '@/lib/format';
+import { formatMoment } from '@/lib/format';
 import { useVx } from '@/lib/store';
 import { errorText, useCheckpoints, useCommit, useTimelineEntries } from '@/lib/versioning/hooks';
 import { CommitId } from './readout';
@@ -29,7 +29,7 @@ function nameError(name: string): string | null {
 export function BudgetLine({ budget, className }: { budget: TagBudget | undefined; className?: string }) {
   if (!budget) return <span className={cx('vx-meta text-vx-text-3', className)}>…</span>;
   return (
-    <span className={cx('vx-meta tabular-nums', budget.used >= budget.max ? 'text-vx-del-fg' : 'text-vx-text-3', className)}>
+    <span className={cx('vx-meta tabular-nums', budget.used >= budget.max ? 'text-vx-danger' : 'text-vx-text-3', className)}>
       {budget.used} of {budget.max} used, shared with pinned links
     </span>
   );
@@ -77,9 +77,9 @@ function Fields({
           maxLength={NOTE_MAX}
           onChange={(e) => setNote(e.target.value)}
           placeholder="What is special about this version?"
-          className="block w-full resize-none rounded-vx-sm border border-vx-outline bg-vx-surface px-3 py-2.5 text-[15px] leading-[22px] text-vx-text-1 outline-none transition-[border-color,box-shadow] duration-[120ms] placeholder:text-vx-text-4 hover:border-vx-text-3 focus:border-vx-accent-edge focus:shadow-[inset_0_0_0_1px_var(--vx-accent-edge)]"
+          className="block w-full resize-none rounded-vx-sm border border-vx-hair-strong bg-vx-field px-3 py-2 text-[14px] leading-[22px] text-vx-text-1 outline-none transition-[border-color,box-shadow] duration-[120ms] ease-vx placeholder:text-vx-text-3 hover:border-vx-outline focus:border-transparent focus:shadow-[inset_0_0_0_2px_var(--vx-focus)]"
         />
-        <span className="vx-micro mt-1 block text-right tabular-nums text-vx-text-3">
+        <span className="mt-1 block text-right font-mono text-[11px] leading-4 tabular-nums text-vx-text-3">
           {note.length}/{NOTE_MAX}
         </span>
       </div>
@@ -158,14 +158,14 @@ function CreateCheckpoint({ at }: { at: string | null }) {
       }
     >
       <p className={cx('vx-meta mb-4 flex min-w-0 flex-wrap items-center gap-1.5', isNow ? 'text-vx-text-3' : 'text-vx-past')}>
-        <Bookmark size={16} strokeWidth={1.75} aria-hidden className={cx('shrink-0', isNow ? 'text-vx-accent' : 'text-vx-past')} />
+        <Diamond size={14} strokeWidth={1.75} aria-hidden className={cx('shrink-0', isNow ? 'text-vx-text-1' : 'text-vx-past')} />
         {isNow ? (
           <span>
             Checkpoints now{headCommitId ? <> · <CommitId id={headCommitId} /></> : null}
           </span>
         ) : (
           <span>
-            Checkpoints {createdAt ? formatTimeTravelLabel(createdAt) : '…'} · <CommitId id={at} />
+            Checkpoints {createdAt ? formatMoment(createdAt) : '…'} · <CommitId id={at} />
           </span>
         )}
       </p>

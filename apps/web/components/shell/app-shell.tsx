@@ -26,8 +26,8 @@ import { PanelHost } from './panel-host';
 import { ShortcutSheet } from './shortcut-sheet';
 import { TopBar } from './top-bar';
 
-/** Routes whose content sits straight on the page instead of in a sheet (DESIGN-v2 §6.17). */
-export function isSheetless(pathname: string): boolean {
+/** Routes that are not about the drive's contents, so the past ring never frames them. */
+export function isTimeless(pathname: string): boolean {
   return pathname === '/settings' || pathname.startsWith('/settings/');
 }
 
@@ -103,9 +103,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   if (error && !unauthorized) {
     return (
-      <div className="flex h-dvh items-center justify-center bg-vx-bg p-4">
-        <div className="vx-sheet w-full max-w-[480px]">
+      <div className="vx-atmos flex h-dvh items-center justify-center p-4">
+        <div className="vx-sheet w-full max-w-[480px] shadow-vx-mock">
           <EmptyState
+            art="gone"
             title="Could not load your drive"
             body={error instanceof Error ? error.message : 'Unknown error'}
             actions={
@@ -124,16 +125,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="vx-app" aria-busy>
         <header className="vx-topbar">
           <div className="flex items-center gap-2.5 pl-4">
-            <span className="skeleton h-8 w-8 !rounded-vx-sm" />
-            <span className="skeleton skel-line w-24" />
+            <span className="skeleton h-4 w-4 !rounded-vx-xs" />
+            <span className="skeleton skel-line w-16" />
           </div>
-          <div className="flex justify-center px-2">
-            <span className="skeleton h-12 w-full max-w-[720px] !rounded-full" />
+          <div className="flex justify-start px-3">
+            <span className="skeleton h-9 w-full max-w-[640px] !rounded-vx-sm" />
           </div>
-          <span className="skeleton mx-2 h-8 w-8 !rounded-full" />
+          <span className="skeleton mx-2 h-7 w-7 !rounded-full" />
         </header>
         <div className="vx-side">
-          <span className="skeleton h-14 w-32 !rounded-full" />
+          <span className="skeleton h-9 w-full !rounded-vx-sm" />
           <span className="skeleton skel-line mt-6 w-40" />
           <span className="skeleton skel-line w-32" />
           <span className="skeleton skel-line w-36" />
@@ -149,19 +150,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   // The history strip belongs to the drive only (never on /proposals/**, whose review page is full height).
   const onDrive = pathname === '/drive' || pathname.startsWith('/drive/');
-  const sheetless = isSheetless(pathname);
+  const timeless = isTimeless(pathname);
   return (
     <div className="vx-app">
+      <a href="#vx-main" className="vx-skip">
+        Skip to content
+      </a>
       <TopBar onMenu={() => setDrawer((d) => !d)} onHelp={() => setSheet(true)} />
       <LeftRail open={drawer} onNavigate={() => setDrawer(false)} />
       {drawer ? <div className="dlg-fade fixed inset-0 z-[55] hidden bg-vx-scrim max-[720px]:block" onClick={() => setDrawer(false)} aria-hidden /> : null}
       <div className="vx-content" data-strip={onDrive ? 'true' : 'false'}>
-        <main className={cx('vx-main', sheetless ? 'vx-sheetless' : 'vx-sheet', past && !sheetless && 'is-past')} data-past={past ? 'true' : undefined}>
+        <main id="vx-main" tabIndex={-1} className={cx('vx-main vx-sheet outline-none', past && !timeless && 'is-past')} data-past={past ? 'true' : undefined}>
           <TimeTravelBanner />
           <div className="min-h-0 flex-1 overflow-auto">{children}</div>
         </main>
         {timelineOpen ? (
-          <aside className="vx-timeline vx-sheet" aria-label="Timeline">
+          <aside className="vx-timeline vx-sheet" aria-label="History">
             <div className="min-h-0 flex-1 overflow-auto">
               <TimelineRail />
             </div>

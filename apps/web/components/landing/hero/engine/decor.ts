@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { boxEdges, faceGrid } from './build';
 import { TRAIL, cellsOf, type VolumeSpec } from './layout';
 import { LineBatch, type LineItem } from './lines';
+import { palette, type ScenePalette } from './palette';
 import { clamp, damp } from './springs';
 
 /** The trail streams toward -x, behind the drifting Photos volume. */
@@ -28,6 +29,11 @@ export class Decor {
   private readonly dashed: Dashed[] = [];
   private readonly trail: THREE.Vector3[] = [];
   private readonly glow: THREE.Mesh<THREE.BoxGeometry, THREE.MeshBasicMaterial> | null = null;
+  private readonly seamLine: THREE.Mesh<THREE.BoxGeometry, THREE.MeshBasicMaterial> | null = null;
+  private readonly lineItems: { item: LineItem; role: 'rim' | 'dashed' | 'panel' }[] = [];
+  private glowK = GLOW;
+  private rimK = 1;
+  private dashK = 1;
   private readonly last = new THREE.Vector3();
   private speed = 0;
 
@@ -36,20 +42,24 @@ export class Decor {
     // (radius .06 of each edge, so .12 of each half extent); just outside the
     // arc's 45° point the edge line lies on the rounded edge it brightens, and
     // the back edges stay hidden behind the faces
-    this.rim = LineBatch.item(boxEdges(half.clone().multiplyScalar(RIM_INSET)), 0xe3e6ec);
+    const p = palette();
+    this.rim = LineBatch.item(boxEdges(half.clone().multiplyScalar(RIM_INSET)), p.rim);
+    this.lineItems.push({ item: this.rim, role: 'rim' });
     const zero = new THREE.Vector3();
     if (spec.kind === 'solid' && spec.n > 1) {
       // a hair off the faces (no z-fighting); the block hides the ones on its far side
-      this.panel = LineBatch.item(faceGrid(half.clone().multiplyScalar(1.002), cellsOf(spec)), PANEL);
+      // ends stop at the bevel (radius .12 of the half extent): no stubs past the silhouette on a light ground
+      this.panel = LineBatch.item(faceGrid(half.clone().multiplyScalar(1.002), cellsOf(spec), 0.12), p.panel);
+      this.lineItems.push({ item: this.panel, role: 'panel' });
     }
     if (spec.kind === 'ghost') {
       // dashed edges plus the inner n-grid at 30%
-      this.dashed.push({ item: LineBatch.item(boxEdges(half), 0x9aa0ab), k: 0.42, offset: zero });
-      this.dashed.push({ item: LineBatch.item(faceGrid(half, cellsOf(spec)), 0x9aa0ab), k: 0.42 * 0.3, offset: zero });
+      this.dashed.push({ item: LineBatch.item(boxEdges(half), p.dashed), k: 0.42, offset: zero });
+      this.dashed.push({ item: LineBatch.item(faceGrid(half, cellsOf(spec)), p.dashed), k: 0.42 * 0.3, offset: zero });
     }
     if (spec.kind === 'stack') {
       // two still shells behind: "versions behind"
-      const edges = LineBatch.item(boxEdges(half), 0x9aa0ab);
+      const edges = LineBatch.item(boxEdges(half), p.dashed);
       for (const k of [1, 2]) {
         const offset = new THREE.Vector3(0.08, 0.05, -0.18).multiplyScalar(spec.size * k * 2.2);
         this.dashed.push({ item: edges, k: STACK_K[k - 1], offset });
@@ -57,7 +67,8 @@ export class Decor {
     }
     if (spec.kind === 'trail') {
       // three '>' chevrons (the sketch's "»"), not outlines of the cube
-      this.trailFace = LineBatch.item(CHEVRON, 0xe3e6ec);
+      this.trailFace = LineBatch.item(CHEVRON, p.rim);
+      this.lineItems.push({ item: this.trailFace, role: 'rim' });
       const home = new THREE.Vector3(...spec.pos);
       this.last.copy(home);
       for (let k = 0; k < TRAIL.k.length; k++) this.trail.push(home.clone().addScaledVector(TRAIL_DIR, this.reach(k, TRAIL.rest)));
@@ -70,13 +81,29 @@ export class Decor {
       const fade = jointFade();
       const line = new THREE.Mesh(
         new THREE.BoxGeometry(spec.size * 0.9, 0.01, spec.size * 0.9),
-        new THREE.MeshBasicMaterial({ color: new THREE.Color(0xeef1f7).multiplyScalar(0.85), alphaMap: fade, transparent: true, depthWrite: false, toneMapped: false }),
+        new THREE.MeshBasicMaterial({ alphaMap: fade, transparent: true, depthWrite: false, toneMapped: false }),
       );
       this.glow = new THREE.Mesh(
         new THREE.BoxGeometry(spec.size * 0.99, 0.03, spec.size * 0.99),
-        new THREE.MeshBasicMaterial({ color: 0xcfd6e6, alphaMap: fade, transparent: true, opacity: GLOW, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }),
+        new THREE.MeshBasicMaterial({ alphaMap: fade, transparent: true, opacity: GLOW, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }),
       );
+      this.seamLine = line;
       pivot.add(line, this.glow);
+    }
+    for (const d of this.dashed) if (!this.lineItems.some((x) => x.item === d.item)) this.lineItems.push({ item: d.item, role: 'dashed' });
+    this.retheme(p);
+  }
+
+  /** Live theme switch: line colours, the seam's joint and glow (none in light: a dark machined groove). */
+  retheme(p: ScenePalette): void {
+    for (const { item, role } of this.lineItems) item.color.set(role === 'rim' ? p.rim : role === 'panel' ? p.panel : p.dashed);
+    this.rimK = p.rimK;
+    this.dashK = p.dashedK;
+    if (this.seamLine) this.seamLine.material.color.set(p.seam.color).multiplyScalar(p.seam.scale);
+    if (this.glow) {
+      this.glow.visible = p.seam.glow !== null;
+      if (p.seam.glow !== null) this.glow.material.color.set(p.seam.glow);
+      this.glowK = p.seam.glow !== null ? GLOW : 0;
     }
   }
 
@@ -95,11 +122,11 @@ export class Decor {
   /** tone: 1, or less while another volume's fan is open. */
   draw(pivot: THREE.Object3D, rim: number, fanned: number, tone: number, f: DrawFrame, solid: LineBatch, dashed: LineBatch): void {
     const M = pivot.matrix;
-    solid.push(this.rim, M, rim);
+    solid.push(this.rim, M, rim * this.rimK);
     if (this.panel) solid.push(this.panel, M, tone);
     for (const d of this.dashed) {
       _m.makeTranslation(d.offset.x, d.offset.y, d.offset.z).multiply(M);
-      dashed.push(d.item, _m, (d.k + (d.offset.lengthSq() === 0 ? rim * 0.5 : 0)) * tone, pivot.scale.x);
+      dashed.push(d.item, _m, (d.k + (d.offset.lengthSq() === 0 ? rim * 0.5 : 0)) * tone * this.dashK, pivot.scale.x);
     }
     if (this.trailFace) {
       // the trail stretches with motion (thrown) and sits at .8 of its spacing at rest;
@@ -115,15 +142,12 @@ export class Decor {
         const l = 9 - 2 * k;
         tp.set(damp(tp.x, _v.x, l, f.dt), damp(tp.y, _v.y, l, f.dt), damp(tp.z, _v.z, l, f.dt));
         _m.compose(tp, _q0, _s.setScalar(this.spec.size * sc * Math.pow(0.88, k)));
-        solid.push(this.trailFace, _m, TRAIL.k[k] * (1 - fanned) * tone);
+        solid.push(this.trailFace, _m, TRAIL.k[k] * (1 - fanned) * tone * this.rimK);
       }
     }
-    if (this.glow) this.glow.material.opacity = (GLOW + 0.016 * Math.sin(f.t * 0.8) * f.amp + rim * 0.05) * tone;
+    if (this.glow && this.glowK > 0) this.glow.material.opacity = (this.glowK + 0.016 * Math.sin(f.t * 0.8) * f.amp + rim * 0.05) * tone;
   }
 }
-
-/** Panel lines: a dark graphite hairline, a step above the core's near-black. */
-const PANEL = 0x16171c;
 
 /** The seam's glow plate. */
 const GLOW = 0.18;

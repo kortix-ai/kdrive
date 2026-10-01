@@ -56,11 +56,11 @@ export function ProposalInboxMock() {
           return (
             <li key={r.id} className={`kd-inbox__row is-${s}`}>
               <div className="kd-inbox__line">
-                <FileIcon />
+                <FileIcon name={r.path.split(' → ').pop()} />
                 <span className="kd-inbox__path" title={r.path}>
                   {r.path}
                 </span>
-                <span className="kd-chip">{r.chip}</span>
+                <span className="kd-chip">{r.chip[0].toUpperCase() + r.chip.slice(1)}</span>
                 {'count' in r && (
                   <span className="kd-inbox__count kd-mono">
                     <span className="is-add">{r.count[0]}</span> <span className="is-del">{r.count[1]}</span>

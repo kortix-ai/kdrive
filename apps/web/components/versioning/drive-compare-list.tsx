@@ -6,37 +6,40 @@ import { basename, type DriveChange } from '@volumes/shared';
 import { cx } from '@/components/ui/cx';
 import { FileIcon } from '@/components/ui/file-icon';
 import { compareHref } from '@/lib/urls';
+import { MiddleName } from '@/components/drive/file-row';
+import { ChangeTag } from './change-kind';
 import { Bytes, Delta } from './readout';
 
-/** Section order and the status letter at each row's end (`+` added, `M` changed, `R` moved, `−` removed). */
-const BANDS: { op: DriveChange['op']; label: string; letter: string; name: string }[] = [
-  { op: 'added', label: 'Added', letter: '+', name: 'added' },
-  { op: 'changed', label: 'Changed', letter: 'M', name: 'changed' },
-  { op: 'moved', label: 'Moved', letter: 'R', name: 'moved' },
-  { op: 'removed', label: 'Removed', letter: '−', name: 'removed' },
+/** Section order; each row ends in the shared change sign (`+` added, `M` changed, `R` moved, `−` removed). */
+const BANDS: { op: DriveChange['op']; label: string }[] = [
+  { op: 'added', label: 'Added' },
+  { op: 'changed', label: 'Changed' },
+  { op: 'moved', label: 'Moved' },
+  { op: 'removed', label: 'Removed' },
 ];
 
 const byPath = (x: DriveChange, y: DriveChange) => x.path.localeCompare(y.path, undefined, { numeric: true, sensitivity: 'base' });
 
-/** Grouped drive changes between A (older) and B (newer): Added · Changed · Moved · Removed (DESIGN-v2 §6.7). */
+/**
+ * Grouped drive changes between A (older) and B (newer): Added · Changed · Moved · Removed (UNIFY-SPEC §12.1, §12.4).
+ * Eyebrow group heads with Mono counts; full-bleed 36 px rows on hair-soft dividers; Mono status letters at the end.
+ */
 export function DriveCompareList({ changes, a, b }: { changes: DriveChange[]; a: string; b: string }) {
   return (
-    <div className="px-2 pb-4">
+    <div className="pb-4">
       {BANDS.map((band) => {
         const rows = changes.filter((c) => c.op === band.op).sort(byPath);
         if (!rows.length) return null;
         return (
           <section key={band.op} aria-label={band.label}>
-            <div className="sticky top-0 z-[1] flex items-center gap-2 bg-vx-surface px-3 pb-2 pt-5">
+            <div className="sticky top-0 z-[1] flex h-9 items-end gap-2 border-b border-vx-hair bg-vx-surface px-4 pb-2 max-[720px]:px-3">
               <span className="vx-eyebrow">{band.label}</span>
-              <span className="inline-flex h-5 items-center rounded-full bg-vx-surface-3 px-2 text-[11px] font-semibold leading-4 tabular-nums text-vx-text-2">
-                {rows.length.toLocaleString('en-US')}
-              </span>
+              <span className="font-mono text-[11px] leading-4 tabular-nums text-vx-text-3">{rows.length.toLocaleString('en-US')}</span>
             </div>
             <ul>
               {rows.map((c) => (
                 <li key={`${c.op}:${c.fromPath ?? ''}:${c.path}`}>
-                  <Row c={c} letter={band.letter} status={band.name} a={a} b={b} />
+                  <Row c={c} a={a} b={b} />
                 </li>
               ))}
             </ul>
@@ -47,7 +50,7 @@ export function DriveCompareList({ changes, a, b }: { changes: DriveChange[]; a:
   );
 }
 
-function Row({ c, letter, status, a, b }: { c: DriveChange; letter: string; status: string; a: string; b: string }) {
+function Row({ c, a, b }: { c: DriveChange; a: string; b: string }) {
   const linkable = c.op === 'changed' && c.type === 'file';
   const size =
     c.op === 'added' ? (
@@ -70,21 +73,27 @@ function Row({ c, letter, status, a, b }: { c: DriveChange; letter: string; stat
     <>
       <FileIcon name={basename(c.path)} type={c.type} size={20} />
       <span
-        className={cx('min-w-0 flex-1 truncate text-[14px] leading-5', c.op === 'removed' ? 'text-vx-text-3' : 'text-vx-text-1')}
+        className={cx(
+          'flex min-w-0 flex-1 items-center text-[14px] leading-5',
+          c.fromPath && 'max-[720px]:flex-col max-[720px]:items-stretch',
+          c.op === 'removed' ? 'text-vx-text-3 line-through decoration-vx-del-fg' : 'text-vx-text-1',
+        )}
         title={c.fromPath ? `${c.fromPath} → ${c.path}` : c.path}
       >
         {c.fromPath ? (
           <>
-            <span className="text-vx-text-3">{c.fromPath}</span>
-            <span className="px-1.5 text-vx-text-4" aria-label="moved to">
-              →
+            {/* Phones: two lines, where it was (text-3) over where it went. */}
+            <PathName path={c.fromPath} dir={c.type === 'dir'} plain className="text-vx-text-3 min-[721px]:max-w-[45%]" />
+            <span className="flex min-w-0 items-center">
+              <span className="shrink-0 px-1.5 text-vx-text-3 max-[720px]:pl-0" aria-label="moved to">
+                →
+              </span>
+              <PathName path={c.path} dir={c.type === 'dir'} />
             </span>
-            <span className="font-medium">{c.path}</span>
           </>
         ) : (
-          <span className="font-medium">{c.path}</span>
+          <PathName path={c.path} dir={c.type === 'dir'} />
         )}
-        {c.type === 'dir' ? <span className="text-vx-text-4">/</span> : null}
       </span>
       <span className="vx-meta-row shrink-0 text-right">{size}</span>
       {linkable ? (
@@ -92,18 +101,38 @@ function Row({ c, letter, status, a, b }: { c: DriveChange; letter: string; stat
       ) : (
         <span className="w-4 shrink-0" aria-hidden />
       )}
-      <span className="w-4 shrink-0 text-center font-mono text-[12px] text-vx-text-4" title={status} aria-label={status}>
-        {letter}
-      </span>
+      <ChangeTag kind={c.op} className="min-w-[64px] justify-center" />
     </>
   );
-  const cls = 'group flex h-10 items-center gap-3 rounded-vx-sm px-3 transition-colors duration-[120ms]';
+  const cls = cx(
+    'group flex min-h-9 items-center gap-3 border-b border-vx-hair-soft px-4 transition-colors duration-[120ms] max-[720px]:px-3',
+    c.fromPath && 'max-[720px]:py-1.5',
+  );
   return linkable ? (
-    <Link href={compareHref(c.path, a, b)} className={cx(cls, 'vx-inset-focus hover:bg-vx-hover')} aria-label={`Compare ${c.path}`}>
+    <Link href={compareHref(c.path, a, b)} className={cx(cls, 'vx-inset-focus hover:bg-vx-raise')} aria-label={`Compare ${c.path}`}>
       {inner}
     </Link>
   ) : (
     <div className={cls}>{inner}</div>
+  );
+}
+
+/**
+ * A path that keeps its file name when space runs out: the folders ellipsize first, then the name
+ * middle-truncates, so the extension and the distinguishing tail survive.
+ */
+function PathName({ path, dir, plain, className }: { path: string; dir?: boolean; plain?: boolean; className?: string }) {
+  const cut = path.lastIndexOf('/');
+  const folder = cut >= 0 ? path.slice(0, cut + 1) : '';
+  const name = cut >= 0 ? path.slice(cut + 1) : path;
+  return (
+    <span className={cx('flex min-w-0', className)}>
+      {folder ? (
+        <span className={cx('shrink overflow-hidden text-ellipsis whitespace-pre text-vx-text-3', folder.length > 3 && 'min-w-[3ch]')}>{folder}</span>
+      ) : null}
+      {/* The name keeps its full width until the folders are down to "/…"; only then does it middle-truncate. */}
+      <MiddleName name={name + (dir ? '/' : '')} className={cx('shrink-0', folder.length > 3 ? 'max-w-[calc(100%-3ch)]' : 'max-w-full', !plain && 'font-medium')} />
+    </span>
   );
 }
 

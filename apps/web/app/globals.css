@@ -1,169 +1,321 @@
 @import "tailwindcss";
 
 /* ════════════════════════════════════════════════════════════════════════
- * Volumes design tokens (DESIGN-v2.md §2).
- * Light is the default. A pre-paint script (lib/theme-boot.ts) resolves the
- * stored preference (light | dark | system) and sets html[data-vx-theme].
- * prefers-color-scheme is read only when the stored preference is "system".
+ * KDRIVE design tokens (UNIFY-SPEC §2): one graphite language for the app and the landing.
+ * Dark is the default and the base block. Light overrides it under html[data-vx-theme='light'].
+ * A pre-paint script (lib/theme-boot.ts) resolves the stored preference (dark | light | system).
+ * [data-vx-theme-scope='dark|light'] renders one subtree in a fixed theme (settings previews).
  * Components use only --vx-* (or the Tailwind aliases below), never raw hex.
  * ════════════════════════════════════════════════════════════════════════ */
 
-:root {
-  /* surfaces */
-  --vx-bg: #faf9f7;
-  --vx-surface: #ffffff;
-  --vx-surface-2: #f6f5f2;
-  --vx-surface-3: #efeeea;
-  --vx-hover: #f1efeb;
-  --vx-pressed: #e9e6e0;
-  --vx-field: #efeeea;
-  --vx-field-hover: #e9e7e2;
-  --vx-float: #ffffff;
-  --vx-mat: #f4f2ee;
-  --vx-scrim: rgb(38 32 24 / .32);
+:root, [data-vx-theme-scope='dark'] {
+  /* grounds and surfaces */
+  --vx-bg: #0a0a0b;
+  --vx-bg-2: #0d0d0f;
+  --vx-surface: #121215;
+  --vx-surface-2: #17171b;
+  --vx-surface-3: #1d1d22;
+  --vx-raise: #1d1d22;
+  --vx-hover: var(--vx-raise);
+  --vx-pressed: #24242a;
+  --vx-field: #0f0f12;
+  --vx-field-hover: #141418;
+  --vx-float: #16161a;
+  --vx-mat: #0f0f12;
+  --vx-scrim: rgb(0 0 0 / .62);
+  --vx-nav-glass: rgb(10 10 11 / .86);
 
   /* lines */
-  --vx-hair: #e8e6e1;
-  --vx-hair-soft: #efede9;
-  --vx-hair-strong: #d6d3cc;
-  --vx-hair-dash: #cfcbc3;
-  --vx-outline: #8a867e;
+  --vx-hair: #232329;
+  --vx-hair-soft: #1b1b20;
+  --vx-hair-strong: #30303a;
+  --vx-hair-dash: #3b3b46;
+  --vx-outline: #6b6b76;
 
   /* text */
-  --vx-text-1: #1f1f1f;
-  --vx-text-2: #45433f;
-  --vx-text-3: #625e57;
-  --vx-text-4: #75716a;
-  --vx-text-inv: #ffffff;
+  --vx-text-1: #ededf0;
+  --vx-text-2: #b4b4bd;
+  --vx-text-3: #8b8b96;
+  --vx-text-4: #63636d;
+  --vx-text-inv: #0a0a0b;
 
-  /* primary (near-black) */
-  --vx-primary: #1a1a1a;
-  --vx-primary-hover: #333230;
-  --vx-on-primary: #ffffff;
+  /* primary and the active ink (platinum) */
+  --vx-primary: #ededf0;
+  --vx-primary-hover: #ffffff;
+  --vx-on-primary: #0a0a0b;
+  --vx-accent: #ededf0;
+  --vx-accent-strong: #ffffff;
+  --vx-accent-wash: #24242b;
+  --vx-accent-wash-2: #2c2c34;
+  --vx-on-accent-wash: #ededf0;
+  --vx-accent-edge: #c8ccd4;
+  --vx-on-accent: #0a0a0b;
+  --vx-selection: #1f1f26;
+  --vx-on-selection: #ededf0;
 
-  /* brand accent (blue) */
-  --vx-accent: #0b57d0;
-  --vx-accent-strong: #0842a0;
-  --vx-accent-wash: #d3e3fd;
-  --vx-accent-wash-2: #c2d7fb;
-  --vx-on-accent-wash: #041e49;
-  --vx-accent-edge: #0b57d0;
-  --vx-selection: #e1ecfd;
-  --vx-on-selection: #0b1f45;
-  --vx-text-select: rgb(11 87 208 / .20);
-  --vx-on-accent: #ffffff;
+  /* violet: focus, text selection and landing atmosphere only */
+  --vx-focus: #a78bfa;
+  --vx-text-select: rgb(167 139 250 / .30);
+  --vx-violet: #a78bfa;
+  --vx-violet-deep: #2a1f4d;
 
-  /* past (time travel) */
-  --vx-past: #b45309;
-  --vx-past-strong: #7c3a06;
-  --vx-past-wash: #fff4e5;
-  --vx-past-edge: #f3c78d;
-  --vx-past-halo: #fde3bf;
-  --vx-past-dot: #e8820c;
-  --vx-past-hatch: repeating-linear-gradient(135deg, rgb(232 130 12 / .14) 0 4px, transparent 4px 9px);
-  --vx-past-filter: saturate(.8) sepia(.1);
-  --vx-on-past: #ffffff;
+  /* metal */
+  --vx-plat-hi: #f6f7f9;
+  --vx-plat-mid: #c8ccd4;
+  --vx-plat-lo: #8d929c;
+  --vx-metal: linear-gradient(180deg, var(--vx-plat-hi) 0%, #e3e6eb 38%, var(--vx-plat-mid) 52%, #eef0f3 70%, var(--vx-plat-lo) 100%);
+
+  /* past (time travel): muted brass */
+  --vx-past: #e3b36f;
+  --vx-past-strong: #f3cf96;
+  --vx-past-wash: rgb(227 179 111 / .08);
+  --vx-past-edge: rgb(227 179 111 / .38);
+  --vx-past-halo: rgb(227 179 111 / .14);
+  --vx-past-dot: #e3b36f;
+  --vx-past-hatch: repeating-linear-gradient(135deg, rgb(227 179 111 / .10) 0 4px, transparent 4px 9px);
+  --vx-past-filter: saturate(.75) brightness(.92);
+  --vx-on-past: #0a0a0b;
 
   /* diff */
-  --vx-add-fg: #18794e; --vx-add-bg: #effaf1; --vx-add-word: #c6ecd0; --vx-add-word-fg: #0d652d;
-  --vx-del-fg: #c5221f; --vx-del-bg: #fdf0f0; --vx-del-word: #f9d0cd; --vx-del-word-fg: #a50e0e;
-  --vx-mod-bg: #fef7e0;
+  --vx-add-fg: #86e0ad; --vx-add-bg: rgb(46 160 90 / .13); --vx-add-word: rgb(46 160 90 / .34); --vx-add-word-fg: #b6f0cd;
+  --vx-del-fg: #ff9d97; --vx-del-bg: rgb(229 72 77 / .12); --vx-del-word: rgb(229 72 77 / .32); --vx-del-word-fg: #ffc9c5;
+  --vx-mod-bg: rgb(232 180 90 / .10);
 
-  /* status */
-  --vx-ok: #137333; --vx-ok-wash: #e6f4ea;
-  --vx-warn: #e37400;
-  --vx-danger: #c5221f; --vx-danger-strong: #a50e0e; --vx-danger-wash: #fce8e6; --vx-danger-edge: #f4b4ae;
-  --vx-on-danger: #ffffff;
+  /* state */
+  --vx-ok: #6fd39a; --vx-ok-wash: rgb(111 211 154 / .10);
+  --vx-warn: #e8b45a; --vx-warn-wash: rgb(232 180 90 / .10);
+  --vx-danger: #ff9d97; --vx-danger-strong: #ffc2be; --vx-danger-wash: rgb(229 72 77 / .12);
+  --vx-danger-edge: rgb(229 72 77 / .40); --vx-danger-fill: #d9534f; --vx-on-danger: #ffffff;
 
   /* misc */
-  --vx-meter-track: #e8e6e1;
-  --vx-tick: #9a968e;
-  --vx-inverse: #2b2a28; --vx-on-inverse: #f6f4f0; --vx-inverse-accent: #a8c7fa;
-  --vx-avatar-bg: #2f7d74; --vx-avatar-fg: #ffffff;
-  --skel-base: #f0eeea; --skel-hi: #f8f7f4;
+  --vx-meter-track: #232329;
+  --vx-tick: #55555f;
+  --vx-inverse: #ededf0; --vx-on-inverse: #0a0a0b; --vx-inverse-accent: #0a0a0b;
+  --vx-avatar-bg: #2a2a31; --vx-avatar-fg: #ededf0;
+  --skel-base: #16161a; --skel-hi: #1d1d22;
 
-  /* file types (icon tile fill; glyph in --vx-ft-glyph) */
-  --vx-ft-doc: #1a73e8;
-  --vx-ft-sheet: #188038;
-  --vx-ft-pdf: #d93025;
-  --vx-ft-slides: #e37400;
-  --vx-ft-image: #8430ce;
-  --vx-ft-photo: #0f9d9a;
-  --vx-ft-video: #3c4043;
-  --vx-ft-audio: #d6488f;
-  --vx-ft-code: #5f6368;
-  --vx-ft-archive: #a16207;
-  --vx-ft-other: #75716a;
-  --vx-ft-folder: #6b6760;
-  --vx-ft-glyph: #ffffff;
+  /* file types: a tinted tile with a coloured glyph (no violet) */
+  --vx-ft-doc: #8ab4ff; --vx-ft-sheet: #7fd3a0; --vx-ft-pdf: #ff8f87; --vx-ft-slides: #f0b866;
+  --vx-ft-image: #ee9fc6; --vx-ft-photo: #6ccfd8; --vx-ft-video: #c8ccd4; --vx-ft-audio: #c9d27a;
+  --vx-ft-code: #a9aeb8; --vx-ft-archive: #d2b48a; --vx-ft-other: #8b8b96; --vx-ft-folder: #b4b4bd;
+  --vx-ft-tint: 16%;
+  /* Deprecated: the old filled-tile glyph colour, kept so unconverted callers still draw. */
+  --vx-ft-glyph: var(--vx-text-1);
 
   /* code (lib/highlight.ts) */
-  --sh-fg: #1f1d1a; --sh-kw: #8430ce; --sh-str: #18794e; --sh-num: #b45309; --sh-dim: #75716a; --sh-arg: #0b57d0;
+  --sh-fg: #d6d6dc; --sh-kw: #ededf0; --sh-str: #86e0ad; --sh-num: #e3b36f; --sh-dim: #6f6f7a; --sh-arg: #b4b4bd;
 
-  /* elevation (warm-tinted, very soft) */
-  --vx-shadow-sheet: 0 1px 2px rgb(31 27 20 / .04), 0 8px 24px rgb(31 27 20 / .04);
-  --vx-shadow-1: 0 1px 2px rgb(31 27 20 / .06), 0 2px 6px rgb(31 27 20 / .05);
-  --vx-shadow-2: 0 1px 2px rgb(31 27 20 / .08), 0 6px 16px rgb(31 27 20 / .08);
-  --vx-shadow-3: 0 2px 6px rgb(31 27 20 / .06), 0 16px 40px rgb(31 27 20 / .12);
-  --vx-shadow-4: 0 4px 12px rgb(31 27 20 / .08), 0 32px 72px rgb(31 27 20 / .20);
+  /* elevation: shadows only on floating things; floats carry a hair ring */
+  --vx-shadow-sheet: none;
+  --vx-shadow-1: 0 1px 0 rgb(255 255 255 / .03) inset;
+  --vx-shadow-2: 0 8px 24px -12px rgb(0 0 0 / .7);
+  --vx-shadow-3: 0 16px 40px -16px rgb(0 0 0 / .8), 0 0 0 1px var(--vx-hair);
+  --vx-shadow-4: 0 40px 90px -50px rgb(0 0 0 / .9), 0 0 0 1px var(--vx-hair);
+  --vx-shadow-mock: 0 40px 90px -50px rgb(0 0 0 / .9);
 
-  /* empty-state illustration (flat shapes: surface-3 + accent-wash + one accent dot) */
-  --ea-top: var(--vx-surface-3); --ea-mid: var(--vx-surface-2); --ea-left: var(--vx-hair);
-  --ea-line: var(--vx-hair-strong); --ea-line-dim: var(--vx-hair);
-  --ea-accent: var(--vx-accent); --ea-p-face: var(--vx-accent-wash); --ea-p-line: var(--vx-accent-wash-2);
-  --ea-shadow: var(--vx-hair-strong); --ea-shadow-hi: .7; --ea-shadow-lo: .35;
+  /* cube mark */
+  --vx-mark-top: #e9ebef; --vx-mark-left: #9ea3ac; --vx-mark-right: #5d616a; --vx-mark-stroke: var(--vx-bg);
+  --vx-mark-metal-top-a: #c8ccd4; --vx-mark-metal-top-b: #e3e6eb;
+  --vx-mark-metal-left: #8d929c; --vx-mark-metal-right: #4a4e57;
+  --vx-mark-metal-edge: rgb(255 255 255 / .30);
 
+  color: var(--vx-text-2);
+  color-scheme: dark;
+}
+
+/* ── Light: the same language in daylight (pale cool ground, graphite ink) ── */
+:root[data-vx-theme='light'], [data-vx-theme-scope='light'] {
+  --vx-bg: #f4f4f6;
+  --vx-bg-2: #eeeef1;
+  --vx-surface: #ffffff;
+  --vx-surface-2: #f7f7f9;
+  --vx-surface-3: #efeff3;
+  --vx-raise: #ebebef;
+  --vx-hover: var(--vx-raise);
+  --vx-pressed: #e3e3e8;
+  --vx-field: #ffffff;
+  --vx-field-hover: #fafafb;
+  --vx-float: #ffffff;
+  --vx-mat: #f1f1f4;
+  --vx-scrim: rgb(20 20 28 / .28);
+  --vx-nav-glass: rgb(244 244 246 / .86);
+
+  --vx-hair: #e2e2e7;
+  --vx-hair-soft: #ececf0;
+  --vx-hair-strong: #cfcfd6;
+  --vx-hair-dash: #bdbdc6;
+  --vx-outline: #8a8a94;
+
+  --vx-text-1: #111114;
+  --vx-text-2: #3d3d45;
+  --vx-text-3: #62626c;
+  --vx-text-4: #9b9ba4;
+  --vx-text-inv: #ffffff;
+
+  --vx-primary: #17171b;
+  --vx-primary-hover: #2a2a31;
+  --vx-on-primary: #ffffff;
+  --vx-accent: #17171b;
+  --vx-accent-strong: #000000;
+  --vx-accent-wash: #e6e6ec;
+  --vx-accent-wash-2: #dcdce3;
+  --vx-on-accent-wash: #111114;
+  --vx-accent-edge: #3d3d45;
+  --vx-on-accent: #ffffff;
+  --vx-selection: #e9e9f0;
+  --vx-on-selection: #111114;
+
+  --vx-focus: #6a4bd6;
+  --vx-text-select: rgb(106 75 214 / .18);
+  --vx-violet: #6a4bd6;
+  --vx-violet-deep: #ddd5fb;
+
+  --vx-plat-hi: #4a4e57;
+  --vx-plat-mid: #1c1d22;
+  --vx-plat-lo: #0e0f12;
+  --vx-metal: linear-gradient(180deg, #3b3e46 0%, #1c1d22 38%, #5a5e68 52%, #23252b 70%, #0e0f12 100%);
+
+  --vx-past: #94570f;
+  --vx-past-strong: #6e3f07;
+  --vx-past-wash: #fbf4e8;
+  --vx-past-edge: #e6c48f;
+  --vx-past-halo: rgb(148 87 15 / .10);
+  --vx-past-dot: #b5711c;
+  --vx-past-hatch: repeating-linear-gradient(135deg, rgb(148 87 15 / .09) 0 4px, transparent 4px 9px);
+  --vx-past-filter: saturate(.8) sepia(.08);
+  --vx-on-past: #ffffff;
+
+  --vx-add-fg: #1b7546; --vx-add-bg: rgb(46 160 90 / .10); --vx-add-word: rgb(46 160 90 / .24); --vx-add-word-fg: #0f5a33;
+  --vx-del-fg: #c2302a; --vx-del-bg: rgb(229 72 77 / .08); --vx-del-word: rgb(229 72 77 / .20); --vx-del-word-fg: #8e1c17;
+  --vx-mod-bg: rgb(154 93 0 / .12);
+
+  --vx-ok: #1b7546; --vx-ok-wash: rgb(27 117 70 / .08);
+  --vx-warn: #9a5d00; --vx-warn-wash: rgb(154 93 0 / .08);
+  --vx-danger: #c2302a; --vx-danger-strong: #9c1f1a; --vx-danger-wash: rgb(194 48 42 / .07);
+  --vx-danger-edge: rgb(194 48 42 / .35); --vx-danger-fill: #c2302a; --vx-on-danger: #ffffff;
+
+  --vx-meter-track: #e2e2e7;
+  --vx-tick: #a3a3ad;
+  --vx-inverse: #17171b; --vx-on-inverse: #f4f4f6; --vx-inverse-accent: #ededf0;
+  --vx-avatar-bg: #dcdce3; --vx-avatar-fg: #111114;
+  --skel-base: #ececf0; --skel-hi: #f6f6f8;
+
+  --vx-ft-doc: #2f62d1; --vx-ft-sheet: #1b7546; --vx-ft-pdf: #c2302a; --vx-ft-slides: #a85c0c;
+  --vx-ft-image: #b8357a; --vx-ft-photo: #0e7a86; --vx-ft-video: #4a4e57; --vx-ft-audio: #6b7413;
+  --vx-ft-code: #5b606b; --vx-ft-archive: #8a6630; --vx-ft-other: #62626c; --vx-ft-folder: #3d3d45;
+  --vx-ft-tint: 12%;
+  --vx-ft-glyph: var(--vx-text-1);
+
+  --sh-fg: #25252b; --sh-kw: #111114; --sh-str: #1b7546; --sh-num: #94570f; --sh-dim: #8a8a94; --sh-arg: #3d3d45;
+
+  --vx-shadow-1: 0 1px 2px rgb(20 20 30 / .06);
+  --vx-shadow-2: 0 6px 18px -10px rgb(20 20 30 / .22);
+  --vx-shadow-3: 0 12px 32px -14px rgb(20 20 30 / .22), 0 0 0 1px var(--vx-hair);
+  --vx-shadow-4: 0 40px 90px -50px rgb(30 30 45 / .35), 0 0 0 1px var(--vx-hair);
+  --vx-shadow-mock: 0 40px 90px -50px rgb(30 30 45 / .35);
+
+  --vx-mark-top: #c8ccd4; --vx-mark-left: #6b707a; --vx-mark-right: #2f3238; --vx-mark-stroke: var(--vx-bg);
+  --vx-mark-metal-top-a: #5a5e68; --vx-mark-metal-top-b: #3b3e46;
+  --vx-mark-metal-left: #2a2c32; --vx-mark-metal-right: #121316;
+  --vx-mark-metal-edge: rgb(255 255 255 / .55);
+
+  color: var(--vx-text-2);
   color-scheme: light;
 }
 
-/* ── Dark (opt-in): a soft neutral dark ───────────────────────────────── */
-:root[data-vx-theme='dark'] {
-  --vx-bg: #1f1f1f; --vx-surface: #2a2a2a; --vx-surface-2: #303030; --vx-surface-3: #383838;
-  --vx-hover: #353535; --vx-pressed: #3d3d3d; --vx-field: #333333; --vx-field-hover: #3b3b3b;
-  --vx-float: #2e2e2e; --vx-mat: #242424; --vx-scrim: rgb(0 0 0 / .6);
-  --vx-hair: #3a3a3a; --vx-hair-soft: #333333; --vx-hair-strong: #555555; --vx-hair-dash: #5a5a5a; --vx-outline: #8e8e8e;
-  --vx-text-1: #ececec; --vx-text-2: #c9c9c9; --vx-text-3: #a8a8a8; --vx-text-4: #949494; --vx-text-inv: #062e6f;
-  --vx-primary: #ececec; --vx-primary-hover: #ffffff; --vx-on-primary: #1a1a1a;
-  --vx-accent: #a8c7fa; --vx-accent-strong: #d3e3fd; --vx-accent-wash: #1f3760; --vx-accent-wash-2: #264477;
-  --vx-on-accent-wash: #d3e3fd; --vx-accent-edge: #a8c7fa;
-  --vx-selection: #233752; --vx-on-selection: #d7ecff; --vx-text-select: rgb(168 199 250 / .28);
-  --vx-on-accent: #1f1f1f;
-  --vx-past: #f6b56b; --vx-past-strong: #fcd49a; --vx-past-wash: #3a2a14; --vx-past-edge: #6b4a1f;
-  --vx-past-halo: #4d3614; --vx-past-dot: #f59e0b;
-  --vx-past-hatch: repeating-linear-gradient(135deg, rgb(245 158 11 / .18) 0 4px, transparent 4px 9px);
-  --vx-past-filter: saturate(.8) brightness(.95);
-  --vx-on-past: #1f1f1f;
-  --vx-add-fg: #81c995; --vx-add-bg: #173222; --vx-add-word: #1f5130; --vx-add-word-fg: #a8dab5;
-  --vx-del-fg: #f28b82; --vx-del-bg: #3a1d1c; --vx-del-word: #5c2b29; --vx-del-word-fg: #f6aea9; --vx-mod-bg: #3a3320;
-  --vx-ok: #81c995; --vx-ok-wash: #173222; --vx-warn: #fbbc04;
-  --vx-danger: #f28b82; --vx-danger-strong: #f6aea9; --vx-danger-wash: #3a1d1c; --vx-danger-edge: #6e2b27;
-  --vx-on-danger: #1f1f1f;
-  --vx-meter-track: #444444; --vx-tick: #7c7c7c;
-  --vx-inverse: #ececec; --vx-on-inverse: #1f1f1f; --vx-inverse-accent: #0b57d0;
-  --vx-avatar-bg: #5fb3a8; --vx-avatar-fg: #10201e;
-  --skel-base: #333333; --skel-hi: #3b3b3b;
-  --vx-ft-doc: #8ab4f8; --vx-ft-sheet: #81c995; --vx-ft-pdf: #f28b82; --vx-ft-slides: #fdd663; --vx-ft-image: #c58af9;
-  --vx-ft-photo: #78d9ce; --vx-ft-video: #bdc1c6; --vx-ft-audio: #f4a3cb; --vx-ft-code: #9aa0a6; --vx-ft-archive: #e3b95b;
-  --vx-ft-other: #a8a8a8; --vx-ft-folder: #a8a8a8; --vx-ft-glyph: #1f1f1f;
-  --sh-fg: #e6e3de; --sh-kw: #c58af9; --sh-str: #81c995; --sh-num: #f6b56b; --sh-dim: #8f8f8f; --sh-arg: #a8c7fa;
-  --vx-shadow-sheet: 0 1px 2px rgb(0 0 0 / .25);
-  --vx-shadow-1: 0 1px 2px rgb(0 0 0 / .4);
-  --vx-shadow-2: 0 1px 3px rgb(0 0 0 / .5), 0 4px 8px 3px rgb(0 0 0 / .25);
-  --vx-shadow-3: 0 2px 6px 2px rgb(0 0 0 / .35), 0 1px 2px rgb(0 0 0 / .5);
-  --vx-shadow-4: 0 12px 32px 4px rgb(0 0 0 / .45), 0 2px 6px rgb(0 0 0 / .5);
-  --ea-shadow-hi: .5; --ea-shadow-lo: .25;
-  color-scheme: dark;
+/* ── Iso art (app empty states + landing iso art) and landing atmosphere ── */
+:root, [data-vx-theme-scope='dark'] {
+  --vx-iso-top-a: #63676f; --vx-iso-top-b: #41444b;
+  --vx-iso-left-a: #2e3036; --vx-iso-left-b: #1a1b1f;
+  --vx-iso-right-a: #202126; --vx-iso-right-b: #111114;
+  --vx-iso-hi-a: #c8ccd4; --vx-iso-hi-b: #9aa0aa;
+  --vx-iso-lit-l-a: #9a9faa; --vx-iso-lit-l-b: #5c616a;
+  --vx-iso-lit-r-a: #50545c; --vx-iso-lit-r-b: #23252a;
+  --vx-iso-graph-t-a: #878c9b; --vx-iso-graph-t-b: #757a89;
+  --vx-iso-graph-l-a: #525664; --vx-iso-graph-l-b: #454956;
+  --vx-iso-graph-r-a: #2f3139; --vx-iso-graph-r-b: #25272e;
+  --vx-iso-edge: rgb(255 255 255 / .12);
+  --vx-iso-rim: rgb(255 255 255 / .30); --vx-iso-rim-hi: rgb(255 255 255 / .92);
+  --vx-iso-ghost-fill: rgb(160 170 190 / .04); --vx-iso-ghost-line: rgb(214 219 228 / .55);
+  --vx-iso-line: rgb(214 219 228 / .6);
+  --vx-iso-seam: #dfe3ea; --vx-iso-seam-groove: transparent; --vx-iso-seam-glow: .28;
+  --vx-iso-glyph: #2a2c31;
+
+  --vx-atmos-tint: rgb(76 56 150 / .20);
+  --vx-atmos-floor: var(--vx-violet-deep);
+  --vx-atmos-vignette: rgb(0 0 0 / .55);
+  --vx-glow: rgb(167 139 250 / .10);
+  --vx-grain-opacity: .055; --vx-grain-blend: overlay;
+  --vx-hero-ghost-btn: rgb(10 10 11 / .75);
+  --vx-tag-bg: rgb(10 10 11 / .72); --vx-tag-ring: transparent;
+  --vx-past-hatch-neutral: repeating-linear-gradient(135deg, rgb(200 204 212 / .07) 0 4px, transparent 4px 9px);
+  /* the landing's primary CTA: a machined platinum face in dark, flat graphite in light */
+  --vx-cta-fill: linear-gradient(180deg, #f7f8fa, #d9dce2);
+  --vx-cta-sheen: inset 0 1px 0 rgb(255 255 255 / .6);
+  --vx-cta-hover: brightness(1.05);
+  /* landing mock details */
+  --vx-metal-lg: linear-gradient(180deg, var(--vx-plat-hi) 0%, #e3e6eb 38%, var(--vx-plat-mid) 55%, #e6e8ec 72%, #b9bdc5 100%);
+  --vx-knob: radial-gradient(circle at 35% 30%, #ffffff, #c9ced6 55%, #8d939d);
+  --vx-knob-shadow: 0 0 0 4px rgb(200 204 212 / .08), 0 2px 10px rgb(0 0 0 / .6);
+  --vx-swatch: linear-gradient(160deg, #6a6e77, #2a2b30);
+  --vx-swatch-on: linear-gradient(160deg, #eef0f4, #9ea3ac);
+  --vx-ficon-edge: #4a4c55; --vx-ficon-fill: linear-gradient(180deg, #25262b, #18181c);
+  --vx-blk-sent: rgb(200 204 212 / .85);
+  --vx-code-str: #aeb4bf;
+  /* the compare-swipe mock image: old (o) and new (n) versions */
+  --vx-art-o-bg: #141417; --vx-art-o-grid: #1f2024; --vx-art-o-disc: #3a3c43; --vx-art-o-block: #2b2d33; --vx-art-o-bar: #55585f; --vx-art-o-sub: #3a3c43;
+  --vx-art-n-bg: #1b1c20; --vx-art-n-grid: #2a2b31; --vx-art-n-disc: #d9dce2; --vx-art-n-block: #8d929c; --vx-art-n-bar: #f6f7f9; --vx-art-n-sub: #6b6f78;
+}
+:root[data-vx-theme='light'], [data-vx-theme-scope='light'] {
+  --vx-iso-top-a: #ffffff; --vx-iso-top-b: #e9ebef;
+  --vx-iso-left-a: #c9ccd3; --vx-iso-left-b: #b3b7c0;
+  --vx-iso-right-a: #9ea3ac; --vx-iso-right-b: #8a8f99;
+  --vx-iso-hi-a: #4a4e57; --vx-iso-hi-b: #2a2c32;
+  --vx-iso-lit-l-a: #6b707a; --vx-iso-lit-l-b: #4a4e57;
+  --vx-iso-lit-r-a: #3a3d45; --vx-iso-lit-r-b: #25272d;
+  --vx-iso-graph-t-a: #dfe2e8; --vx-iso-graph-t-b: #d3d6dd;
+  --vx-iso-graph-l-a: #aeb2bb; --vx-iso-graph-l-b: #a2a6b0;
+  --vx-iso-graph-r-a: #80858f; --vx-iso-graph-r-b: #757a84;
+  --vx-iso-edge: rgb(17 17 20 / .14);
+  --vx-iso-rim: rgb(255 255 255 / .85); --vx-iso-rim-hi: rgb(255 255 255 / 1);
+  --vx-iso-ghost-fill: rgb(60 64 74 / .03); --vx-iso-ghost-line: rgb(60 64 74 / .45);
+  --vx-iso-line: rgb(60 64 74 / .5);
+  --vx-iso-seam: #ffffff; --vx-iso-seam-groove: #2a2c32; --vx-iso-seam-glow: 0;
+  --vx-iso-glyph: #ffffff;
+
+  --vx-atmos-tint: rgb(167 139 250 / .16);
+  --vx-atmos-floor: #e4ddfb;
+  --vx-atmos-vignette: rgb(40 40 60 / .07);
+  --vx-glow: rgb(106 75 214 / .07);
+  --vx-grain-opacity: .04; --vx-grain-blend: multiply;
+  --vx-hero-ghost-btn: rgb(244 244 246 / .78);
+  --vx-tag-bg: rgb(255 255 255 / .82); --vx-tag-ring: var(--vx-hair);
+  --vx-past-hatch-neutral: repeating-linear-gradient(135deg, rgb(17 17 20 / .05) 0 4px, transparent 4px 9px);
+  --vx-cta-fill: linear-gradient(180deg, #2a2a31, #17171b);
+  --vx-cta-sheen: inset 0 1px 0 rgb(255 255 255 / .12);
+  --vx-cta-hover: brightness(1.4);
+  --vx-metal-lg: var(--vx-metal);
+  --vx-knob: radial-gradient(circle at 35% 30%, #6b707a, #2a2c32 55%, #0e0f12);
+  --vx-knob-shadow: 0 0 0 4px rgb(17 17 20 / .06), 0 2px 8px rgb(20 20 30 / .28);
+  --vx-swatch: linear-gradient(160deg, #d5d8de, #9ea3ac);
+  --vx-swatch-on: linear-gradient(160deg, #4a4e57, #111114);
+  --vx-ficon-edge: #a3a7b0; --vx-ficon-fill: linear-gradient(180deg, #ffffff, #eceef2);
+  --vx-blk-sent: rgb(28 29 34 / .82);
+  --vx-code-str: #4a4e57;
+  --vx-art-o-bg: #eceef1; --vx-art-o-grid: #e0e2e7; --vx-art-o-disc: #c3c7ce; --vx-art-o-block: #d3d6dc; --vx-art-o-bar: #aeb2ba; --vx-art-o-sub: #c3c7ce;
+  --vx-art-n-bg: #e4e6ea; --vx-art-n-grid: #d6d9df; --vx-art-n-disc: #2a2c32; --vx-art-n-block: #6b707a; --vx-art-n-bar: #111114; --vx-art-n-sub: #8d929c;
 }
 
 /* ── Shared scales ────────────────────────────────────────────────────── */
 :root {
   --vx-font-sans: var(--font-inter), "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --vx-font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  --vx-r-xs: 6px; --vx-r-sm: 8px; --vx-r-md: 12px; --vx-r-lg: 16px; --vx-r-pill: 999px;
-  --vx-ease: cubic-bezier(.2, 0, 0, 1); --vx-ease-exit: cubic-bezier(.3, 0, 1, 1);
-  --vx-dur-1: 120ms; --vx-dur-2: 160ms; --vx-dur-3: 200ms; --vx-dur-4: 240ms;
-  --vx-topbar-h: 64px; --vx-rail-w: 256px; --vx-row-h: 40px; --vx-strip-h: 72px;
-  --vx-panel-w: 400px; --vx-timeline-w: 320px; --vx-ctl-h: 36px; --vx-ctl-h-sm: 32px;
+  --vx-font-mono: var(--font-kd-mono), ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  /* 2 / 4 / 6, no pills (pill degrades to a rectangle for old references) */
+  --vx-r-xs: 2px; --vx-r-sm: 4px; --vx-r-md: 6px; --vx-r-lg: 6px; --vx-r-pill: 4px;
+  --vx-ease: cubic-bezier(.2, .7, .2, 1); --vx-ease-io: cubic-bezier(.65, 0, .35, 1); --vx-ease-exit: cubic-bezier(.3, 0, 1, 1);
+  --vx-dur-1: 120ms; --vx-dur-2: 160ms; --vx-dur-3: 200ms; --vx-dur-4: 240ms; --vx-dur-5: 500ms;
+  --vx-topbar-h: 56px; --vx-rail-w: 240px; --vx-row-h: 36px; --vx-strip-h: 64px;
+  --vx-panel-w: clamp(380px, 30vw, 480px); --vx-timeline-w: 300px; --vx-ctl-h: 36px; --vx-ctl-h-sm: 30px;
   --vx-list-cols: 36px minmax(0, 1fr) 168px 96px 152px;
   --vx-list-cols-compact: 36px minmax(0, 1fr) 120px 80px;
 }
@@ -174,9 +326,11 @@
   --font-mono: var(--vx-font-mono);
 
   --color-vx-bg: var(--vx-bg);
+  --color-vx-bg-2: var(--vx-bg-2);
   --color-vx-surface: var(--vx-surface);
   --color-vx-surface-2: var(--vx-surface-2);
   --color-vx-surface-3: var(--vx-surface-3);
+  --color-vx-raise: var(--vx-raise);
   --color-vx-hover: var(--vx-hover);
   --color-vx-pressed: var(--vx-pressed);
   --color-vx-field: var(--vx-field);
@@ -184,6 +338,7 @@
   --color-vx-float: var(--vx-float);
   --color-vx-mat: var(--vx-mat);
   --color-vx-scrim: var(--vx-scrim);
+  --color-vx-nav-glass: var(--vx-nav-glass);
   --color-vx-hair: var(--vx-hair);
   --color-vx-hair-soft: var(--vx-hair-soft);
   --color-vx-hair-strong: var(--vx-hair-strong);
@@ -206,6 +361,8 @@
   --color-vx-on-accent: var(--vx-on-accent);
   --color-vx-selection: var(--vx-selection);
   --color-vx-on-selection: var(--vx-on-selection);
+  --color-vx-focus: var(--vx-focus);
+  --color-vx-violet: var(--vx-violet);
   --color-vx-past: var(--vx-past);
   --color-vx-past-strong: var(--vx-past-strong);
   --color-vx-past-wash: var(--vx-past-wash);
@@ -225,10 +382,12 @@
   --color-vx-ok: var(--vx-ok);
   --color-vx-ok-wash: var(--vx-ok-wash);
   --color-vx-warn: var(--vx-warn);
+  --color-vx-warn-wash: var(--vx-warn-wash);
   --color-vx-danger: var(--vx-danger);
   --color-vx-danger-strong: var(--vx-danger-strong);
   --color-vx-danger-wash: var(--vx-danger-wash);
   --color-vx-danger-edge: var(--vx-danger-edge);
+  --color-vx-danger-fill: var(--vx-danger-fill);
   --color-vx-on-danger: var(--vx-on-danger);
   --color-vx-meter-track: var(--vx-meter-track);
   --color-vx-tick: var(--vx-tick);
@@ -262,10 +421,11 @@
   --shadow-vx-2: var(--vx-shadow-2);
   --shadow-vx-3: var(--vx-shadow-3);
   --shadow-vx-4: var(--vx-shadow-4);
+  --shadow-vx-mock: var(--vx-shadow-mock);
 
   --ease-vx: var(--vx-ease);
+  --ease-vx-io: var(--vx-ease-io);
   --ease-vx-exit: var(--vx-ease-exit);
-
 }
 
 /* ── globals ─────────────────────────────────────────────────────────────── */
@@ -274,46 +434,62 @@ html, body {
   color: var(--vx-text-2);
   font-family: var(--vx-font-sans);
   font-feature-settings: "cv11", "ss01";
-  font-size: 14px;
-  line-height: 20px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+/* The root stays at 16 px so the rem-based spacing scale is the spec's 4 px grid (h-9 = 36, leading-5 = 20);
+   body copy is 14/20. */
+html { font-size: 16px; }
+body { font-size: 14px; line-height: 20px; }
 html, body { height: 100%; }
 body { overflow: hidden; }
-kbd { font-family: var(--vx-font-sans); }
-code, pre, samp, .vx-code, .vx-mono { font-family: var(--vx-font-mono); }
-.tabular-nums, .vx-meta, .vx-meta-row, .vx-micro { font-variant-numeric: tabular-nums; }
+kbd, code, pre, samp, .vx-code, .vx-mono { font-family: var(--vx-font-mono); }
+/* Code reads as typed: no "=>" → "⇒" ligatures in any mono text (previews, compare, meta). */
+kbd, code, pre, samp, .vx-code, .vx-mono, .font-mono { font-variant-ligatures: none; }
+.tabular-nums, .vx-meta, .vx-meta-row, .vx-micro, .vx-mono { font-variant-numeric: tabular-nums; }
 
 /* In the base layer so a component's own `outline-none` (fields that draw a focus border,
    the palette input) wins over the default ring instead of stacking a second one. */
 @layer base {
-  :focus-visible { outline: 2px solid var(--vx-accent-edge); outline-offset: 2px; }
+  :focus-visible { outline: 2px solid var(--vx-focus); outline-offset: 2px; }
 }
 /* Rows, cards and inputs: an inset ring instead of an outline. */
-.vx-inset-focus:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--vx-accent-edge); }
+.vx-inset-focus:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--vx-focus); }
 ::selection { background: var(--vx-text-select); color: inherit; }
 button { cursor: pointer; }
 button:disabled { cursor: not-allowed; }
 [aria-disabled='true'] { cursor: not-allowed; }
 
-/* ── type scale (DESIGN-v2 §3) ─────────────────────────────────────────── */
-.vx-display { font-size: 44px; line-height: 52px; font-weight: 700; letter-spacing: -0.03em; color: var(--vx-text-1); }
-@media (max-width: 720px) { .vx-display { font-size: 32px; line-height: 40px; } }
-.vx-h1 { font-size: 28px; line-height: 36px; font-weight: 700; letter-spacing: -0.02em; color: var(--vx-text-1); }
-.vx-h2 { font-size: 22px; line-height: 28px; font-weight: 600; letter-spacing: -0.02em; color: var(--vx-text-1); }
-.vx-title { font-size: 18px; line-height: 24px; font-weight: 600; letter-spacing: -0.01em; color: var(--vx-text-1); }
-.vx-body-lg { font-size: 16px; line-height: 24px; font-weight: 400; }
+/* Theme-dependent bits that must be right on the first painted frame (the sun/moon icons, posters). */
+html[data-vx-theme='light'] .vx-when-dark, html:not([data-vx-theme='light']) .vx-when-light { display: none !important; }
+[data-vx-theme-scope='light'] .vx-when-dark, [data-vx-theme-scope='dark'] .vx-when-light { display: none !important; }
+
+/* A runtime theme switch repaints at once: no staggered colour transitions. */
+html.vx-theme-switching *, html.vx-theme-switching *::before, html.vx-theme-switching *::after { transition: none !important; }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: var(--vx-dur-4); animation-timing-function: var(--vx-ease-io); }
+
+/* ── type scale (UNIFY-SPEC §3): Inter for prose, JetBrains Mono for data and labels ── */
+.vx-display { font-size: clamp(34px, 4.4vw, 52px); line-height: 1.04; font-weight: 600; letter-spacing: -0.032em; color: var(--vx-text-1); }
+.vx-h1 { font-size: 26px; line-height: 32px; font-weight: 600; letter-spacing: -0.025em; color: var(--vx-text-1); }
+.vx-h2 { font-size: 20px; line-height: 26px; font-weight: 600; letter-spacing: -0.02em; color: var(--vx-text-1); }
+.vx-title { font-size: 16px; line-height: 22px; font-weight: 600; letter-spacing: -0.015em; color: var(--vx-text-1); }
+.vx-body-lg { font-size: 15px; line-height: 24px; font-weight: 400; }
 .vx-body { font-size: 14px; line-height: 20px; font-weight: 400; }
 .vx-ui { font-size: 14px; line-height: 20px; font-weight: 500; }
-.vx-meta { font-size: 12px; line-height: 16px; font-weight: 400; }
-.vx-meta-row { font-size: 13px; line-height: 20px; font-weight: 400; }
-.vx-micro { font-size: 11px; line-height: 16px; font-weight: 400; }
-.vx-eyebrow { font-size: 11px; line-height: 16px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--vx-text-3); }
-.vx-code { font-size: 12px; line-height: 16px; font-weight: 400; }
+.vx-meta { font-family: var(--vx-font-mono); font-size: 12px; line-height: 18px; font-weight: 400; }
+.vx-meta-row { font-family: var(--vx-font-mono); font-size: 12.5px; line-height: 20px; font-weight: 400; }
+.vx-micro { font-size: 12px; line-height: 16px; font-weight: 400; }
+.vx-eyebrow { font-family: var(--vx-font-mono); font-size: 11px; line-height: 16px; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; color: var(--vx-text-3); }
+.vx-colhead { font-family: var(--vx-font-mono); font-size: 11px; line-height: 16px; font-weight: 500; letter-spacing: .10em; text-transform: uppercase; color: var(--vx-text-3); }
+/* Header cells that hold the user's own data (CSV columns): the colhead voice, but never re-cased. */
+.vx-datahead { font-family: var(--vx-font-mono); font-size: 11px; line-height: 16px; font-weight: 500; letter-spacing: .04em; color: var(--vx-text-3); }
+.vx-code { font-size: 12px; line-height: 18px; font-weight: 400; }
+/* Metal text: the landing wordmark, two landing emphasis words and the sign-in headline's last word only. */
+.vx-metal { background: var(--vx-metal); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.vx-wordmark { font-family: var(--vx-font-sans); font-size: 15px; line-height: 20px; font-weight: 600; letter-spacing: .08em; color: var(--vx-text-1); }
 
 /* ── surfaces ─────────────────────────────────────────────────────────── */
-/* Page → sheet → float. Sheets hold the work; floats hold transient things. */
+/* Page → sheet → float. Sheets hold the work and rely on their hairline; floats carry a shadow. */
 .vx-sheet {
   background: var(--vx-surface);
   border: 1px solid var(--vx-hair);
@@ -322,23 +498,30 @@ button:disabled { cursor: not-allowed; }
 }
 .vx-floating {
   background: var(--vx-float);
-  border: 1px solid var(--vx-hair);
   border-radius: var(--vx-r-md);
   box-shadow: var(--vx-shadow-3);
 }
 /* Past ring: border + 3 px halo on the drive sheet and the strip. */
 .is-past {
   border-color: var(--vx-past-edge) !important;
-  box-shadow: 0 0 0 3px var(--vx-past-halo), var(--vx-shadow-sheet);
+  box-shadow: 0 0 0 3px var(--vx-past-halo);
   transition: box-shadow var(--vx-dur-3) var(--vx-ease), border-color var(--vx-dur-3) var(--vx-ease);
 }
 .vx-hatch { background-image: var(--vx-past-hatch); }
-
+/* Selected rows and cards: neutral fill + a 2px ink bar on the left edge. */
+.vx-selected { background: var(--vx-selection); color: var(--vx-on-selection); box-shadow: inset 2px 0 0 var(--vx-accent); }
+/* The landing's static atmosphere for sheetless pages (sign-in, OAuth, 404): a violet tint over the ground. */
+.vx-atmos {
+  background:
+    radial-gradient(ellipse 70% 55% at 50% 0%, var(--vx-atmos-tint), transparent 70%),
+    radial-gradient(ellipse 90% 60% at 50% 110%, color-mix(in srgb, var(--vx-atmos-floor) 55%, transparent), transparent 70%),
+    var(--vx-bg);
+}
 
 /* ── motion ───────────────────────────────────────────────────────────── */
 @keyframes dlgFade { from { opacity: 0; } to { opacity: 1; } }
-@keyframes dlgPop { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: none; } }
-@keyframes vxPop { from { opacity: 0; transform: translateY(-4px) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes dlgPop { from { opacity: 0; transform: scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes vxPop { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 .dlg-fade { animation: dlgFade var(--vx-dur-2) var(--vx-ease); }
 .dlg-pop { animation: dlgPop var(--vx-dur-4) var(--vx-ease); }
 .vx-pop { animation: vxPop var(--vx-dur-2) var(--vx-ease); transform-origin: top left; }
@@ -366,15 +549,10 @@ button:disabled { cursor: not-allowed; }
 .skel-line { height: 12px; }
 .skel-line + .skel-line { margin-top: 8px; }
 
-@keyframes ea-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
-@keyframes ea-shadow { 0%, 100% { transform: scaleX(1); opacity: var(--ea-shadow-hi); } 50% { transform: scaleX(0.82); opacity: var(--ea-shadow-lo); } }
-.ea-float { display: flex; animation: ea-float 3s ease-in-out infinite; }
-.ea-shadow { animation: ea-shadow 3s ease-in-out infinite; }
-
 @keyframes contentIn { from { opacity: 0; } to { opacity: 1; } }
 .fade-in { animation: contentIn var(--vx-dur-2) var(--vx-ease); }
 
-/* scrollbars: thin, soft */
+/* scrollbars: thin, quiet */
 * { scrollbar-width: thin; scrollbar-color: var(--vx-hair-strong) transparent; }
 
 @media (prefers-reduced-motion: reduce) {
@@ -386,15 +564,15 @@ button:disabled { cursor: not-allowed; }
     transition-duration: 1ms !important;
   }
   .skeleton { background-image: none; }
-  .ea-float, .ea-shadow { animation: none !important; }
+  ::view-transition-old(root), ::view-transition-new(root) { animation: none !important; }
 }
 
 /* ════════════════════════════════════════════════════════════════════════
- * App shell (DESIGN-v2 §6.0, §7)
- *   .vx-app      grid [sidebar 256][content] × [top bar 64][content]
- *   .vx-topbar   brand · search pill · help / theme / avatar (spans both columns)
- *   .vx-side     + New, workspace switcher, nav, storage (no background, no border)
- *   .vx-content  grid [work sheet 1fr][timeline 320?][panel 400?] over [strip 72]
+ * App shell (UNIFY-SPEC §11)
+ *   .vx-app      grid [sidebar 240][content] × [top bar 56][content]
+ *   .vx-topbar   brand lockup · search field · help / theme / avatar (1px hair bottom)
+ *   .vx-side     + New, workspace switcher, nav, storage (1px hair right)
+ *   .vx-content  grid [work sheet 1fr][timeline 300?][panel 380?] over [strip 64]
  *   .vx-main     the work sheet (.vx-sheet unless the route is sheetless)
  * ════════════════════════════════════════════════════════════════════════ */
 .vx-app {
@@ -413,12 +591,16 @@ button:disabled { cursor: not-allowed; }
   display: grid;
   grid-template-columns: var(--vx-rail-w) minmax(0, 1fr) auto;
   align-items: center;
-  padding-right: 16px;
+  padding-right: 12px;
   min-width: 0;
+  background: var(--vx-bg);
+  border-bottom: 1px solid var(--vx-hair);
 }
 .vx-side {
   display: flex; flex-direction: column; min-height: 0; overflow-y: auto; overflow-x: hidden;
-  padding: 8px 12px 16px 16px;
+  padding: 12px 12px 12px 12px;
+  background: var(--vx-bg);
+  border-right: 1px solid var(--vx-hair);
 }
 
 .vx-content {
@@ -428,7 +610,7 @@ button:disabled { cursor: not-allowed; }
   grid-template-rows: minmax(0, 1fr) auto;
   /* Rows 8 px apart; the rail and panel carry their own 8 px left margin so empty columns add no gap. */
   row-gap: 8px;
-  padding: 0 16px 16px 0;
+  padding: 12px;
   min-height: 0; min-width: 0;
 }
 .vx-content > .vx-main { grid-row: 1; grid-column: 1; }
@@ -436,10 +618,24 @@ button:disabled { cursor: not-allowed; }
 .vx-content > .vx-panel { grid-row: 1; grid-column: 3; width: var(--vx-panel-w); }
 .vx-content > .vx-strip { grid-row: 2; grid-column: 1 / -1; min-height: var(--vx-strip-h); }
 .vx-main { display: flex; flex-direction: column; min-height: 0; min-width: 0; overflow: hidden; }
-.vx-main.vx-sheetless { background: transparent; border: 0; box-shadow: none; }
-/* Sheetless pages scroll on the page itself: run the scroll box to the window edge so cards are not cut 16 px above it. */
-.vx-content:has(> .vx-main.vx-sheetless) { padding-bottom: 0; row-gap: 0; }
-.vx-main.vx-sheetless { border-radius: 0; }
+/* Key hints that decorate a control are noise on touch screens. */
+@media (hover: none) and (pointer: coarse), (max-width: 720px) { .vx-kbd-hint { display: none !important; } }
+
+/* A sideways-scrolling box with more content past its right edge fades that edge (useOverflowFade). */
+.vx-fade-x[data-more-right='true'] { mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent); }
+.vx-fade-y[data-more-bottom='true'] { mask-image: linear-gradient(180deg, #000 calc(100% - 32px), transparent); }
+
+/* Skip link: the first tab stop in the app shell, hidden until focused. */
+.vx-skip {
+  position: fixed; top: 8px; left: 8px; z-index: 80;
+  padding: 10px 14px; border-radius: var(--vx-r-sm);
+  background: var(--vx-text-1); color: var(--vx-bg); font-size: 14px; line-height: 1; font-weight: 500;
+  transform: translateY(-160%); transition: transform var(--vx-dur-1) var(--vx-ease);
+}
+.vx-skip:focus-visible { transform: none; }
+/* One frame for every top-level page (components/ui/page.tsx): left-aligned 1040 column inside the work sheet. */
+.vx-page { width: 100%; max-width: 1040px; padding: 28px 24px 40px; }
+@media (max-width: 720px) { .vx-page { padding: 20px 16px 32px; } }
 .vx-timeline, .vx-panel { min-height: 0; overflow: hidden; display: flex; flex-direction: column; margin-left: 8px; }
 
 /* Short labels in the collapsed sidebar; hidden on wide layouts. */
@@ -449,35 +645,43 @@ button:disabled { cursor: not-allowed; }
 @media (max-width: 1279px) {
   .vx-content { grid-template-columns: minmax(0, 1fr) 0 0; }
   .vx-content > .vx-timeline, .vx-content > .vx-panel {
-    position: absolute; top: 0; right: 16px; bottom: 16px; z-index: 30;
-    max-width: calc(100% - 32px);
+    /* Auto placement: an absolutely positioned grid child then sizes against the container's padding box,
+       not its own (0-wide) grid track. */
+    grid-column: auto; grid-row: auto;
+    position: absolute; top: 12px; right: 12px; bottom: 12px; z-index: 30;
+    max-width: calc(100% - 24px);
     box-shadow: var(--vx-shadow-4);
   }
   .vx-content[data-strip='true'] > .vx-timeline,
-  .vx-content[data-strip='true'] > .vx-panel { bottom: calc(16px + var(--vx-strip-h) + 8px); }
+  .vx-content[data-strip='true'] > .vx-panel { bottom: calc(12px + var(--vx-strip-h) + 8px); }
 }
 
-/* 720–1023: the sidebar collapses to a 72 px icon column. */
+/* 720–1023: the sidebar collapses to a 64 px icon column. */
 @media (max-width: 1023px) {
-  :root { --vx-rail-w: 72px; }
-  .vx-side { padding: 8px 8px 16px; align-items: center; }
+  :root { --vx-rail-w: 64px; }
+  .vx-side { padding: 12px 8px; align-items: center; }
   .vx-side-full { display: none !important; }
   .vx-side-compact { display: revert; }
 }
 
-/* ≤ 720: phone. One search pill on top, the sidebar becomes a drawer, sheets go full-bleed. */
+/* ≤ 720: phone. One glass bar on top, the sidebar becomes a drawer, sheets go full-bleed. */
 @media (max-width: 720px) {
-  :root { --vx-topbar-h: 64px; --vx-rail-w: 300px; --vx-strip-h: 56px; }
+  :root { --vx-topbar-h: 56px; --vx-rail-w: 300px; --vx-strip-h: 56px; }
   .vx-app { grid-template-columns: minmax(0, 1fr); }
   .vx-app > .vx-content { grid-column: 1; }
-  .vx-topbar { display: flex; padding: 8px 16px; }
+  .vx-topbar {
+    display: flex; padding: 8px 12px; position: relative; z-index: 20;
+    background: var(--vx-nav-glass);
+    -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  }
   .vx-side {
     position: fixed; top: 0; bottom: 0; left: 0; z-index: 60;
     width: min(300px, calc(100vw - 48px));
     background: var(--vx-surface);
+    border-right: 0;
     border-radius: 0 var(--vx-r-lg) var(--vx-r-lg) 0;
     box-shadow: var(--vx-shadow-4);
-    padding: 16px 12px 16px 16px; align-items: stretch;
+    padding: 16px 12px; align-items: stretch;
     transform: translateX(-105%); visibility: hidden;
     transition: transform var(--vx-dur-3) var(--vx-ease), visibility 0s linear var(--vx-dur-3);
   }
@@ -485,7 +689,7 @@ button:disabled { cursor: not-allowed; }
   .vx-side-full { display: revert !important; }
   .vx-side-compact { display: none !important; }
   .vx-content { padding: 0; gap: 0; grid-template-columns: minmax(0, 1fr) 0 0; }
-  .vx-content > .vx-main.vx-sheet { border-radius: 24px 24px 0 0; border-left: 0; border-right: 0; border-bottom: 0; }
+  .vx-content > .vx-main.vx-sheet { border-radius: var(--vx-r-lg) var(--vx-r-lg) 0 0; border-left: 0; border-right: 0; border-bottom: 0; }
   /* The preview panel is a full-screen sheet; the History rail is an 85vh bottom sheet. Both sit over the strip
      (the attribute selector outranks the tablet rule that lifts them above it). */
   .vx-content > .vx-panel, .vx-content[data-strip='true'] > .vx-panel {
@@ -497,7 +701,8 @@ button:disabled { cursor: not-allowed; }
     border-radius: var(--vx-r-lg) var(--vx-r-lg) 0 0; border-bottom: 0;
   }
   .vx-content > .vx-strip {
-    position: fixed; left: 16px; right: 16px; bottom: 16px; z-index: 40; min-height: 0;
+    position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 40; min-height: 0;
+    box-shadow: var(--vx-shadow-2);
   }
 }
 
@@ -513,27 +718,42 @@ button:disabled { cursor: not-allowed; }
   .vx-toasts, .vx-toasts[data-shell='true'] { left: 16px; right: 16px; width: auto; transform: none; }
 }
 
-/* ── Sidebar nav pills (DESIGN-v2 §5 Nav item) ─────────────────────────── */
+/* ── Sidebar nav items (UNIFY-SPEC §11): 32h, r4; active = accent wash + text-1 + 600 ── */
 .vx-nav {
-  display: flex; align-items: center; gap: 14px; height: 36px; padding: 0 12px 0 16px;
-  border-radius: var(--vx-r-pill); color: var(--vx-text-2);
+  display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 10px;
+  border-radius: var(--vx-r-sm); color: var(--vx-text-2);
   font-size: 14px; line-height: 20px; font-weight: 500;
   transition: background-color var(--vx-dur-1) var(--vx-ease), color var(--vx-dur-1) var(--vx-ease);
 }
-.vx-nav:hover { background: var(--vx-hover); color: var(--vx-text-1); }
+.vx-nav:hover { background: var(--vx-raise); color: var(--vx-text-1); }
 .vx-nav:active { background: var(--vx-pressed); }
-.vx-nav[aria-current='page'] { background: var(--vx-accent-wash); color: var(--vx-on-accent-wash); font-weight: 600; }
+.vx-nav[aria-current='page'] { background: var(--vx-accent-wash); color: var(--vx-text-1); font-weight: 600; }
 .vx-nav-icon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.vx-nav-chord { opacity: 0; transition: opacity var(--vx-dur-1) var(--vx-ease); }
+/* The chord shows on hover/focus beside the count (never instead of it), so a count is never hidden while pointed at. */
+.vx-nav-chord { opacity: 0; font-family: var(--vx-font-mono); font-size: 11px; text-transform: uppercase; color: var(--vx-text-4); transition: opacity var(--vx-dur-1) var(--vx-ease); }
 .vx-nav:hover .vx-nav-chord, .vx-nav:focus-visible .vx-nav-chord { opacity: 1; }
-.vx-nav:hover .vx-nav-count, .vx-nav:focus-visible .vx-nav-count { display: none; }
-.vx-nav-count { color: var(--vx-text-3); }
-.vx-nav[aria-current='page'] .vx-nav-count { color: inherit; }
-.vx-nav.is-drop { box-shadow: inset 0 0 0 2px var(--vx-accent-edge); }
-@media (min-width: 721px) and (max-width: 1023px) {
-  .vx-nav { flex-direction: column; justify-content: center; gap: 4px; height: auto; width: 56px; padding: 0 0 4px; background: transparent !important; color: var(--vx-text-2); }
-  .vx-nav .vx-nav-icon { width: 56px; height: 32px; border-radius: var(--vx-r-pill); transition: background-color var(--vx-dur-1) var(--vx-ease); }
-  .vx-nav:hover .vx-nav-icon { background: var(--vx-hover); }
-  .vx-nav[aria-current='page'] { color: var(--vx-text-1); }
-  .vx-nav[aria-current='page'] .vx-nav-icon { background: var(--vx-accent-wash); color: var(--vx-on-accent-wash); }
+@media (hover: none) { .vx-nav-chord { display: none; } }
+/* Nav counts are one component: an r2 Mono chip. Plain counts carry a hair ring; attention counts (proposals) the accent wash. */
+.vx-nav-count {
+  display: inline-flex; align-items: center; justify-content: center; height: 18px; min-width: 18px; padding: 0 4px;
+  border-radius: var(--vx-r-xs); box-shadow: inset 0 0 0 1px var(--vx-hair);
+  font-family: var(--vx-font-mono); font-size: 11px; line-height: 16px; font-weight: 500; font-variant-numeric: tabular-nums; color: var(--vx-text-3);
 }
+.vx-nav-count.is-attention { box-shadow: none; background: var(--vx-accent-wash); color: var(--vx-on-accent-wash); }
+.vx-nav.is-drop { background: var(--vx-accent-wash); box-shadow: inset 0 0 0 1px var(--vx-accent-edge); }
+@media (min-width: 721px) and (max-width: 1023px) {
+  .vx-nav { flex-direction: column; justify-content: center; gap: 2px; height: auto; width: 48px; padding: 0 0 4px; background: transparent !important; color: var(--vx-text-2); font-size: 11px; line-height: 14px; }
+  .vx-nav .vx-nav-icon { width: 40px; height: 32px; border-radius: var(--vx-r-sm); transition: background-color var(--vx-dur-1) var(--vx-ease); }
+  .vx-nav:hover .vx-nav-icon { background: var(--vx-raise); }
+  .vx-nav[aria-current='page'] { color: var(--vx-text-1); }
+  .vx-nav[aria-current='page'] .vx-nav-icon { background: var(--vx-accent-wash); color: var(--vx-text-1); }
+}
+
+/* Grain at half the landing's strength, for the sheetless atmosphere pages. */
+.vx-grain { isolation: isolate; }
+.vx-grain::after {
+  content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  opacity: calc(var(--vx-grain-opacity) / 2); mix-blend-mode: var(--vx-grain-blend);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+@layer components { .vx-grain > * { position: relative; z-index: 1; } }

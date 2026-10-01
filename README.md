@@ -1,4 +1,4 @@
-# Volumes
+# KDRIVE
 
 A personal cloud drive where every change is a version you can browse, compare,
 restore or share.
@@ -27,7 +27,7 @@ is available for local development and tests.
 
 ## AI agents
 
-Volumes is also an MCP server at `https://<your-volumes-host>/mcp`. An agent
+KDRIVE is also an MCP server at `https://<your-kdrive-host>/mcp`. An agent
 signs in with OAuth (or uses an agent token), and you choose whether it may
 only read, suggest changes that wait for your review, or change files
 directly. Every agent change is a version attributed to the agent and can be

@@ -12,14 +12,14 @@ export function initialsOf(name: string): string {
 }
 
 /**
- * Avatar (DESIGN-v2 §5): a circle in --vx-avatar-*, initials 13/600, with a 2 px page-colour gap
- * and a 1 px hair ring. `size` 28 (phone) · 32 (top bar, tables) · 48 (settings profile).
+ * Avatar (UNIFY-SPEC §10): a neutral circle in --vx-avatar-*, initials 600, with a 1 px hair ring.
+ * `size` 28 (top bar) · 24 (tables) · 32/40 (settings).
  */
 export function Avatar({ name, image, size = 32, className, ring = true }: { name: string; image?: string | null; size?: number; className?: string; ring?: boolean }) {
-  const style = { width: size, height: size, fontSize: Math.round(size * 0.4) };
+  const style = { width: size, height: size, fontSize: Math.max(10, Math.round(size * 0.42)) };
   const frame = cx(
     'inline-flex shrink-0 select-none items-center justify-center overflow-hidden rounded-full',
-    ring && 'shadow-[0_0_0_2px_var(--vx-bg),0_0_0_3px_var(--vx-hair)]',
+    ring && 'shadow-[0_0_0_1px_var(--vx-hair-strong)]',
     className,
   );
   if (image) {

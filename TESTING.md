@@ -1,4 +1,4 @@
-# Testing Volumes locally
+# Testing KDRIVE locally
 
 ## Automated checks
 
@@ -62,9 +62,10 @@ http://localhost:4100:
 2. **Upload:** drag files or a folder onto the drive. The tray shows per-file progress, and a re-upload says "already stored".
 3. **Files:** open, preview (Space), download, rename (F2), move, copy and delete. After each change, Undo from the toast or with ⌘Z.
 4. **History:** press `h` to open the timeline. Click an entry to see the whole drive as it was then (amber banner). Use "Compare with now" and "Back to now" (Esc).
-5. **Versions:** open Versions on `Projects/Volumes launch/plan.md`. Pick A and B, then Compare, then Restore.
+5. **Versions:** open Versions on `Projects/KDRIVE launch/plan.md`. Pick A and B, then Compare, then Restore.
 6. **Recently deleted:** restore `old-draft.md` (if you already brought it back, delete it first).
 7. **Checkpoints:** create one. The budget readout counts pinned links too.
 8. **Share:** create a live or a pinned link. Open `/s/<token>` in a private window (no sign-in needed), then revoke the link.
 9. **Workspaces:** duplicate the drive at a past version, then switch between workspaces in the left rail.
-10. **Settings and admin:** check the theme, activity log and workspaces in Settings. The admin page lists users and quotas; admins are the emails in `VOLUMES_ADMIN_EMAILS`.
+10. **Themes:** KDRIVE opens in Dark for a new browser. Switch with the sun/moon button in the top bar (or the landing nav), or pick Dark, Light or System under Settings → Appearance. The choice applies before paint on reload, to the landing too, and to other open tabs.
+11. **Settings and admin:** check the activity log and drives in Settings. The admin page lists users and quotas; admins are the emails in `VOLUMES_ADMIN_EMAILS`.

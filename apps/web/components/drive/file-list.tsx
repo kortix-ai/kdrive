@@ -1,8 +1,8 @@
 'use client';
 
-// Virtualised list view (40 px rows, 60 on phones; @tanstack/react-virtual). A 1,000-item
-// folder renders only the visible rows plus overscan. Rows sit 8 px in from the sheet
-// edges with no dividers.
+// Virtualised list view (36 px rows, 60 on phones; @tanstack/react-virtual). A 1,000-item
+// folder renders only the visible rows plus overscan. Rows run full-bleed inside the sheet
+// with hair-soft dividers (UNIFY-SPEC §12.1).
 import { useEffect } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import type { FileEntry } from '@volumes/shared';
@@ -18,8 +18,8 @@ export type ListRow =
   | { kind: 'footer'; count: number; names?: string[] }
   | { kind: 'ghost'; entry: FileEntry };
 
-/** Space above the first row. */
-export const LIST_TOP = 4;
+/** Space above the first row (rows start right under the column header's hair). */
+export const LIST_TOP = 0;
 
 export function listRowKey(r: ListRow): string {
   switch (r.kind) {
@@ -91,7 +91,7 @@ export default function FileList({
             return <FileRow key={vi.key} entry={r.entry} style={style} />;
           case 'footer':
             return (
-              <div key={vi.key} style={style} className="flex items-center">
+              <div key={vi.key} style={style} className="flex items-center px-2">
                 <AddedLaterFooter count={r.count} names={r.names} open={ctx.addedLaterOpen} onToggle={ctx.onToggleAddedLater} />
               </div>
             );

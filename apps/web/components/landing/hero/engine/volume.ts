@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { halfExtents, voxelSlots, type Slot } from './build';
 import { Decor } from './decor';
+import type { ScenePalette } from './palette';
 import type { VolumeSpec } from './layout';
 import type { LineBatch } from './lines';
 import { Spring1, Spring3, clamp, rng, smoothstep, wander } from './springs';
@@ -86,6 +87,11 @@ export class Volume {
     this.ph = [0, 1, 2, 3, 4].map(() => r() * Math.PI * 2);
     this.per = [7 + r() * 4, 13 + r() * 4, 9 + r() * 3, 11 + r() * 3, 0.1 + r() * 0.04];
     this.decor = new Decor(spec, this.half, this.pivot);
+  }
+
+  /** Live theme switch: this volume's lines and seam. */
+  retheme(p: ScenePalette): void {
+    this.decor.retheme(p);
   }
 
   /** Field-space outline for the exclusion pass: cube corners plus trail copies and stack shells. */

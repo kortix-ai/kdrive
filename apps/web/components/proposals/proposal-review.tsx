@@ -112,9 +112,10 @@ export function ProposalReview({ id }: { id: string }) {
     return (
       <EmptyState
         className="h-full"
+        art="gone"
         tone="past"
         title={gone ? 'This proposal no longer exists' : "Couldn't load this proposal."}
-        body={gone ? 'It may belong to another workspace, or it was removed with its workspace.' : errorText(error)}
+        body={gone ? 'It may belong to another drive, or it was removed with its drive.' : errorText(error)}
         actions={
           gone ? (
             <Link href="/proposals" className={buttonClass('outline')}>
@@ -132,8 +133,8 @@ export function ProposalReview({ id }: { id: string }) {
   if (isLoading || !data || !proposal) {
     return (
       <div className="flex h-full flex-col" aria-busy>
-        <div className="flex h-16 items-center gap-3 border-b border-vx-hair px-3">
-          <span className="skeleton h-8 w-8 !rounded-full" />
+        <div className="flex h-14 items-center gap-3 border-b border-vx-hair px-3">
+          <span className="skeleton h-8 w-8 !rounded-vx-sm" />
           <span className="skeleton skel-line w-72" />
         </div>
         <div className="p-5">
@@ -165,15 +166,15 @@ export function ProposalReview({ id }: { id: string }) {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <header className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-vx-hair py-3 pl-2 pr-3 max-[720px]:pr-4 min-[721px]:h-16 min-[721px]:flex-nowrap min-[721px]:py-0">
+      <header className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-vx-hair py-3 pl-3 pr-4 max-[720px]:pl-2 min-[721px]:h-14 min-[721px]:flex-nowrap min-[721px]:py-0">
         <Tooltip label="Back to proposals" kbd="Esc" side="bottom">
           <IconButton label="Back to proposals (Esc)" nativeTitle={false} onClick={() => router.push('/proposals')}>
-            <ArrowLeft size={20} strokeWidth={1.75} aria-hidden />
+            <ArrowLeft size={16} strokeWidth={1.75} aria-hidden />
           </IconButton>
         </Tooltip>
         <AgentDisc className="max-[720px]:hidden" />
         <div className="flex min-w-0 flex-1 flex-col">
-          <h1 className="truncate text-[20px] font-semibold leading-[26px] tracking-[-0.015em] text-vx-text-1" title={title}>
+          <h1 className="vx-title truncate" title={title}>
             {title}
           </h1>
           <span className="vx-meta flex min-w-0 items-center gap-1.5 text-vx-text-3">
@@ -193,7 +194,7 @@ export function ProposalReview({ id }: { id: string }) {
         ) : null}
         {open ? (
           <div className="flex shrink-0 items-center gap-2 max-[720px]:w-full max-[720px]:justify-end">
-            <Button variant="text" disabled={!!busy} loading={busy === 'discard'} onClick={() => void discard(seqs)}>
+            <Button variant="outline" disabled={!!busy} loading={busy === 'discard'} onClick={() => void discard(seqs)}>
               {seqs ? `Discard ${seqs.length} selected` : 'Discard all'}
             </Button>
             <Button variant="primary" disabled={!!busy} loading={busy === 'accept'} onClick={() => void accept(seqs)}>
@@ -216,11 +217,11 @@ export function ProposalReview({ id }: { id: string }) {
         </div>
       ) : null}
       {quota ? (
-        <div role="alert" className="mx-4 mt-3 flex shrink-0 items-start gap-3 rounded-vx-sm bg-vx-danger-wash px-3.5 py-3 max-[720px]:mx-3">
-          <CircleAlert size={18} strokeWidth={1.75} aria-hidden className="mt-0.5 shrink-0 text-vx-del-fg" />
+        <div role="alert" className="mx-4 mt-3 flex shrink-0 items-start gap-3 rounded-vx-md bg-vx-danger-wash px-3.5 py-3 shadow-[inset_0_0_0_1px_var(--vx-danger-edge)] max-[720px]:mx-3">
+          <CircleAlert size={16} strokeWidth={1.75} aria-hidden className="mt-0.5 shrink-0 text-vx-danger" />
           <div className="min-w-0 flex-1">
             <p className="text-[14px] font-semibold leading-5 text-vx-text-1">Not enough space</p>
-            <p className="vx-meta text-vx-text-2">
+            <p className="mt-0.5 text-[13px] leading-5 text-vx-text-2">
               {quota.details
                 ? `Accepting these changes needs ${formatBytes(quota.details.overBytes)} more than you have. `
                 : `${quota.message} `}
@@ -233,7 +234,7 @@ export function ProposalReview({ id }: { id: string }) {
         </div>
       ) : null}
 
-      <div className="grid min-h-0 flex-1 grid-cols-[320px_minmax(0,1fr)] max-[720px]:grid-cols-1">
+      <div className="grid min-h-0 flex-1 grid-cols-[300px_minmax(0,1fr)] max-[720px]:grid-cols-1">
         <ReviewFileList
           className="border-r border-vx-hair max-[720px]:border-r-0"
           files={shown}
@@ -250,7 +251,7 @@ export function ProposalReview({ id }: { id: string }) {
         <div role="dialog" aria-modal="true" aria-label="Review file" className="fixed inset-0 z-[60] flex flex-col bg-vx-surface">
           <div className="flex h-14 shrink-0 items-center gap-2 border-b border-vx-hair px-2">
             <IconButton label="Back to the file list" onClick={() => setPaneOpen(false)}>
-              <ArrowLeft size={20} strokeWidth={1.75} aria-hidden />
+              <ArrowLeft size={16} strokeWidth={1.75} aria-hidden />
             </IconButton>
             <span className="vx-ui truncate text-vx-text-1">{title}</span>
           </div>

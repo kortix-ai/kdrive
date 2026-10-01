@@ -1,7 +1,7 @@
 'use client';
 
-// /proposals — changes AI agents suggested for the current workspace (MCP.md §14.6).
-// A sheet like /checkpoints: the head, tabs Waiting | Decided, rows that open the review page.
+// /proposals: changes AI agents suggested for the current workspace (UNIFY-SPEC §14.4).
+// The work sheet: the head, tabs Waiting | Decided on a full-bleed hair rule, full-bleed rows that open the review page.
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import type { ProposalSummary } from '@volumes/shared';
@@ -9,6 +9,7 @@ import { mergePages } from '@/components/proposals/format';
 import { ProposalRow } from '@/components/proposals/proposal-row';
 import { Button, buttonClass } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
+import { Page, PageHeader } from '@/components/ui/page';
 import { Tabs } from '@/components/ui/tabs';
 import { api } from '@/lib/api/endpoints';
 import { useProposalCount, useProposals } from '@/lib/api/hooks';
@@ -51,8 +52,8 @@ function ProposalList({ tab }: { tab: Tab }) {
     return (
       <div aria-busy className="pt-2">
         {Array.from({ length: 5 }, (_, i) => (
-          <div key={i} className="flex h-14 items-center gap-3 px-3">
-            <span className="skeleton h-8 w-8 shrink-0 !rounded-full" />
+          <div key={i} className="flex h-14 items-center gap-3 border-b border-vx-hair-soft px-3">
+            <span className="skeleton h-8 w-8 shrink-0 !rounded-vx-sm" />
             <span className="flex flex-1 flex-col gap-1.5">
               <span className="skeleton skel-line w-2/3" />
               <span className="skeleton skel-line w-1/3" />
@@ -65,7 +66,7 @@ function ProposalList({ tab }: { tab: Tab }) {
   if (error) {
     return (
       <EmptyState
-        tone="past"
+        art="gone"
         title="Couldn't load proposals."
         body={errorText(error)}
         actions={
@@ -79,6 +80,7 @@ function ProposalList({ tab }: { tab: Tab }) {
   if (!list.length) {
     return tab === 'open' ? (
       <EmptyState
+        art="proposals"
         title="Nothing to review"
         body="When an agent connected in review mode suggests changes, they wait here until you accept or discard them."
         actions={
@@ -88,14 +90,14 @@ function ProposalList({ tab }: { tab: Tab }) {
         }
       />
     ) : (
-      <EmptyState title="Nothing decided yet" body="Proposals you accept or discard, and ones that expire, are listed here." />
+      <EmptyState art="proposals" title="Nothing decided yet" body="Proposals you accept or discard, and ones that expire, are listed here." />
     );
   }
   return (
     <>
-      <ul aria-label={tab === 'open' ? 'Waiting for review' : 'Decided'} className="flex flex-col gap-0.5 pt-2">
+      <ul aria-label={tab === 'open' ? 'Waiting for review' : 'Decided'} className="flex flex-col">
         {list.map((p) => (
-          <li key={p.id}>
+          <li key={p.id} className="border-b border-vx-hair-soft">
             <ProposalRow proposal={p} />
           </li>
         ))}
@@ -105,7 +107,7 @@ function ProposalList({ tab }: { tab: Tab }) {
           <Button variant="outline" loading={loadingMore} onClick={() => void loadMore()}>
             Load more
           </Button>
-          {moreError ? <p className="vx-meta text-vx-del-fg">{moreError}</p> : null}
+          {moreError ? <p className="vx-micro text-vx-danger">{moreError}</p> : null}
         </div>
       ) : null}
     </>
@@ -122,13 +124,12 @@ export default function ProposalsPage() {
   useEffect(() => setTab('open'), [ws]);
 
   return (
-    <div className="mx-auto w-full max-w-[960px] px-6 pb-10 pt-6 max-[720px]:px-4">
-      <header>
-        <h1 className="vx-h1">Proposals</h1>
-        <p className="vx-body mt-2 max-w-[640px] text-vx-text-3">
-          Changes AI agents suggested for {wsName ? <span className="font-medium text-vx-text-2">{wsName}</span> : 'this workspace'}
-        </p>
-      </header>
+    <Page>
+      <PageHeader
+        eyebrow="AI agents"
+        title="Proposals"
+        lead={<>Changes AI agents suggested for {wsName ? <span className="font-medium text-vx-text-2">{wsName}</span> : 'this drive'}</>}
+      />
       <Tabs<Tab>
         className="mt-5"
         value={tab}
@@ -138,9 +139,9 @@ export default function ProposalsPage() {
           { id: 'closed', label: 'Decided' },
         ]}
       />
-      <div role="tabpanel" className="mt-2">
+      <div role="tabpanel">
         <ProposalList key={`${ws}:${tab}`} tab={tab} />
       </div>
-    </div>
+    </Page>
   );
 }

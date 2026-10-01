@@ -1,6 +1,7 @@
 'use client';
 
-// One list row (DESIGN-v2 §5 File row, §6.2, §7): 40 px, r8, grid `--vx-list-cols`
+// One list row (UNIFY-SPEC §12.1, DESIGN-v2 §6.2, §7): 36 px, full-bleed in the sheet with a
+// hair-soft divider, grid `--vx-list-cols`
 // (checkbox · icon + name · modified · size · actions). At rest a row shows only its icon,
 // name, date and size; the checkbox and the actions (Download · Share · Versions · More)
 // appear on hover, focus or selection. With compact columns (panel or rail open) the
@@ -17,6 +18,7 @@ import { IconButton } from '@/components/ui/icon-button';
 import { Tooltip } from '@/components/ui/tooltip';
 import { cx } from '@/components/ui/cx';
 import { formatRelative, isoTitle } from '@/lib/format';
+import { useVx } from '@/lib/store';
 import type { Drift } from '@/lib/drive/drift';
 import { useDriveCtx, type DriveCtxValue } from './drive-context';
 import { RenameInput } from './rename-dialog';
@@ -25,10 +27,10 @@ import s from './drive.module.css';
 /** Columns come from CSS (`--vx-list-cols` / `--vx-list-cols-compact`). */
 export const LIST_COLS = 'var(--vx-list-cols)';
 export const LIST_COLS_COMPACT = 'var(--vx-list-cols-compact)';
-export const ROW_H = 40;
+export const ROW_H = 36;
 export const PHONE_ROW_H = 60;
-/** Rows sit 8 px in from the sheet edges so hover pills never touch it. */
-export const LIST_INSET = 8;
+/** Rows run full-bleed inside the sheet (UNIFY-SPEC §12.1); dividers carry the structure. */
+export const LIST_INSET = 0;
 
 export function listCols(density: DriveCtxValue['density']): string {
   return density === 'wide' ? LIST_COLS : LIST_COLS_COMPACT;
@@ -70,20 +72,20 @@ export function RowCheck({ on, indeterminate, onToggle, label, className }: { on
   );
 }
 
-/** Drift chip (DESIGN-v2 §5): 22 px pill, 12/500, a 6 px dot. */
+/** Drift tag (UNIFY-SPEC §12.1): a landing-style tag, Mono 11, r2, h 18, 1 px hair-strong. */
 export function DriftChip({ drift, className }: { drift: Drift | 'ghost'; className?: string }) {
   return (
     <span
       className={cx(
         s.fadeIn,
-        'inline-flex h-[22px] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-2 text-[12px] font-medium leading-4',
-        drift === 'changed' && 'bg-vx-surface-3 text-vx-text-2',
-        drift === 'gone' && 'bg-vx-danger-wash text-vx-del-fg',
-        drift === 'ghost' && 'border border-dashed border-vx-hair-dash text-vx-text-4',
+        'inline-flex h-[18px] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-vx-xs border px-1.5 font-mono text-[11px] font-medium leading-4',
+        drift === 'changed' && 'border-vx-hair-strong bg-vx-surface-2 text-vx-text-2',
+        drift === 'gone' && 'border-vx-danger-edge bg-vx-danger-wash text-vx-danger',
+        drift === 'ghost' && 'border-dashed border-vx-hair-dash text-vx-text-3',
         className,
       )}
     >
-      {drift !== 'ghost' ? <span aria-hidden className={cx('h-1.5 w-1.5 shrink-0 rounded-full', drift === 'gone' ? 'bg-vx-danger' : 'bg-vx-tick')} /> : null}
+      {drift !== 'ghost' ? <span aria-hidden className={cx('h-1.5 w-1.5 shrink-0 rounded-full', drift === 'gone' ? 'bg-vx-danger' : 'bg-vx-text-3')} /> : null}
       {drift === 'changed' ? 'Changed since' : drift === 'gone' ? 'Gone now' : 'Not here yet'}
     </span>
   );
@@ -116,7 +118,7 @@ const stop = {
   onDoubleClick: (e: React.MouseEvent) => e.stopPropagation(),
 };
 
-/** Hover actions: Download · Share · Versions (files) · More. 32 px icon buttons. */
+/** Hover actions: Download · Share · Versions (files) · More. 28 px icon buttons, r4. */
 export function RowActions({ entry, className }: { entry: FileEntry; className?: string }) {
   const ctx = useDriveCtx();
   const isFile = entry.type === 'file';
@@ -125,41 +127,41 @@ export function RowActions({ entry, className }: { entry: FileEntry; className?:
     <span className={cx('flex items-center justify-end', className)}>
       <Tooltip label={isFile ? 'Download' : 'Download .zip'} kbd="D">
         <IconButton size="sm" label={isFile ? `Download ${entry.name}` : `Download ${entry.name} as .zip`} nativeTitle={false} tabIndex={-1} className={btn} {...stop} onClick={(e) => { e.stopPropagation(); ctx.cmd.download([entry]); }}>
-          <Download size={18} strokeWidth={1.75} aria-hidden />
+          <Download size={16} strokeWidth={1.75} aria-hidden />
         </IconButton>
       </Tooltip>
       <Tooltip label={ctx.past ? 'Share pinned link' : 'Share'} kbd="S">
         <IconButton size="sm" label={`Share ${entry.name}`} nativeTitle={false} tabIndex={-1} className={btn} {...stop} onClick={(e) => { e.stopPropagation(); ctx.cmd.share(entry); }}>
-          <Share2 size={18} strokeWidth={1.75} aria-hidden />
+          <Share2 size={16} strokeWidth={1.75} aria-hidden />
         </IconButton>
       </Tooltip>
       {isFile ? (
         <Tooltip label="Versions" kbd="⇧H">
           <IconButton size="sm" label={`Versions of ${entry.name}`} nativeTitle={false} tabIndex={-1} className={btn} {...stop} onClick={(e) => { e.stopPropagation(); ctx.cmd.versions(entry); }}>
-            <Clock size={18} strokeWidth={1.75} aria-hidden />
+            <Clock size={16} strokeWidth={1.75} aria-hidden />
           </IconButton>
         </Tooltip>
       ) : (
-        <span className="w-8 shrink-0" aria-hidden />
+        <span className="w-7 shrink-0" aria-hidden />
       )}
       <Tooltip label="More actions">
         <IconButton size="sm" label={`Actions for ${entry.name}`} nativeTitle={false} tabIndex={-1} className={btn} {...stop} onClick={(e) => { e.stopPropagation(); ctx.onMenuButton(e, entry); }}>
-          <MoreHorizontal size={18} strokeWidth={1.75} aria-hidden />
+          <MoreHorizontal size={16} strokeWidth={1.75} aria-hidden />
         </IconButton>
       </Tooltip>
     </span>
   );
 }
 
-/** Shared visual state of a row or card. */
+/**
+ * Shared visual state of a row or card (UNIFY-SPEC §5): hover = raise; selected = selection fill
+ * (rows add a 2 px accent bar on the left, `s.selBar`); drop target = accent-wash + a 1 px
+ * accent-edge inset. The keyboard-focus ring (violet) comes from drive.module.css, only while the
+ * list itself has keyboard focus, so a click never paints a ring.
+ */
 export function itemTone(o: { selected: boolean; focused: boolean; dropTarget: boolean; dragging: boolean }) {
   return cx(
-    o.dropTarget
-      ? 'bg-vx-accent-wash text-vx-on-accent-wash shadow-[inset_0_0_0_2px_var(--vx-accent-edge)]'
-      : o.selected
-        ? 'bg-vx-selection text-vx-on-selection'
-        : 'hover:bg-vx-hover',
-    o.focused && !o.dropTarget && 'shadow-[inset_0_0_0_2px_var(--vx-accent-edge)]',
+    o.dropTarget ? cx('bg-vx-accent-wash text-vx-on-accent-wash', s.dropOn) : o.selected ? 'bg-vx-selection text-vx-on-selection' : 'hover:bg-vx-raise',
     o.dragging && 'opacity-40',
   );
 }
@@ -167,6 +169,9 @@ export function itemTone(o: { selected: boolean; focused: boolean; dropTarget: b
 function FileRowImpl({ entry, style }: { entry: FileEntry; style?: React.CSSProperties }) {
   const ctx = useDriveCtx();
   const selected = ctx.selection.has(entry.path);
+  // The row whose preview / versions panel is open is marked like a selection, so the panel has a home.
+  const open = useVx((st) => st.panel?.path === entry.path);
+  const lit = selected || open;
   const focused = ctx.focus === entry.path;
   const drift = ctx.drift?.get(entry.path);
   const pending = ctx.pending[entry.path];
@@ -176,7 +181,7 @@ function FileRowImpl({ entry, style }: { entry: FileEntry; style?: React.CSSProp
   const dropTarget = ctx.dropDir === entry.path;
   const renaming = ctx.renaming === entry.path;
   const phone = ctx.density === 'phone';
-  const meta = selected ? 'text-vx-on-selection' : 'text-vx-text-3';
+  const meta = lit ? 'text-vx-on-selection' : 'text-vx-text-3';
   const modified = entry.mtime ? formatRelative(entry.mtime) : '—';
   // Compact columns are 120 px: drop a trailing time at the date boundary ("8 Dec 2025 08:57"
   // → "8 Dec 2025") instead of clipping mid-string. The full stamp stays in the tooltip.
@@ -187,7 +192,7 @@ function FileRowImpl({ entry, style }: { entry: FileEntry; style?: React.CSSProp
   ) : (
     <MiddleName
       name={entry.name}
-      className={cx(phone ? 'text-[15px] leading-5' : 'text-[14px] leading-5', 'font-medium', selected ? 'text-vx-on-selection' : drift === 'gone' ? 'text-vx-text-2' : 'text-vx-text-1')}
+      className={cx(phone ? 'text-[15px] leading-5' : 'text-[14px] leading-5', 'font-medium', lit ? 'text-vx-on-selection' : drift === 'gone' ? 'text-vx-text-2' : 'text-vx-text-1')}
     />
   );
 
@@ -203,6 +208,7 @@ function FileRowImpl({ entry, style }: { entry: FileEntry; style?: React.CSSProp
     role: 'option' as const,
     'aria-selected': selected,
     'data-focused': focused || undefined,
+    'data-open': open || undefined,
     id: `vx-row-${encodeURIComponent(entry.path)}`,
     'data-path': entry.path,
     'data-vx-drop-dir': isDir && !ctx.past ? entry.path : undefined,
@@ -219,8 +225,10 @@ function FileRowImpl({ entry, style }: { entry: FileEntry; style?: React.CSSProp
   };
   const frame = cx(
     s.item,
-    'group relative grid cursor-default select-none items-center rounded-vx-sm transition-colors duration-[120ms] ease-vx',
-    itemTone({ selected, focused, dropTarget, dragging }),
+    s.row,
+    'group relative grid cursor-default select-none items-center transition-colors duration-[120ms] ease-vx',
+    itemTone({ selected: lit, focused, dropTarget, dragging }),
+    lit && !dropTarget && s.selBar,
     removing && s.removing,
   );
 
@@ -240,7 +248,7 @@ function FileRowImpl({ entry, style }: { entry: FileEntry; style?: React.CSSProp
         <FileIcon name={entry.name} type={entry.type} size={28} />
         <span className="flex min-w-0 flex-col gap-0.5 pr-1">
           <span className="flex min-w-0 items-center gap-2">{name}</span>
-          <span className={cx('flex min-w-0 items-center gap-2 text-[13px] leading-[18px] tabular-nums', meta)}>
+          <span className={cx('vx-meta flex min-w-0 items-center gap-2', meta)}>
             {drift && !renaming ? (
               <DriftChip drift={drift} />
             ) : (
@@ -262,7 +270,7 @@ function FileRowImpl({ entry, style }: { entry: FileEntry; style?: React.CSSProp
             ctx.onMenuButton(e, entry);
           }}
         >
-          <MoreVertical size={20} strokeWidth={1.75} aria-hidden />
+          <MoreVertical size={18} strokeWidth={1.75} aria-hidden />
         </IconButton>
         {pending && pending !== 'delete' ? <span className={s.pendingLine} aria-hidden /> : null}
       </div>
@@ -271,12 +279,12 @@ function FileRowImpl({ entry, style }: { entry: FileEntry; style?: React.CSSProp
 
   const wide = ctx.density === 'wide';
   return (
-    <div {...common} style={{ ...style, gridTemplateColumns: listCols(ctx.density) }} className={cx(frame, wide ? 'pr-1' : 'pr-2')}>
+    <div {...common} style={{ ...style, gridTemplateColumns: listCols(ctx.density) }} className={cx(frame, 'pl-1', wide ? 'pr-2' : 'pr-3')}>
       <span className="flex items-center justify-center">
         <RowCheck on={selected} onToggle={() => ctx.onCheck(entry)} label={`Select ${entry.name}`} className={cx(!selected && s.reveal, s.revealCheck)} />
       </span>
       <span className="flex min-w-0 items-center gap-3 pr-4">
-        <FileIcon name={entry.name} type={entry.type} size={24} />
+        <FileIcon name={entry.name} type={entry.type} size={20} />
         {name}
         {extras}
       </span>
@@ -310,12 +318,12 @@ export function GhostRow({ entry, style }: { entry: FileEntry; style?: React.CSS
   return (
     <div
       style={{ ...style, gridTemplateColumns: phone ? '40px minmax(0,1fr) 44px' : listCols(ctx.density) }}
-      className={cx('grid items-center rounded-vx-sm text-vx-text-4', phone ? 'pl-2' : 'pr-2')}
+      className={cx(s.row, 'grid items-center text-vx-text-4', phone ? 'pl-2' : 'pl-1 pr-3')}
       aria-disabled
     >
       {phone ? null : <span />}
       <span className={cx('flex min-w-0 items-center gap-3', !phone && 'pr-4')}>
-        <FileIcon name={entry.name} type={entry.type} size={phone ? 28 : 24} muted />
+        <FileIcon name={entry.name} type={entry.type} size={phone ? 28 : 20} muted />
         {phone ? null : <MiddleName name={entry.name} className="text-[14px] font-medium leading-5" />}
         {phone ? null : <DriftChip drift="ghost" />}
       </span>
@@ -356,13 +364,13 @@ export function AddedLaterFooter({
       style={style}
       onClick={onToggle}
       aria-expanded={open}
-      className="vx-inset-focus flex h-10 w-full min-w-0 items-center gap-2 rounded-vx-sm border border-dashed border-vx-hair-dash px-4 text-left text-[13px] leading-5 text-vx-text-3 transition-colors duration-[120ms] hover:bg-vx-hover hover:text-vx-text-1"
+      className="vx-inset-focus flex h-9 w-full min-w-0 items-center gap-2 rounded-vx-sm border border-dashed border-vx-hair-dash px-3 text-left text-[13px] leading-5 text-vx-text-3 transition-colors duration-[120ms] hover:bg-vx-raise hover:text-vx-text-1"
     >
       <span className="shrink-0 font-medium text-vx-text-2">
         + {count} {count === 1 ? 'item' : 'items'} added later
       </span>
       {shown.length ? (
-        <span className="min-w-0 truncate text-vx-text-4">
+        <span className="min-w-0 truncate text-vx-text-3">
           · {shown.join(', ')}
           {names.length > shown.length ? ', …' : ''}
         </span>

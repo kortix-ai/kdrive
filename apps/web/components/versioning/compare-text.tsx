@@ -4,12 +4,10 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import useSWR from 'swr';
 import { previewKind, type FileSide } from '@volumes/shared';
 import { ArrowRight, ChevronsUpDown } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cx } from '@/components/ui/cx';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ApiError } from '@/lib/api/client';
-import { formatTimeTravelLabel } from '@/lib/format';
 import { useHotkeys } from '@/lib/keys';
 import { errorText } from '@/lib/versioning/hooks';
 import {
@@ -23,7 +21,7 @@ import {
   type SplitRow,
   type UnifiedRow,
 } from '@/lib/versioning/text-diff';
-import { SideDisc, SummaryBar, type TextMode } from './compare-header';
+import { DiffTag, SideDisc, SummaryBar, sideLabel, type CompareSides, type TextMode } from './compare-header';
 import { CompareMeta } from './compare-meta';
 import { Bytes } from './readout';
 import './versioning.css';
@@ -72,8 +70,10 @@ const cellBase = 'min-w-0 whitespace-pre-wrap pr-3 font-mono text-[13px] leading
 const gutter = 'select-none pr-3 text-right font-mono text-[12px] leading-[22px] tabular-nums';
 const DEL = 'bg-vx-del-bg';
 const ADD = 'bg-vx-add-bg';
-const DEL_RULE = 'shadow-[inset_3px_0_0_var(--vx-del-fg)]';
-const ADD_RULE = 'shadow-[inset_3px_0_0_var(--vx-add-fg)]';
+const DEL_RULE = 'shadow-[inset_2px_0_0_var(--vx-del-fg)]';
+const ADD_RULE = 'shadow-[inset_2px_0_0_var(--vx-add-fg)]';
+/** Line numbers are information: text-3 on unchanged lines, never text-4. */
+const NUM_SAME = 'text-vx-text-3';
 
 function SideCells({ side, kind, edge }: { side: LineSide | null; kind: 'same' | 'del' | 'add'; edge?: boolean }) {
   if (!side) {
@@ -86,7 +86,7 @@ function SideCells({ side, kind, edge }: { side: LineSide | null; kind: 'same' |
   }
   const tone = kind === 'del' ? DEL : kind === 'add' ? ADD : '';
   const rule = kind === 'del' ? DEL_RULE : kind === 'add' ? ADD_RULE : '';
-  const num = kind === 'del' ? 'text-vx-del-fg' : kind === 'add' ? 'text-vx-add-fg' : 'text-vx-text-4';
+  const num = kind === 'del' ? 'text-vx-del-fg' : kind === 'add' ? 'text-vx-add-fg' : NUM_SAME;
   return (
     <>
       <span className={cx(gutter, tone, rule, num)}>{side.num}</span>
@@ -97,22 +97,22 @@ function SideCells({ side, kind, edge }: { side: LineSide | null; kind: 'same' |
   );
 }
 
-/** Pane header (36 px, surface-2): side disc, date, size — or "Not present at this version". */
-function PaneHead({ which, side, edge, className }: { which: 'A' | 'B'; side: FileSide | null; edge?: boolean; className?: string }) {
+/** Pane header (36 px, surface-2): side disc, label (the date, or "Now"; Inter 13/600), Mono size — or "Not present at this version". */
+function PaneHead({ which, side, edge, label, className }: { which: 'A' | 'B'; side: FileSide | null; edge?: boolean; label?: CompareSides['a']; className?: string }) {
   return (
     <div
       className={cx(
-        'sticky top-0 z-[1] flex h-9 min-w-0 items-center gap-2 border-b border-vx-hair bg-vx-surface-2 px-4 text-[12px] leading-4 text-vx-text-3',
+        'sticky top-0 z-[1] flex h-9 min-w-0 items-center gap-2 border-b border-vx-hair bg-vx-surface-2 px-4 text-[13px] leading-4 text-vx-text-3',
         edge && 'border-r',
         className,
       )}
     >
-      <SideDisc which={which} />
+      <SideDisc which={which} tone={label?.tone} />
       {side ? (
         <>
-          <span className="truncate font-semibold tabular-nums text-vx-text-1">{formatTimeTravelLabel(side.createdAt)}</span>
+          <span className="truncate font-semibold tabular-nums text-vx-text-1">{sideLabel(side, label?.label)}</span>
           <span aria-hidden>·</span>
-          <Bytes n={side.size} />
+          <Bytes n={side.size} className="font-mono text-[12px]" />
         </>
       ) : (
         <span className="truncate">Not present at this version</span>
@@ -124,7 +124,7 @@ function PaneHead({ which, side, edge, className }: { which: 'A' | 'B'; side: Fi
 const KIND_LABEL: Record<string, string> = { markdown: 'Markdown', json: 'JSON', code: 'Code', text: 'Text', csv: 'CSV' };
 
 /** Text / code / Markdown / JSON: side-by-side (or unified) line diff with word highlights, folded context, minimap. */
-export function CompareText({ a, b, path, mode }: { a: FileSide | null; b: FileSide | null; path: string; mode: TextMode }) {
+export function CompareText({ a, b, path, mode, sides }: { a: FileSide | null; b: FileSide | null; path: string; mode: TextMode; sides?: CompareSides }) {
   const ta = useSideText(a);
   const tb = useSideText(b);
   const loading = (a && ta.isLoading) || (b && tb.isLoading);
@@ -228,7 +228,7 @@ export function CompareText({ a, b, path, mode }: { a: FileSide | null; b: FileS
     return (
       <div className="flex h-full min-h-0 flex-col" aria-busy>
         <SummaryBar>Comparing…</SummaryBar>
-        <div className="grid flex-1 grid-cols-2 gap-px bg-vx-hair-soft max-[720px]:grid-cols-1">
+        <div className="grid flex-1 grid-cols-2 gap-px bg-vx-hair max-[720px]:grid-cols-1">
           {[0, 1].map((k) => (
             <div key={k} className="bg-vx-surface p-5">
               {Array.from({ length: 12 }, (_, i) => (
@@ -278,16 +278,17 @@ export function CompareText({ a, b, path, mode }: { a: FileSide | null; b: FileS
     <span className="truncate">These versions are identical.</span>
   ) : (
     <>
-      {diff.added ? <Badge tone="add">+{diff.added.toLocaleString('en-US')} {diff.added === 1 ? 'line' : 'lines'}</Badge> : null}
-      {diff.removed ? <Badge tone="del">−{diff.removed.toLocaleString('en-US')} {diff.removed === 1 ? 'line' : 'lines'}</Badge> : null}
-      <span className="truncate">
+      {diff.added ? <DiffTag tone="add">+{diff.added.toLocaleString('en-US')} {diff.added === 1 ? 'line' : 'lines'}</DiffTag> : null}
+      {diff.removed ? <DiffTag tone="del">−{diff.removed.toLocaleString('en-US')} {diff.removed === 1 ? 'line' : 'lines'}</DiffTag> : null}
+      {/* Phones keep the two diff tags; the prose would only be cut to "2…" beside Previous / Next. */}
+      <span className={cx('truncate', !!(diff.added || diff.removed) && 'max-[720px]:hidden')}>
         {diff.blocks.toLocaleString('en-US')} {diff.blocks === 1 ? 'change' : 'changes'} · {kindLabel} compared as text
       </span>
     </>
   );
   const nav = diff.blocks ? (
     <>
-      <span className="whitespace-nowrap tabular-nums max-[720px]:hidden">
+      <span className="whitespace-nowrap font-mono text-[12px] tabular-nums max-[720px]:hidden">
         {`Change ${Math.max(0, active) + 1} of ${diff.blocks}`}
       </span>
       <Button size="sm" variant="outline" kbd="[" disabled={active <= 0} onClick={() => jump(Math.max(0, active - 1))}>
@@ -300,13 +301,13 @@ export function CompareText({ a, b, path, mode }: { a: FileSide | null; b: FileS
   ) : null;
 
   const renderFold = (f: Fold, cols: string) => (
-    <div key={`fold-${f.start}`} className={cx('flex h-8 items-center justify-center', cols)}>
+    <div key={`fold-${f.start}`} className={cx('flex h-7 items-stretch', cols)}>
       <button
         type="button"
         onClick={() => setExpanded((s) => new Set(s).add(f.start))}
-        className="inline-flex h-7 items-center gap-1.5 rounded-full bg-vx-surface-3 px-3 text-[12px] font-medium leading-4 text-vx-text-2 transition-colors duration-[120ms] hover:bg-vx-pressed hover:text-vx-text-1"
+        className="vx-inset-focus inline-flex w-full items-center justify-center gap-1.5 border-y border-vx-hair-soft bg-vx-surface-2 font-mono text-[12px] leading-4 text-vx-text-3 transition-colors duration-[120ms] hover:bg-vx-raise hover:text-vx-text-1"
       >
-        <ChevronsUpDown size={14} strokeWidth={1.75} aria-hidden />
+        <ChevronsUpDown size={12} strokeWidth={1.75} aria-hidden />
         {f.count.toLocaleString('en-US')} unchanged {f.count === 1 ? 'line' : 'lines'}
       </button>
     </div>
@@ -329,14 +330,14 @@ export function CompareText({ a, b, path, mode }: { a: FileSide | null; b: FileS
     <div className="flex h-full min-h-0 flex-col">
       <SummaryBar right={nav}>{summary}</SummaryBar>
       {diff.identical && !diff.split.length ? (
-        <EmptyState className="flex-1" title="These versions are identical." body="Both are empty." />
+        <EmptyState art="history" className="flex-1" title="These versions are identical." body="Both are empty." />
       ) : (
         <div className="relative flex min-h-0 flex-1">
           <div ref={scroller} className="min-h-0 min-w-0 flex-1 overflow-auto">
             {mode === 'split' ? (
               <div className="grid grid-cols-[48px_minmax(0,1fr)_48px_minmax(0,1fr)] pb-4">
-                <PaneHead which="A" side={a} edge className="col-span-2" />
-                <PaneHead which="B" side={b} className="col-span-2" />
+                <PaneHead which="A" side={a} label={sides?.a} edge className="col-span-2" />
+                <PaneHead which="B" side={b} label={sides?.b} className="col-span-2" />
                 {shown.map((it) => {
                   if (typeof it !== 'number') return renderFold(it, 'col-span-4');
                   const r = diff.split[it];
@@ -353,19 +354,19 @@ export function CompareText({ a, b, path, mode }: { a: FileSide | null; b: FileS
               </div>
             ) : (
               <div className="grid grid-cols-[44px_44px_minmax(0,1fr)] pb-4">
-                <div className="sticky top-0 z-[1] col-span-3 flex h-9 min-w-0 items-center gap-2 border-b border-vx-hair bg-vx-surface-2 px-4 text-[12px] leading-4 text-vx-text-3">
-                  <SideDisc which="A" />
-                  <span className="truncate font-semibold tabular-nums text-vx-text-1">{a ? formatTimeTravelLabel(a.createdAt) : 'Not present'}</span>
+                <div className="sticky top-0 z-[1] col-span-3 flex h-9 min-w-0 items-center gap-2 border-b border-vx-hair bg-vx-surface-2 px-4 text-[13px] leading-4 text-vx-text-3">
+                  <SideDisc which="A" tone={sides?.a?.tone} />
+                  <span className="truncate font-semibold tabular-nums text-vx-text-1">{a ? sideLabel(a, sides?.a?.label) : 'Not present'}</span>
                   <ArrowRight size={14} strokeWidth={1.75} aria-hidden className="shrink-0" />
-                  <SideDisc which="B" />
-                  <span className="truncate font-semibold tabular-nums text-vx-text-1">{b ? formatTimeTravelLabel(b.createdAt) : 'Not present'}</span>
+                  <SideDisc which="B" tone={sides?.b?.tone} />
+                  <span className="truncate font-semibold tabular-nums text-vx-text-1">{b ? sideLabel(b, sides?.b?.label) : 'Not present'}</span>
                 </div>
                 {shown.map((it) => {
                   if (typeof it !== 'number') return renderFold(it, 'col-span-3');
                   const r = diff.unified[it];
                   const tone = r.type === 'del' ? DEL : r.type === 'add' ? ADD : '';
                   const rule = r.type === 'del' ? DEL_RULE : r.type === 'add' ? ADD_RULE : '';
-                  const num = r.type === 'del' ? 'text-vx-del-fg' : r.type === 'add' ? 'text-vx-add-fg' : 'text-vx-text-4';
+                  const num = r.type === 'del' ? 'text-vx-del-fg' : r.type === 'add' ? 'text-vx-add-fg' : NUM_SAME;
                   const start = r.block !== undefined && !blockStarts.has(r.block);
                   if (start && r.block !== undefined) blockStarts.add(r.block);
                   return (
@@ -404,8 +405,8 @@ export function CompareText({ a, b, path, mode }: { a: FileSide | null; b: FileS
                     // Proportional for long diffs; a short diff maps 1:1 onto its 22 px lines instead of stretching to the column.
                     style={{ top: `min(${top}%, ${m.first * 22}px)`, height: `min(${h}%, ${(m.last - m.first + 1) * 22}px)` }}
                   >
-                    {m.del ? <span className="min-h-0.5 w-full flex-1 rounded-[2px] bg-vx-del-fg" /> : null}
-                    {m.add ? <span className="min-h-0.5 w-full flex-1 rounded-[2px] bg-vx-add-fg" /> : null}
+                    {m.del ? <span className="min-h-0.5 w-full flex-1 rounded-vx-xs bg-vx-del-fg" /> : null}
+                    {m.add ? <span className="min-h-0.5 w-full flex-1 rounded-vx-xs bg-vx-add-fg" /> : null}
                   </button>
                 );
               })}
