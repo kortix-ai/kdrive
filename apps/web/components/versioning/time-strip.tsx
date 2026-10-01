@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { format } from 'date-fns';
 import { ArrowLeftRight, Bookmark, ClockFading } from 'lucide-react';
 import type { TimelineEntry } from '@volumes/shared';
+import { AgentBadge } from '@/components/agents/agent-badge';
 import { Button } from '@/components/ui/button';
 import { cx } from '@/components/ui/cx';
 import { IconButton } from '@/components/ui/icon-button';
@@ -646,6 +647,11 @@ function DotCard({ e, v, x, anchor }: { e: TimelineEntry; v: number; x: number; 
         {tooltipTime(e.createdAt)} · v{v}
       </div>
       <div className="mt-0.5 text-[14px] font-semibold leading-5 text-vx-text-1">{actionText(e.summary, e.restoredTo)}</div>
+      {e.agent ? (
+        <div className="vx-meta mt-1 flex min-w-0 items-center gap-1.5 text-vx-text-3">
+          By <AgentBadge agent={e.agent} className="min-w-0" />
+        </div>
+      ) : null}
       <div className="vx-meta mt-0.5 flex flex-wrap items-center gap-x-1 text-vx-text-3">
         <Delta n={e.bytesDelta} />
         <span>· {plural(e.itemCount, 'item')} ·</span>

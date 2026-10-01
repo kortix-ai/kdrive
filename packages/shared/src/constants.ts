@@ -35,3 +35,19 @@ export const RETENTION_COPY = 'Every version from the last 7 days, your newest 5
 export const CHECKPOINT_TAG_PREFIX = 'cp-';
 export const LINK_TAG_PREFIX = 'ln-';
 export const VOLUME_NAME_PREFIX = 'vx-';
+
+/** AI agent access (MCP). */
+export const AGENT_TOKEN_PREFIX = 'vx_pat_';
+export const AGENT_TOKEN_MAX_DAYS = 365;
+/** Text returned by one MCP read call, across all files. */
+export const MCP_TEXT_READ_MAX = 1 * MiB;
+/** Decoded bytes per file in one write_changes op. */
+export const MCP_WRITE_FILE_MAX = 10 * MiB;
+/** Decoded bytes across one write_changes call. */
+export const MCP_WRITE_BATCH_MAX = 24 * MiB;
+export const MCP_BATCH_OPS_MAX = 200;
+export const PROPOSAL_TTL_DAYS = 30;
+/** Open proposals per user. */
+export const PROPOSAL_OPEN_MAX = 50;
+/** Staged bytes per user, across all open proposals. */
+export const PROPOSAL_STAGED_MAX = 256 * MiB;

@@ -10,6 +10,7 @@
     "test": "bun test lib components"
   },
   "dependencies": {
+    "@better-auth/oauth-provider": "1.6.24",
     "@tanstack/react-virtual": "^3",
     "@volumes/shared": "workspace:*",
     "better-auth": "1.6.24",

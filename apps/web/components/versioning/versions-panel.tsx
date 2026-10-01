@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeftRight, Download, Eye, RotateCcw } from 'lucide-react';
 import { basename, type FileVersion } from '@volumes/shared';
+import { AgentBadge } from '@/components/agents/agent-badge';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cx } from '@/components/ui/cx';
@@ -197,6 +198,7 @@ function Versions({ path }: { path: string }) {
                         </span>
                         <span aria-hidden>·</span>
                         <CommitId id={v.commitId} className="shrink-0" />
+                        {v.agent ? <AgentBadge agent={v.agent} className="ml-0.5 min-w-0" /> : null}
                       </div>
                     </div>
                     <Bytes n={ghost && v.size === 0 ? null : v.size} className="vx-meta text-right text-vx-text-3" />

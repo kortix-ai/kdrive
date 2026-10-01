@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Check, LogOut } from 'lucide-react';
 import { ActivitySection } from '@/components/settings/activity-section';
+import { AgentsCard } from '@/components/settings/agents-card';
 import { DangerZone } from '@/components/settings/danger-zone';
 import { ProfileSection } from '@/components/settings/profile-section';
 import { Section } from '@/components/settings/section';
@@ -173,6 +174,7 @@ export default function SettingsPage() {
       <AppearanceSection />
       <StorageSection fallback={me.usage} />
       <WorkspacesSection />
+      <AgentsCard />
       <ActivitySection />
       <ShortcutsSection />
       <SessionSection />

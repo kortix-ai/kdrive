@@ -4,7 +4,7 @@
 
 import { createHash } from 'node:crypto';
 import { and, asc, desc, eq, gt, inArray, isNotNull, lt, lte, ne, or, sql } from 'drizzle-orm';
-import type { ActionKind, ActionSummary, PathOp } from '@volumes/shared';
+import type { ActionKind, ActionSummary, AgentRef, PathOp } from '@volumes/shared';
 import { db } from '../db/client';
 import { actionPaths, actions, uploads, workspaces, type ActionPathRow, type ActionRow } from '../db/schema';
 import { newId } from '../lib/ids';
@@ -17,9 +17,14 @@ import type { WorkspaceCtx } from '../types';
 
 export type { ActionPathRow, ActionRow };
 
+/** Who performs an action: the signed-in user (default) or an AI agent acting for them. */
+export type Actor = { kind: 'user' } | { kind: 'agent'; name: string; credential: string; proposalId?: string };
+
 export interface ActionCtx {
   ws: WorkspaceCtx;
   userId: string;
+  /** Absent = the user. */
+  actor?: Actor;
 }
 
 export interface PathChange {
@@ -77,6 +82,15 @@ async function insertPaths(tx: Pick<typeof db, 'insert'>, actionId: string, wsId
   }
 }
 
+/** The agent that made an action (null for the user's own actions). */
+export function agentOf(
+  row: Pick<ActionRow, 'actorKind' | 'agentName' | 'agentCredential'> | null | undefined,
+): AgentRef | null {
+  if (!row || row.actorKind !== 'agent' || !row.agentCredential) return null;
+  const credential = row.agentCredential;
+  return { kind: credential.startsWith('pat:') ? 'token' : 'oauth', name: row.agentName ?? 'AI agent', credential };
+}
+
 export function toSummary(row: ActionRow): ActionSummary {
   return {
     id: row.id,
@@ -90,6 +104,8 @@ export function toSummary(row: ActionRow): ActionSummary {
     bytesDelta: row.bytesDelta,
     undoable: row.status === 'committed',
     restoredTo: restoredToOf(row),
+    agent: agentOf(row),
+    proposalId: row.proposalId ?? null,
   };
 }
 
@@ -106,6 +122,7 @@ export function restoredToOf(row: Pick<ActionRow, 'kind' | 'meta'>): string | nu
 export async function recordIntent(ctx: ActionCtx, spec: ActionSpec): Promise<{ actionId: string; baseCommitId: string }> {
   const head = (await getStore().getVolume(ctx.ws.volumeId)).headCommitId;
   const actionId = newId();
+  const agent = ctx.actor?.kind === 'agent' ? ctx.actor : null;
   await db.transaction(async (tx) => {
     await tx.insert(actions).values({
       id: actionId,
@@ -117,6 +134,10 @@ export async function recordIntent(ctx: ActionCtx, spec: ActionSpec): Promise<{ 
       baseCommitId: head,
       undoOfActionId: spec.undoOfActionId ?? null,
       meta: spec.meta ?? {},
+      actorKind: agent ? 'agent' : 'user',
+      agentName: agent?.name ?? null,
+      agentCredential: agent?.credential ?? null,
+      proposalId: agent?.proposalId ?? null,
     });
     if (spec.paths.length) await insertPaths(tx, actionId, ctx.ws.id, spec.paths);
   });
@@ -327,6 +348,29 @@ export async function getAction(wsId: string, actionId: string): Promise<ActionR
     .select()
     .from(actions)
     .where(and(eq(actions.workspaceId, wsId), eq(actions.id, actionId)));
+  return row ?? null;
+}
+
+/**
+ * The newest committed action of this agent credential in a workspace that is
+ * not itself an undo and has not been undone yet (the `undo` tool's default).
+ */
+export async function lastAgentAction(wsId: string, credential: string): Promise<ActionRow | null> {
+  const [row] = await db
+    .select()
+    .from(actions)
+    .where(
+      and(
+        eq(actions.workspaceId, wsId),
+        eq(actions.actorKind, 'agent'),
+        eq(actions.agentCredential, credential),
+        eq(actions.status, 'committed'),
+        ne(actions.kind, 'undo'),
+        sql`NOT EXISTS (SELECT 1 FROM actions u WHERE u.workspace_id = ${wsId} AND u.undo_of_action_id = ${actions.id} AND u.status = 'committed')`,
+      ),
+    )
+    .orderBy(desc(actions.createdAt), desc(actions.id))
+    .limit(1);
   return row ?? null;
 }
 

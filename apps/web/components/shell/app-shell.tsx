@@ -16,6 +16,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { cx } from '@/components/ui/cx';
 import { isApiError } from '@/lib/api/client';
 import { useMe } from '@/lib/api/hooks';
+import { useDeepLink } from '@/lib/deep-link';
 import { useHotkeys } from '@/lib/keys';
 import { endSession } from '@/lib/session';
 import { useVx } from '@/lib/store';
@@ -50,6 +51,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (me) setMe(me);
   }, [me, setMe]);
+
+  // Links from AI agents carry ?ws= (and ?file= on /drive/**).
+  useDeepLink();
 
   // The drawer closes on navigation and on Esc.
   useEffect(() => setDrawer(false), [pathname]);
@@ -91,6 +95,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       'g d': () => router.push('/drive'),
       'g c': () => router.push('/checkpoints'),
       'g x': () => router.push('/recently-deleted'),
+      'g p': () => router.push('/proposals'),
       'g ,': () => router.push('/settings'),
     },
     { enabled: !!me },
@@ -142,6 +147,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     );
   }
 
+  // The history strip belongs to the drive only (never on /proposals/**, whose review page is full height).
   const onDrive = pathname === '/drive' || pathname.startsWith('/drive/');
   const sheetless = isSheetless(pathname);
   return (

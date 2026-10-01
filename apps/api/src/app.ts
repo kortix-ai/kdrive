@@ -6,17 +6,22 @@ import { audit } from './lib/audit';
 import { csrfGuard } from './middleware/csrf';
 import { errorResponse, onError } from './middleware/errors';
 import { env } from './env';
+import { handleMcp } from './mcp/http';
 import { checkRateLimit, clientIp, isLoopback, limits, socketIp } from './middleware/rate-limit';
 import { requireAdmin, requireUser, sessionMiddleware } from './middleware/session';
 import { requireWorkspace } from './middleware/workspace';
 import { accountRoutes } from './routes/account';
 import { adminRoutes } from './routes/admin';
+import { agentTokensRoutes } from './routes/agent-tokens';
+import { agentsOauthRoutes } from './routes/agents-oauth';
 import { checkpointsRoutes } from './routes/checkpoints';
 import { deletedRoutes } from './routes/deleted';
 import { filesRoutes } from './routes/files';
 import { healthRoutes } from './routes/health';
 import { linksRoutes } from './routes/links';
 import { meRoutes } from './routes/me';
+import { oauthMetaRoutes } from './routes/oauth-meta';
+import { proposalsRoutes } from './routes/proposals';
 import { publicRoutes } from './routes/public';
 import { restoreRoutes } from './routes/restore';
 import { timelineRoutes } from './routes/timeline';
@@ -60,6 +65,11 @@ export function createApp(): Hono<AppEnv> {
     if (!c.res.headers.has('Referrer-Policy')) c.header('Referrer-Policy', 'same-origin');
     if (!c.res.headers.has('Cache-Control') && c.req.path.startsWith('/api/')) c.header('Cache-Control', 'no-store');
   });
+
+  // AI agents: /mcp and the OAuth discovery documents live outside /api, so no
+  // cookie session, CSRF guard or requireUser applies (bearer credentials only).
+  app.all('/mcp', (c) => handleMcp(c.req.raw, c));
+  app.route('/', oauthMetaRoutes);
 
   app.use('/api/*', csrfGuard);
 
@@ -123,6 +133,9 @@ export function createApp(): Hono<AppEnv> {
   app.route('/api/w/:ws', checkpointsRoutes);
   app.route('/api/w/:ws', deletedRoutes);
   app.route('/api/w/:ws', linksRoutes);
+  app.route('/api/w/:ws', proposalsRoutes);
+  app.route('/api/agents', agentTokensRoutes);
+  app.route('/api/agents', agentsOauthRoutes);
   app.route('/api/public', publicRoutes);
   app.route('/api/workspaces', workspacesRoutes);
   app.route('/api/admin', adminRoutes);

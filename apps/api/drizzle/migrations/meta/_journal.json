@@ -29,6 +29,27 @@
       "when": 1790633879058,
       "tag": "0003_quota_reservations",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790770338207,
+      "tag": "0004_oauth_provider",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790770382882,
+      "tag": "0005_agent_access",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790770423657,
+      "tag": "0006_proposals",
+      "breakpoints": true
     }
   ]
 }

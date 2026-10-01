@@ -4,16 +4,18 @@ import {
   bigint,
   bigserial,
   boolean,
+  customType,
   index,
   integer,
   jsonb,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import type { ActionKind, ActionStatus, PathOp } from '@volumes/shared';
-import { bauthUser } from '../auth/schema';
+import { bauthOAuthClient, bauthUser } from '../auth/schema';
 
 export * from '../auth/schema';
 
@@ -79,8 +81,15 @@ export const actions = pgTable(
     meta: jsonb('meta').$type<Record<string, unknown>>().notNull().default({}),
     createdAt: timestamp('created_at', tz).defaultNow().notNull(),
     finalizedAt: timestamp('finalized_at', tz),
+    // Attribution: who made the action. 'agent' rows carry the agent's display
+    // name and credential ('pat:<tokenId>' | 'oauth:<clientId>').
+    actorKind: text('actor_kind').$type<'user' | 'agent'>().notNull().default('user'),
+    agentName: text('agent_name'),
+    agentCredential: text('agent_credential'),
+    proposalId: text('proposal_id'), // set on the action that accepted a proposal (no FK: avoids a cycle)
   },
   (t) => [
+    index('actions_ws_agent_idx').on(t.workspaceId, t.agentCredential).where(sql`actor_kind = 'agent'`),
     index('actions_ws_created_idx').on(t.workspaceId, t.createdAt.desc()),
     index('actions_ws_head_idx').on(t.workspaceId, t.headCommitId),
     index('actions_commit_ids_gin').using('gin', t.commitIds),
@@ -253,6 +262,143 @@ export const quotaReservations = pgTable(
   (t) => [index('quota_reservations_user_idx').on(t.userId, t.expiresAt), index('quota_reservations_scope_idx').on(t.scope, t.expiresAt)],
 );
 
+export type AgentScope = 'drive:read' | 'drive:propose' | 'drive:write';
+export type AgentMode = 'review' | 'direct';
+
+/** Personal access tokens for AI agents (vx_pat_…). Only the SHA-256 of the secret is stored. */
+export const agentTokens = pgTable(
+  'agent_tokens',
+  {
+    id: text('id').primaryKey(), // ulid
+    userId: text('user_id')
+      .notNull()
+      .references(() => bauthUser.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(), // 1..60, shown as the agent name
+    tokenHash: text('token_hash').notNull().unique(), // sha256 hex of the full plaintext
+    tokenPrefix: text('token_prefix').notNull(), // first 12 chars, e.g. "vx_pat_Q3fZ" (display only)
+    scope: text('scope').$type<AgentScope>().notNull(),
+    mode: text('mode').$type<AgentMode>().notNull().default('review'),
+    workspaceId: text('workspace_id').references(() => workspaces.id, { onDelete: 'cascade' }), // null = all workspaces
+    expiresAt: timestamp('expires_at', tz).notNull(),
+    lastUsedAt: timestamp('last_used_at', tz),
+    lastUsedIp: text('last_used_ip'),
+    revokedAt: timestamp('revoked_at', tz),
+    createdAt: timestamp('created_at', tz).defaultNow().notNull(),
+  },
+  (t) => [index('agent_tokens_user_idx').on(t.userId, t.createdAt.desc())],
+);
+
+/** Our side of an OAuth grant: what the user chose on the consent page. One row per (user, client). */
+export const agentGrants = pgTable(
+  'agent_grants',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => bauthUser.id, { onDelete: 'cascade' }),
+    clientId: text('client_id')
+      .notNull()
+      .references(() => bauthOAuthClient.clientId, { onDelete: 'cascade' }),
+    clientName: text('client_name').notNull(), // snapshot of client_name at consent (<= 80, sanitised)
+    scope: text('scope').$type<AgentScope>().notNull(), // highest scope accepted
+    mode: text('mode').$type<AgentMode>().notNull().default('review'),
+    workspaceId: text('workspace_id').references(() => workspaces.id, { onDelete: 'cascade' }),
+    lastUsedAt: timestamp('last_used_at', tz),
+    revokedAt: timestamp('revoked_at', tz),
+    createdAt: timestamp('created_at', tz).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', tz).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex('agent_grants_user_client_idx').on(t.userId, t.clientId)],
+);
+
+const bytea = customType<{ data: Uint8Array; driverData: Buffer }>({
+  dataType: () => 'bytea',
+  toDriver: (v) => Buffer.from(v.buffer, v.byteOffset, v.byteLength),
+  fromDriver: (v) => new Uint8Array(v),
+});
+
+export type ProposalStatus = 'open' | 'accepted' | 'partial' | 'discarded' | 'expired';
+export type ProposalOpKind = 'write' | 'mkdir' | 'move' | 'copy' | 'delete';
+export type ProposalFileStatus = 'pending' | 'accepted' | 'discarded';
+
+/** A staged batch of changes from an agent in review mode, waiting for the user to accept or discard it. */
+export const proposals = pgTable(
+  'proposals',
+  {
+    id: text('id').primaryKey(), // ulid
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => bauthUser.id, { onDelete: 'cascade' }),
+    agentName: text('agent_name').notNull(),
+    agentCredential: text('agent_credential').notNull(), // 'pat:<id>' | 'oauth:<clientId>'
+    message: text('message').notNull().default(''), // the agent's one-line description (<= 500)
+    status: text('status').$type<ProposalStatus>().notNull().default('open'),
+    baseCommitId: text('base_commit_id').notNull(), // last_seen_commit_id of the write_changes call
+    checkpointName: text('checkpoint_name'), // set when the agent asked for a checkpoint
+    opCount: integer('op_count').notNull(),
+    bytesTotal: bigint('bytes_total', { mode: 'number' }).notNull().default(0), // staged content bytes
+    acceptedActionIds: text('accepted_action_ids')
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    decidedAt: timestamp('decided_at', tz),
+    error: text('error'),
+    expiresAt: timestamp('expires_at', tz).notNull(), // created + 30 days
+    createdAt: timestamp('created_at', tz).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', tz).defaultNow().notNull(),
+  },
+  (t) => [
+    index('proposals_ws_status_idx').on(t.workspaceId, t.status, t.createdAt.desc()),
+    index('proposals_user_open_idx').on(t.userId).where(sql`status = 'open'`),
+  ],
+);
+
+/** One row per op of the batch, in order. `path` is the destination (write/mkdir/move/copy) or the deleted path. */
+export const proposalFiles = pgTable(
+  'proposal_files',
+  {
+    id: bigserial('id', { mode: 'number' }).primaryKey(),
+    proposalId: text('proposal_id')
+      .notNull()
+      .references(() => proposals.id, { onDelete: 'cascade' }),
+    seq: integer('seq').notNull(), // 0-based op order
+    op: text('op').$type<ProposalOpKind>().notNull(),
+    path: text('path').notNull(),
+    fromPath: text('from_path'), // move / copy source
+    entryType: text('entry_type').$type<'file' | 'dir'>().notNull(),
+    size: bigint('size', { mode: 'number' }), // write: new size
+    blockHashes: text('block_hashes').array(), // write: 1 MiB block sha256 list (hashed by the server)
+    contentHash: text('content_hash'), // write: contentHashOf(blockHashes)
+    mime: text('mime'),
+    baseVersion: text('base_version'), // FileStat.version of `path` at base (null = absent)
+    baseSize: bigint('base_size', { mode: 'number' }),
+    status: text('status').$type<ProposalFileStatus>().notNull().default('pending'),
+    actionId: text('action_id'), // the accept action that landed it
+  },
+  (t) => [
+    uniqueIndex('proposal_files_seq_idx').on(t.proposalId, t.seq),
+    index('proposal_files_proposal_idx').on(t.proposalId),
+  ],
+);
+
+/** Staged bytes, content-addressed per user (a block shared by two proposals is stored once). */
+export const proposalBlocks = pgTable(
+  'proposal_blocks',
+  {
+    userId: text('user_id')
+      .notNull()
+      .references(() => bauthUser.id, { onDelete: 'cascade' }),
+    sha256: text('sha256').notNull(),
+    size: integer('size').notNull(),
+    bytes: bytea('bytes').notNull(),
+    createdAt: timestamp('created_at', tz).defaultNow().notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.sha256] })],
+);
+
 export type WorkspaceRow = typeof workspaces.$inferSelect;
 export type UserSettingsRow = typeof userSettings.$inferSelect;
 export type ActionRow = typeof actions.$inferSelect;
@@ -261,3 +407,7 @@ export type CheckpointRow = typeof checkpoints.$inferSelect;
 export type ShareLinkRow = typeof shareLinks.$inferSelect;
 export type UploadRow = typeof uploads.$inferSelect;
 export type AuditEventRow = typeof auditEvents.$inferSelect;
+export type AgentTokenRow = typeof agentTokens.$inferSelect;
+export type AgentGrantRow = typeof agentGrants.$inferSelect;
+export type ProposalRow = typeof proposals.$inferSelect;
+export type ProposalFileRow = typeof proposalFiles.$inferSelect;

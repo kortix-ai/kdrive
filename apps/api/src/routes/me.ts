@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { ConfigResponse, MeResponse, RETENTION_COPY, UsageResponse } from '@volumes/shared';
+import { MCP_RESOURCE } from '../agents/urls';
 import { env, isAdminEmail } from '../env';
 import { ok } from '../lib/http';
 import { requireUser } from '../middleware/session';
@@ -17,6 +18,7 @@ meRoutes.get('/config', (c) =>
     devLogin: env.devLoginEnabled,
     storageMode: storageMode(),
     retentionCopy: RETENTION_COPY,
+    mcp: { enabled: env.mcpEnabled, url: MCP_RESOURCE },
   }),
 );
 

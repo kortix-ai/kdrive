@@ -67,6 +67,12 @@ export class TokenBucket {
     return Math.max(1, Math.ceil((cost - b.tokens) / this.refillPerSec));
   }
 
+  /** Gives back `cost` tokens taken for a request that turned out not to count. */
+  refund(key: string, cost = 1): void {
+    const b = this.buckets.get(key);
+    if (b) b.tokens = Math.min(this.capacity, b.tokens + cost);
+  }
+
   reset(): void {
     this.buckets.clear();
   }
@@ -95,19 +101,30 @@ export interface RateLimitOptions {
 
 /** Throws 429 `rate_limited` (+ Retry-After) when the bucket is empty. */
 export function checkRateLimit(o: RateLimitOptions, c: Context): void {
+  const k = o.key(c);
+  if (k === null) return;
+  checkRateLimitKey(o, k);
+}
+
+/** checkRateLimit for callers without a Hono context (MCP tool handlers): same buckets, explicit key. */
+export function checkRateLimitKey(o: Omit<RateLimitOptions, 'key'>, key: string): void {
   let b = registry.get(o.name);
   if (!b) {
     b = new TokenBucket(o.capacity, o.refillPerSec);
     registry.set(o.name, b);
   }
-  const k = o.key(c);
-  if (k === null) return;
+  const k = key;
   const wait = b.take(k);
   if (wait > 0) {
     throw new ApiError(429, 'rate_limited', 'Too many requests. Try again shortly.', { retryAfterSeconds: wait }, {
       'Retry-After': String(wait),
     });
   }
+}
+
+/** Gives back the token checkRateLimitKey took for `key` (a request that should not count). */
+export function refundRateLimitKey(o: Omit<RateLimitOptions, 'key'>, key: string): void {
+  registry.get(o.name)?.refund(key);
 }
 
 export function rateLimit(o: RateLimitOptions): MiddlewareHandler {
@@ -128,4 +145,14 @@ export const limits = {
   linkOpenIpToken: { name: 'link-open-ip', capacity: 60, refillPerSec: 1 },
   linkOpenToken: { name: 'link-open-token', capacity: 600, refillPerSec: 10 },
   user: { name: 'user', capacity: 600, refillPerSec: 10 },
+  /**
+   * Per client address on /mcp, before the credential is looked up: every
+   * attempt takes a token and a successful one gives it back, so only failed
+   * authentication is limited (30/min, burst 60).
+   */
+  mcpAuthIp: { name: 'mcp-auth-ip', capacity: 60, refillPerSec: 0.5 },
+  /** Per agent grant on /mcp: 120 requests/min, burst 60. */
+  mcp: { name: 'mcp', capacity: 60, refillPerSec: 2 },
+  /** Per agent grant: write_changes calls, 30/min. */
+  mcpWrite: { name: 'mcp-write', capacity: 10, refillPerSec: 0.5 },
 } as const;

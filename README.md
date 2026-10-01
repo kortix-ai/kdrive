@@ -25,6 +25,15 @@ is available for local development and tests.
 | **Restore** | Puts a file, a folder or the whole drive back to a version, as a new version (so a restore can be undone too). |
 | **Share link** | A revocable URL to a file or folder: live (follows the item through renames and moves) or pinned to one version. Optional expiry. |
 
+## AI agents
+
+Volumes is also an MCP server at `https://<your-volumes-host>/mcp`. An agent
+signs in with OAuth (or uses an agent token), and you choose whether it may
+only read, suggest changes that wait for your review, or change files
+directly. Every agent change is a version attributed to the agent and can be
+undone. [docs/ai-agents.md](docs/ai-agents.md) covers the URL, sign-in, agent
+tokens, access levels and review mode, and the tools.
+
 ## Getting started
 
 ```bash

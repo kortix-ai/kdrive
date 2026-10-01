@@ -24,6 +24,9 @@ export const ERROR_CODES = [
   'link_revoked',
   'upstream_unavailable',
   'not_implemented',
+  'insufficient_scope',
+  'stale_base',
+  'proposal_closed',
   'internal',
 ] as const;
 

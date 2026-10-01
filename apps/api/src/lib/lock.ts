@@ -20,6 +20,12 @@ export async function withWorkspaceLock<T>(wsId: string, fn: () => Promise<T>): 
   }
 }
 
+/**
+ * A keyed async mutex for anything else that must not interleave (keys like
+ * `proposal:<id>` never collide with workspace ids).
+ */
+export const withKeyLock = withWorkspaceLock;
+
 /** True while some caller holds or waits for the workspace lock (tests). */
 export function isWorkspaceLocked(wsId: string): boolean {
   return chains.has(wsId);

@@ -155,3 +155,7 @@ export function readZip(buf: Uint8Array): Map<string, Uint8Array | null> {
 }
 
 export const dec = (b: Uint8Array | null | undefined) => (b ? new TextDecoder().decode(b) : '');
+
+// AI agent access: tokens inserted directly, raw JSON-RPC to /mcp, and a real server for SDK clients.
+export { createAgentToken, mcpCall } from '../helpers';
+export { startServer, type RunningServer } from './spawn-server';

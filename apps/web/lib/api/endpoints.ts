@@ -1,6 +1,7 @@
 // One typed function per API route (architecture §6.3). FROZEN names:
 // builders call these and never hand-roll fetches to our API.
 import {
+  AcceptProposalResponse,
   AdminUserResponse,
   AdminUsersResponse,
   AuditListResponse,
@@ -10,6 +11,16 @@ import {
   CompareDriveResponse,
   CompareFileResponse,
   ConfigResponse,
+  ConnectedAppListResponse,
+  ConnectedAppResponse,
+  CreateAgentTokenResponse,
+  AgentTokenListResponse,
+  DiscardProposalResponse,
+  OAuthConsentInfo,
+  OAuthConsentResult,
+  ProposalCountResponse,
+  ProposalDetailResponse,
+  ProposalListResponse,
   DeletedResponse,
   LinkListResponse,
   LinkResponse,
@@ -29,7 +40,12 @@ import {
   VersionsResponse,
   WorkspaceListResponse,
   WorkspaceResponse,
+  type AcceptProposalRequest,
+  type CreateAgentTokenRequest,
   type CreateCheckpointRequest,
+  type DiscardProposalRequest,
+  type OAuthConsentDecision,
+  type UpdateConnectedAppRequest,
   type CreateLinkRequest,
   type CreateWorkspaceRequest,
   type DuplicateWorkspaceRequest,
@@ -134,6 +150,35 @@ export const api = {
     remove: (id: string) => apiFetch<void>(`/api/workspaces/${encodeURIComponent(id)}`, { method: 'DELETE' }),
     duplicate: (id: string, req: DuplicateWorkspaceRequest) =>
       apiFetch(`/api/workspaces/${encodeURIComponent(id)}/duplicate`, { method: 'POST', json: req }, WorkspaceResponse),
+  },
+
+  /** AI agents: tokens, connected apps (OAuth grants) and the consent page. */
+  agents: {
+    tokens: () => apiFetch('/api/agents/tokens', {}, AgentTokenListResponse),
+    createToken: (req: CreateAgentTokenRequest) =>
+      apiFetch('/api/agents/tokens', { method: 'POST', json: req }, CreateAgentTokenResponse),
+    revokeToken: (id: string) => apiFetch<void>(`/api/agents/tokens/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+    apps: () => apiFetch('/api/agents/apps', {}, ConnectedAppListResponse),
+    updateApp: (id: string, req: UpdateConnectedAppRequest) =>
+      apiFetch(`/api/agents/apps/${encodeURIComponent(id)}`, { method: 'PATCH', json: req }, ConnectedAppResponse),
+    revokeApp: (id: string) => apiFetch<void>(`/api/agents/apps/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+    /** `oauthQuery` is the consent page's whole query string (signed by the OAuth provider). */
+    consentInfo: (oauthQuery: string) =>
+      apiFetch(`/api/agents/oauth/consent-info${qs({ oauth_query: oauthQuery })}`, {}, OAuthConsentInfo),
+    consent: (req: OAuthConsentDecision) =>
+      apiFetch('/api/agents/oauth/consent', { method: 'POST', json: req }, OAuthConsentResult),
+  },
+
+  /** Changes AI agents proposed for review. */
+  proposals: {
+    list: (ws: string, q: { status?: 'open' | 'closed' | 'all'; limit?: number; before?: string | null } = {}) =>
+      apiFetch(`${w(ws)}/proposals${qs({ status: q.status, limit: q.limit, before: q.before })}`, {}, ProposalListResponse),
+    count: (ws: string) => apiFetch(`${w(ws)}/proposals/count`, {}, ProposalCountResponse),
+    get: (ws: string, id: string) => apiFetch(`${w(ws)}/proposals/${encodeURIComponent(id)}`, {}, ProposalDetailResponse),
+    accept: (ws: string, id: string, req: AcceptProposalRequest = {}) =>
+      apiFetch(`${w(ws)}/proposals/${encodeURIComponent(id)}/accept`, { method: 'POST', json: req }, AcceptProposalResponse),
+    discard: (ws: string, id: string, req: DiscardProposalRequest = {}) =>
+      apiFetch(`${w(ws)}/proposals/${encodeURIComponent(id)}/discard`, { method: 'POST', json: req }, DiscardProposalResponse),
   },
 
   admin: {

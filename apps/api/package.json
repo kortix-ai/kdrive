@@ -13,12 +13,16 @@
     "seed": "bun --env-file=../../.env --env-file=.env scripts/seed-demo.ts"
   },
   "dependencies": {
+    "@better-auth/oauth-provider": "1.6.24",
+    "@modelcontextprotocol/sdk": "1.29.0",
     "@platinum-dev/sdk": "0.7.0",
     "@volumes/shared": "workspace:*",
     "better-auth": "1.6.24",
     "client-zip": "^2.5",
+    "diff": "^8",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.12",
+    "jose": "^6.1.3",
     "postgres": "^3.4.5",
     "ulid": "^2.3",
     "zod": "^4"

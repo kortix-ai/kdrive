@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ActionKindSchema, ActionSummarySchema, IsoDateSchema, PathOpSchema, PathSchema, RefSchema } from './common';
+import { ActionKindSchema, ActionSummarySchema, AgentRefSchema, IsoDateSchema, PathOpSchema, PathSchema, RefSchema } from './common';
 
 export const TimelineQuery = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(50),
@@ -28,6 +28,8 @@ export const TimelineEntrySchema = z.object({
   restoredTo: IsoDateSchema.nullable().optional(),
   /** At most 5 entries (a preview). */
   paths: z.array(z.object({ op: PathOpSchema, path: z.string(), fromPath: z.string().nullable() })),
+  /** Set when an AI agent made the change. */
+  agent: AgentRefSchema.nullable().optional(),
 });
 export type TimelineEntry = z.infer<typeof TimelineEntrySchema>;
 
@@ -63,6 +65,8 @@ export const FileVersionSchema = z.object({
   checkpointNames: z.array(z.string()),
   /** The file's path at this version (an earlier name when it was renamed since). */
   path: z.string().optional(),
+  /** Set when an AI agent made the change. */
+  agent: AgentRefSchema.nullable().optional(),
 });
 export type FileVersion = z.infer<typeof FileVersionSchema>;
 

@@ -19,7 +19,13 @@ export function devLogin(): BetterAuthPlugin {
         '/dev/sign-in',
         {
           method: 'POST',
-          body: z.object({ email: z.string().email().max(320), name: z.string().max(120).optional() }),
+          body: z.object({
+            email: z.string().email().max(320),
+            name: z.string().max(120).optional(),
+            // The OAuth sign-in page appends the provider's signed query, so the
+            // provider's hooks continue the authorization once the session exists.
+            oauth_query: z.string().max(8192).optional(),
+          }),
         },
         async (ctx) => {
           if (!env.devLoginEnabled) throw new APIError('NOT_FOUND');

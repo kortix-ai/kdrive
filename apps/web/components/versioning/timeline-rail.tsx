@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Bookmark, X } from 'lucide-react';
+import { Bookmark, Bot, X } from 'lucide-react';
+import type { TimelineEntry } from '@volumes/shared';
 import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -14,6 +15,15 @@ import { groupByDay, matchesFilter, TIMELINE_FILTERS, type TimelineFilter } from
 import { RetentionNote } from './retention-note';
 import { TimelineEntryRow, useEntryActions } from './timeline-entry';
 import './versioning.css';
+
+/** The rail's chips: the shared history filters plus "Agents" (changes an AI agent made). */
+export type RailFilter = TimelineFilter | 'agents';
+
+export const RAIL_FILTERS: { value: RailFilter; label: string }[] = [...TIMELINE_FILTERS, { value: 'agents', label: 'Agents' }];
+
+export function matchesRailFilter(e: TimelineEntry, f: RailFilter): boolean {
+  return f === 'agents' ? !!e.agent : matchesFilter(e, f);
+}
 
 /** History rail (320 px sheet, `h`; DESIGN-v2 §6.4): newest first, grouped by day. Click = view the drive then. */
 export default function TimelineRail() {
@@ -28,13 +38,13 @@ function Rail() {
   const viewerEmail = useVx((s) => s.me?.user.email ?? null);
   const { entries, headCommitId, hasMore, loadMore, loadingMore, isLoading, error, retry } = useTimelineEntries();
   const actions = useEntryActions(headCommitId);
-  const [filter, setFilter] = useState<TimelineFilter>('all');
+  const [filter, setFilter] = useState<RailFilter>('all');
   const [menu, setMenu] = useState<{ at: { x: number; y: number }; items: MenuItem[] } | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const sentinel = useRef<HTMLDivElement>(null);
   const rowRefs = useRef(new Map<string, HTMLDivElement>());
 
-  const shown = useMemo(() => entries.filter((e) => matchesFilter(e, filter)), [entries, filter]);
+  const shown = useMemo(() => entries.filter((e) => matchesRailFilter(e, filter)), [entries, filter]);
   const groups = useMemo(() => groupByDay(shown), [shown]);
 
   // Infinite scroll: load older pages when the sentinel comes into view.
@@ -65,13 +75,19 @@ function Rail() {
           </Tooltip>
         </div>
         <div role="group" aria-label="Filter history" className="mt-3 flex flex-wrap gap-1.5">
-          {TIMELINE_FILTERS.map((f) => (
+          {RAIL_FILTERS.map((f) => (
             <Chip
               key={f.value}
               size="sm"
               on={filter === f.value}
               onClick={() => setFilter(f.value)}
-              icon={f.value === 'checkpoints' ? <Bookmark size={16} strokeWidth={1.75} aria-hidden /> : undefined}
+              icon={
+                f.value === 'checkpoints' ? (
+                  <Bookmark size={16} strokeWidth={1.75} aria-hidden />
+                ) : f.value === 'agents' ? (
+                  <Bot size={16} strokeWidth={1.75} aria-hidden />
+                ) : undefined
+              }
             >
               {f.label}
             </Chip>

@@ -1,14 +1,27 @@
 import { createHash } from 'node:crypto';
 import { sql as rawSql } from 'drizzle-orm';
 import { BLOCK_SIZE } from '@volumes/shared';
+import { generateAgentToken } from '../src/agents/tokens';
 import { createApp } from '../src/app';
 import { db } from '../src/db/client';
+import { agentTokens, type AgentMode, type AgentScope } from '../src/db/schema';
+import { newId } from '../src/lib/ids';
 import { resetRateLimits } from '../src/middleware/rate-limit';
 import { clearTreeCache } from '../src/services/tree';
 
 export const ORIGIN = 'http://localhost:4100';
 
 const TABLES = [
+  'proposal_blocks',
+  'proposal_files',
+  'proposals',
+  'agent_grants',
+  'agent_tokens',
+  'bauth_oauth_access_token',
+  'bauth_oauth_refresh_token',
+  'bauth_oauth_consent',
+  'bauth_oauth_client',
+  'bauth_jwks',
   'audit_events',
   'quota_reservations',
   'uploads',
@@ -176,4 +189,64 @@ export async function uploadFile(
   const commit = await client.post(`/api/w/${ws}/uploads/${plan.body.uploadId}/commit`, {});
   if (commit.status !== 200) throw new Error(`commit failed: ${commit.status} ${commit.text}`);
   return { plan: plan.body, commit: commit.body, sent };
+}
+
+/**
+ * Inserts an agent token straight into the database and returns its secret
+ * (the tokens route is not needed). Expires in a year unless `expiresAt` says otherwise.
+ */
+export async function createAgentToken(
+  userId: string,
+  opts: { scope: AgentScope; mode?: AgentMode; workspaceId?: string | null; name?: string; expiresAt?: Date },
+): Promise<string> {
+  const t = generateAgentToken();
+  await db.insert(agentTokens).values({
+    id: newId(),
+    userId,
+    name: opts.name ?? 'Test agent',
+    tokenHash: t.hash,
+    tokenPrefix: t.prefix,
+    scope: opts.scope,
+    mode: opts.mode ?? 'review',
+    workspaceId: opts.workspaceId ?? null,
+    expiresAt: opts.expiresAt ?? new Date(Date.now() + 365 * 86_400_000),
+  });
+  return t.secret;
+}
+
+let rpcId = 0;
+
+/**
+ * One raw JSON-RPC call to /mcp through the in-process app (no MCP client):
+ * returns the HTTP status, headers and the parsed JSON body (null when empty).
+ */
+export async function mcpCall(
+  app: { fetch: (req: Request) => Response | Promise<Response> },
+  secret: string | null,
+  method: string,
+  params: Record<string, unknown> = {},
+  headers: Record<string, string> = {},
+): Promise<{ status: number; headers: Headers; body: Json | null; text: string }> {
+  const h = new Headers({
+    'content-type': 'application/json',
+    accept: 'application/json, text/event-stream',
+    'mcp-protocol-version': '2025-06-18',
+    ...headers,
+  });
+  if (secret) h.set('authorization', `Bearer ${secret}`);
+  const res = await app.fetch(
+    new Request('http://localhost:4101/mcp', {
+      method: 'POST',
+      headers: h,
+      body: JSON.stringify({ jsonrpc: '2.0', id: ++rpcId, method, params }),
+    }),
+  );
+  const text = await res.text();
+  let body: Json | null = null;
+  try {
+    body = text ? (JSON.parse(text) as Json) : null;
+  } catch {
+    body = null;
+  }
+  return { status: res.status, headers: res.headers, body, text };
 }

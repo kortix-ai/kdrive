@@ -14,6 +14,8 @@ export const ConfigResponse = z.object({
   devLogin: z.boolean(),
   storageMode: StorageModeSchema,
   retentionCopy: z.string().default(RETENTION_COPY),
+  /** AI agent access: whether /mcp is on, and the MCP server URL to give an agent. */
+  mcp: z.object({ enabled: z.boolean(), url: z.string() }),
 });
 export type ConfigResponse = z.infer<typeof ConfigResponse>;
 
@@ -65,6 +67,18 @@ export const AUDIT_KINDS = [
   'link.update',
   'link.revoke',
   'quota.change',
+  'agent.token.create',
+  'agent.token.revoke',
+  'agent.grant.create',
+  'agent.grant.update',
+  'agent.grant.revoke',
+  'agent.write',
+  'agent.restore',
+  'agent.undo',
+  'agent.checkpoint',
+  'proposal.create',
+  'proposal.accept',
+  'proposal.discard',
 ] as const;
 export const AuditKindSchema = z.enum(AUDIT_KINDS);
 export type AuditKind = z.infer<typeof AuditKindSchema>;
