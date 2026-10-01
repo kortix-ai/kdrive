@@ -28,7 +28,16 @@ export type UploadJob = {
   actionId?: string;
   createdAt: number;
 };
-export type Toast = { id: string; kind: 'info' | 'success' | 'error'; message: string; undoActionId?: string; expiresAt: number; durationMs: number };
+export type Toast = {
+  id: string;
+  kind: 'info' | 'success' | 'error';
+  message: string;
+  undoActionId?: string;
+  /** The workspace `undoActionId` ran in (its Undo goes there, whatever is selected by then). */
+  undoWorkspaceId?: string;
+  expiresAt: number;
+  durationMs: number;
+};
 export type UndoEntry = { id: string; label: string; actionId: string; workspaceId: string; at: number };
 export type RestoreTarget = { scope: 'file' | 'folder' | 'drive'; path?: string; at: string } | null;
 
@@ -72,10 +81,11 @@ export interface VxState {
   exitTimeTravel(): void;
   /** refreshKey++ and swr revalidateAll() */
   refresh(): void;
-  toast(t: { kind?: Toast['kind']; message: string; durationMs?: number; undoActionId?: string }): string;
+  toast(t: { kind?: Toast['kind']; message: string; durationMs?: number; undoActionId?: string; undoWorkspaceId?: string }): string;
   dismissToast(id: string): void;
   /** pushes undoStack + an 8 s toast with Undo */
-  registerUndo(e: { label: string; actionId: string }): void;
+  /** `workspaceId`: where the action ran (defaults to the current workspace). */
+  registerUndo(e: { label: string; actionId: string; workspaceId?: string | null }): void;
   /** POST /actions/:id/undo, refresh(), toast "Undone" */
   undo(toastIdOrActionId: string): Promise<void>;
   /** ⌘Z: newest undoStack entry for the current workspace */
@@ -138,13 +148,55 @@ export const useVx = create<VxState>()((set, get) => ({
 
   setMe(me) {
     if (!me) {
-      set({ me: null });
+      // Signed out: forget everything that belonged to the user in this tab.
+      for (const t of timers.values()) clearTimeout(t);
+      timers.clear();
+      set({
+        me: null,
+        workspaceId: null,
+        path: '/',
+        selection: [],
+        anchor: null,
+        timeTravel: null,
+        panel: null,
+        toasts: [],
+        undoStack: [],
+        uploads: [],
+        share: null,
+        restore: null,
+        checkpoint: null,
+        duplicate: null,
+      });
       return;
     }
-    const cur = get().workspaceId ?? lsGet(LS_WS);
+    const held = get().workspaceId;
+    const cur = held ?? lsGet(LS_WS);
     const valid = cur && me.workspaces.some((w) => w.id === cur) ? cur : me.defaultWorkspaceId;
     const view = lsGet(LS_VIEW) === 'grid' ? 'grid' : get().view;
     if (valid !== cur) lsSet(LS_WS, valid);
+    if (held && held !== valid) {
+      // The workspace in use is gone (deleted in another tab or by an admin): switch to the
+      // default like setWorkspace does, and close anything aimed at the old one's paths, so a
+      // Delete, Move or Restore never lands on the same paths in the default workspace.
+      set((s) => ({
+        me,
+        view,
+        workspaceId: valid,
+        path: '/',
+        selection: [],
+        anchor: null,
+        panel: null,
+        timeTravel: null,
+        share: null,
+        restore: null,
+        checkpoint: null,
+        duplicate: null,
+        refreshKey: s.refreshKey + 1,
+      }));
+      get().toast({ kind: 'info', message: 'That workspace is no longer available. Showing your default workspace.' });
+      void revalidateAll();
+      return;
+    }
     set({ me, workspaceId: valid, view });
   },
 
@@ -228,7 +280,15 @@ export const useVx = create<VxState>()((set, get) => ({
   toast(t) {
     const id = uid('t');
     const durationMs = t.durationMs ?? (t.undoActionId ? UNDO_WINDOW_MS : t.kind === 'error' ? 6000 : 4000);
-    const toast: Toast = { id, kind: t.kind ?? 'info', message: t.message, undoActionId: t.undoActionId, expiresAt: Date.now() + durationMs, durationMs };
+    const toast: Toast = {
+      id,
+      kind: t.kind ?? 'info',
+      message: t.message,
+      undoActionId: t.undoActionId,
+      undoWorkspaceId: t.undoActionId ? t.undoWorkspaceId : undefined,
+      expiresAt: Date.now() + durationMs,
+      durationMs,
+    };
     set((s) => ({ toasts: [...s.toasts, toast].slice(-3) }));
     if (typeof window !== 'undefined') {
       timers.set(
@@ -247,11 +307,13 @@ export const useVx = create<VxState>()((set, get) => ({
   },
 
   registerUndo(e) {
-    const ws = get().workspaceId;
+    // An action can finish after a workspace switch (a long upload): its undo belongs to
+    // the workspace it ran in, never to the one now selected.
+    const ws = e.workspaceId ?? get().workspaceId;
     if (!ws) return;
     const entry: UndoEntry = { id: uid('u'), label: e.label, actionId: e.actionId, workspaceId: ws, at: Date.now() };
     set((s) => ({ undoStack: [...s.undoStack, entry].slice(-20) }));
-    get().toast({ kind: 'info', message: e.label, undoActionId: e.actionId, durationMs: UNDO_WINDOW_MS });
+    get().toast({ kind: 'info', message: e.label, undoActionId: e.actionId, undoWorkspaceId: ws, durationMs: UNDO_WINDOW_MS });
   },
 
   async undo(toastIdOrActionId) {
@@ -260,13 +322,15 @@ export const useVx = create<VxState>()((set, get) => ({
     const actionId = toast?.undoActionId ?? toastIdOrActionId;
     if (toast) s.dismissToast(toast.id);
     const entry = s.undoStack.find((u) => u.actionId === actionId);
-    const ws = entry?.workspaceId ?? s.workspaceId;
+    // The action's own workspace: from its undo entry, else from the toast that offered it
+    // (a redo from "Undone" has no entry), else the current one (the timeline's own rows).
+    const ws = entry?.workspaceId ?? toast?.undoWorkspaceId ?? s.workspaceId;
     if (!ws) return;
     try {
       const r = await api.versioning.undo(ws, actionId);
       set((st) => ({ undoStack: st.undoStack.filter((u) => u.actionId !== actionId) }));
       get().refresh();
-      get().toast({ kind: 'success', message: 'Undone', undoActionId: r.action.undoable ? r.action.id : undefined });
+      get().toast({ kind: 'success', message: 'Undone', undoActionId: r.action.undoable ? r.action.id : undefined, undoWorkspaceId: ws });
     } catch (e) {
       get().toast({ kind: 'error', message: e instanceof Error ? e.message : 'Could not undo.' });
     }

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { computeTextDiff, diffSummary, foldRows, normalizeText, splitLines, wordSegments } from './text-diff';
+import { COMPARE_JSON_MAX_LINES, computeTextDiff, diffSummary, foldRows, normalizeText, splitLines, wordSegments } from './text-diff';
 
 describe('text-diff', () => {
   test('splitLines handles trailing newlines and empty input', () => {
@@ -14,6 +14,25 @@ describe('text-diff', () => {
     expect(normalizeText('﻿x')).toBe('x');
     expect(normalizeText('{"a":1,"b":[1,2]}', { json: true })).toBe('{\n  "a": 1,\n  "b": [\n    1,\n    2\n  ]\n}\n');
     expect(normalizeText('{not json', { json: true })).toBe('{not json');
+  });
+
+  test('JSON compare formats only within the preview bound (deep nesting, exponent numbers)', () => {
+    const deep = '['.repeat(3000) + ']'.repeat(3000); // 6 KB that prints as ~18 MB
+    expect(normalizeText(deep, { json: true })).toBe(deep);
+    const exp = '['.repeat(20) + Array(300_000).fill('1e20').join(',') + ']'.repeat(20);
+    const out = normalizeText(exp, { json: true });
+    expect(out.length).toBeLessThanOrEqual(Math.max(1024 * 1024, exp.length * 10));
+    expect(out).toBe(exp);
+  });
+
+  test('JSON compare keeps a file as stored when formatting would explode its line count', () => {
+    // 300 KB that formats to ~1.5 MB and 300,000 lines (within the preview's 10x size budget).
+    const many = '[' + Array(75_000).fill('[0]').join(',') + ']';
+    const out = normalizeText(many, { json: true });
+    expect(splitLines(out).length).toBeLessThanOrEqual(COMPARE_JSON_MAX_LINES);
+    expect(out).toBe(many);
+    // an ordinary document still formats
+    expect(splitLines(normalizeText('[[0],[1]]', { json: true })).length).toBe(8);
   });
 
   test('identical texts', () => {

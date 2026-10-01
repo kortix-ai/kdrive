@@ -9,6 +9,7 @@ import { auditLabel } from '@/components/settings/audit-labels';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { api } from '@/lib/api/endpoints';
+import { sessionBound } from '@/lib/api/swr';
 
 const PAGE = 100;
 
@@ -21,7 +22,7 @@ export function AuditTable() {
       const before = nextBefore(prev);
       return before ? ['admin-audit', kind, before] : null;
     },
-    (key: [string, string, number | null]) => api.admin.audit({ kind: key[1] || undefined, before: key[2], limit: PAGE }),
+    sessionBound((key: [string, string, number | null]) => api.admin.audit({ kind: key[1] || undefined, before: key[2], limit: PAGE })),
     { revalidateOnFocus: false, shouldRetryOnError: false },
   );
   const events = data?.flatMap((p) => p.events) ?? [];

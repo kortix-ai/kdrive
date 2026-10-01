@@ -12,7 +12,17 @@ import { ApiError } from '@/lib/api/client';
 import { formatTimeTravelLabel } from '@/lib/format';
 import { useHotkeys } from '@/lib/keys';
 import { errorText } from '@/lib/versioning/hooks';
-import { computeTextDiff, foldRows, normalizeText, type Fold, type LineSide, type Seg, type SplitRow, type UnifiedRow } from '@/lib/versioning/text-diff';
+import {
+  TEXT_COMPARE_MAX_ROWS,
+  computeTextDiff,
+  foldRows,
+  normalizeText,
+  type Fold,
+  type LineSide,
+  type Seg,
+  type SplitRow,
+  type UnifiedRow,
+} from '@/lib/versioning/text-diff';
 import { SideDisc, SummaryBar, type TextMode } from './compare-header';
 import { CompareMeta } from './compare-meta';
 import { Bytes } from './readout';
@@ -130,12 +140,17 @@ export function CompareText({ a, b, path, mode }: { a: FileSide | null; b: FileS
 
   const [expanded, setExpanded] = useState<Set<number>>(() => new Set());
   const [active, setActive] = useState(-1);
+  // Rows rendered: a bounded window from the top, grown by "Show more" or a jump past it.
+  const [limit, setLimit] = useState(TEXT_COMPARE_MAX_ROWS);
+  const [pendingJump, setPendingJump] = useState<number | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setExpanded(new Set());
     setActive(-1);
+    setLimit(TEXT_COMPARE_MAX_ROWS);
   }, [diff]);
+  useEffect(() => setLimit(TEXT_COMPARE_MAX_ROWS), [mode]);
 
   const splitItems = useMemo(
     () => (diff ? foldRows<SplitRow>(diff.split, (r) => r.type === 'same', { expanded }) : []),
@@ -184,8 +199,23 @@ export function CompareText({ a, b, path, mode }: { a: FileSide | null; b: FileS
     if (el) {
       el.scrollIntoView({ block: 'center' });
       setActive(block);
+      return;
     }
+    // Past the rendered window: render up to it (and a window beyond), then scroll.
+    const m = marks.find((x) => x.block === block);
+    if (!m) return;
+    setLimit((l) => Math.max(l, m.first + TEXT_COMPARE_MAX_ROWS));
+    setPendingJump(block);
   };
+  useEffect(() => {
+    if (pendingJump === null) return;
+    setPendingJump(null);
+    const el = scroller.current?.querySelector<HTMLElement>(`[data-block-start="${pendingJump}"]`);
+    if (el) {
+      el.scrollIntoView({ block: 'center' });
+      setActive(pendingJump);
+    }
+  }, [pendingJump, limit]);
   useHotkeys(
     {
       ']': () => diff && diff.blocks && jump(Math.min(diff.blocks - 1, active + 1)),
@@ -283,6 +313,18 @@ export function CompareText({ a, b, path, mode }: { a: FileSide | null; b: FileS
   );
 
   const blockStarts = new Set<number>();
+  const shown = items.slice(0, limit);
+  const hiddenRows = items.length - shown.length;
+  const moreRows = hiddenRows > 0 ? (
+    <div className="flex flex-wrap items-center justify-center gap-3 px-4 py-4 text-[13px] leading-5 text-vx-text-3">
+      <span>
+        Showing the first {shown.length.toLocaleString('en-US')} of {items.length.toLocaleString('en-US')} rows.
+      </span>
+      <Button size="sm" variant="outline" onClick={() => setLimit((l) => l + TEXT_COMPARE_MAX_ROWS)}>
+        Show {Math.min(hiddenRows, TEXT_COMPARE_MAX_ROWS).toLocaleString('en-US')} more
+      </Button>
+    </div>
+  ) : null;
   return (
     <div className="flex h-full min-h-0 flex-col">
       <SummaryBar right={nav}>{summary}</SummaryBar>
@@ -295,7 +337,7 @@ export function CompareText({ a, b, path, mode }: { a: FileSide | null; b: FileS
               <div className="grid grid-cols-[48px_minmax(0,1fr)_48px_minmax(0,1fr)] pb-4">
                 <PaneHead which="A" side={a} edge className="col-span-2" />
                 <PaneHead which="B" side={b} className="col-span-2" />
-                {splitItems.map((it) => {
+                {shown.map((it) => {
                   if (typeof it !== 'number') return renderFold(it, 'col-span-4');
                   const r = diff.split[it];
                   const start = r.type === 'change' && !blockStarts.has(r.block);
@@ -318,7 +360,7 @@ export function CompareText({ a, b, path, mode }: { a: FileSide | null; b: FileS
                   <SideDisc which="B" />
                   <span className="truncate font-semibold tabular-nums text-vx-text-1">{b ? formatTimeTravelLabel(b.createdAt) : 'Not present'}</span>
                 </div>
-                {unifiedItems.map((it) => {
+                {shown.map((it) => {
                   if (typeof it !== 'number') return renderFold(it, 'col-span-3');
                   const r = diff.unified[it];
                   const tone = r.type === 'del' ? DEL : r.type === 'add' ? ADD : '';
@@ -342,6 +384,7 @@ export function CompareText({ a, b, path, mode }: { a: FileSide | null; b: FileS
                 })}
               </div>
             )}
+            {moreRows}
           </div>
           {/* minimap */}
           {marks.length ? (

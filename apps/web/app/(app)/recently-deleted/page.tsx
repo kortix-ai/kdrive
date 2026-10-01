@@ -77,7 +77,7 @@ export default function RecentlyDeletedPage() {
         return n;
       });
       const label = group.length === 1 ? `Restored ${basename(group[0].path) || group[0].path}` : `Restored ${group.length} items`;
-      registerUndo({ label, actionId: r.action.id });
+      registerUndo({ label, actionId: r.action.id, workspaceId: ws });
     } catch (e) {
       const what = group.length === 1 ? basename(group[0].path) : `${group.length} items`;
       toast({ kind: 'error', message: `Couldn't restore ${what}: ${errorText(e)}` });

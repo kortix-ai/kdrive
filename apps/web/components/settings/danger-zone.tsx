@@ -2,12 +2,12 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import useSWR, { mutate } from 'swr';
+import useSWR from 'swr';
 import { formatBytes, type MeResponse } from '@volumes/shared';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { api } from '@/lib/api/endpoints';
-import { useVx } from '@/lib/store';
+import { endSession } from '@/lib/session';
 import { Section } from './section';
 
 /** Counts the active share links across the user's workspaces (for the "what goes" list). */
@@ -46,18 +46,16 @@ function WhatGoes({ me, open }: { me: MeResponse; open: boolean }) {
 /** Danger zone: delete the account (dialog lists what goes; typing the email enables the button). */
 export function DangerZone({ me }: { me: MeResponse }) {
   const router = useRouter();
-  const setMe = useVx((s) => s.setMe);
   const [open, setOpen] = useState(false);
 
   const remove = async () => {
     await api.me.deleteAccount({ confirm: me.user.email });
-    setMe(null);
     try {
       window.localStorage.removeItem('vx-ws');
     } catch {
       /* private mode */
     }
-    await mutate(() => true, undefined, { revalidate: false });
+    await endSession();
     router.replace('/signin');
   };
 

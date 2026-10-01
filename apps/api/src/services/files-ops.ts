@@ -8,11 +8,11 @@ import { ApiError } from '../lib/http';
 import { getStore } from '../storage';
 import type { FileEntry, FileStat } from '../storage/types';
 import type { WorkspaceCtx } from '../types';
+import { DIR_BYTES, logicalSize, peakGrowth, Projection } from './footprint';
 import { exactBlockLists, withPreparedAction, type ActionCtx, type PathChange } from './ledger';
 import { detachLiveLinks, moveLiveLinks } from './links';
-import { assertQuota } from './quota';
+import { Hold } from './reservations';
 import { listTree, statOrNull } from './tree';
-import { logicalSize } from './upload-plan';
 
 const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
 
@@ -43,6 +43,11 @@ async function footprint(ws: WorkspaceCtx, st: FileStat): Promise<{ size: number
   return { size, logical };
 }
 
+/** The head commit a prepare step measures against (under the workspace lock, it does not move). */
+async function headOf(ws: WorkspaceCtx): Promise<string> {
+  return (await getStore().getVolume(ws.volumeId)).headCommitId;
+}
+
 async function mustStat(ws: WorkspaceCtx, path: string): Promise<FileStat> {
   const st = await statOrNull(ws, path);
   if (!st) throw new ApiError(404, 'path_not_found', `"${basename(path) || path}" does not exist.`, { path });
@@ -57,10 +62,15 @@ async function knownBlocks(ws: WorkspaceCtx, st: FileStat): Promise<string[] | u
 
 // ── create folder ──────────────────────────────────────────────────────────
 
-/** Creates one empty folder (an upload plan with only `dirs`). An existing path is 409 `path_exists`. */
+/**
+ * Creates one empty folder (an upload plan with only `dirs`). An existing path
+ * is 409 `path_exists`. Each new folder, missing parents included, takes 4 KiB
+ * of the quota, reserved until the commit lands.
+ */
 export async function createFolder(ctx: ActionCtx, path: string): Promise<ActionSummary> {
   if (path === '/') throw new ApiError(400, 'invalid_path', 'The root folder already exists.');
   const parent = dirname(path);
+  await using hold = new Hold(ctx.userId, 'folder.create');
   const { action } = await withPreparedAction(
     ctx,
     async () => {
@@ -68,13 +78,16 @@ export async function createFolder(ctx: ActionCtx, path: string): Promise<Action
       if (existing) {
         throw new ApiError(409, 'path_exists', `"${basename(path)}" already exists.`, { paths: [path] });
       }
-      // A parent that is a file cannot hold a folder.
-      for (let up = dirname(path); up !== '/'; up = dirname(up)) {
-        const st = await statOrNull(ctx.ws, up);
-        if (!st) continue;
-        if (st.type !== 'dir') throw new ApiError(409, 'not_a_directory', `"${basename(up)}" is a file, so it cannot hold a folder.`, { path: up });
-        break;
+      // Missing parents are created too; a parent that is a file cannot hold a folder.
+      const proj = new Projection(ctx.ws, await headOf(ctx.ws));
+      const made = await proj.createDirs(path, true);
+      const up = dirname(made[0] ?? path);
+      const holder = up === '/' ? null : await proj.stat(up);
+      if (holder && holder.type !== 'dir') {
+        throw new ApiError(409, 'not_a_directory', `"${basename(up)}" is a file, so it cannot hold a folder.`, { path: up });
       }
+      const created = made.length;
+      await hold.reserve({ bytes: DIR_BYTES * created });
       return {
         spec: {
           kind: 'folder.create',
@@ -123,6 +136,10 @@ async function checkTransfer(ws: WorkspaceCtx, items: TransferItem[], overwrite:
     if (froms.some((f) => f !== it.from && isWithin(f, it.from))) {
       throw new ApiError(400, 'bad_request', `"${it.from}" is inside another selected folder.`, { path: it.from });
     }
+    // Replacing a folder that holds the source would take the source with it.
+    if (it.to !== it.from && isWithin(it.to, it.from)) {
+      throw new ApiError(400, 'bad_request', `"${basename(it.from)}" cannot replace a folder that contains it.`, { path: it.to });
+    }
     const st = await mustStat(ws, it.from);
     if (st.type === 'dir' && isWithin(it.from, it.to)) {
       throw new ApiError(400, 'bad_request', `A folder cannot be ${verb === 'move' ? 'moved' : 'copied'} into itself.`, { path: it.to });
@@ -169,13 +186,23 @@ export function transferSummary(verb: 'Moved' | 'Copied', items: TransferItem[],
   return `${verb} ${plural(items.length, 'item')}`;
 }
 
-/** Move or rename (one item within the same folder = rename). One action, one Platinum call per item. */
+/**
+ * Move or rename (one item within the same folder = rename). One action, one
+ * Platinum call per item. The folders a move creates (missing parents of a
+ * destination) are reserved against the quota first, like a copy's bytes.
+ */
 export async function movePaths(ctx: ActionCtx, items: TransferItem[], overwrite = false): Promise<ActionSummary> {
+  await using hold = new Hold(ctx.userId, 'move');
   const { action } = await withPreparedAction(
     ctx,
     async () => {
       const checked = await checkTransfer(ctx.ws, items, overwrite, 'move');
       if (!checked.length) throw new ApiError(400, 'bad_request', 'Nothing to move: every item is already there.');
+      // Measured as the items run, one after another.
+      const proj = new Projection(ctx.ws, await headOf(ctx.ws));
+      const steps: number[] = [];
+      for (const i of checked) steps.push(await proj.transfer('move', i.from, i.to));
+      await hold.reserve({ bytes: peakGrowth(steps) });
       const isRename = checked.length === 1 && dirname(checked[0].from) === dirname(checked[0].to);
       const paths: PathChange[] = [];
       for (const i of checked) {
@@ -207,22 +234,27 @@ export async function movePaths(ctx: ActionCtx, items: TransferItem[], overwrite
   return action;
 }
 
-/** Copy files or folders (recursive). The quota is checked for the added bytes first, under the lock. */
+/**
+ * Copy files or folders (recursive). The added bytes (the copies and every
+ * folder they create) are reserved against the user's quota first, under the
+ * lock, and held until the copies land. Items run in order, so an item that
+ * copies what an earlier one wrote is measured with that content.
+ */
 export async function copyPaths(ctx: ActionCtx, items: TransferItem[], overwrite = false): Promise<ActionSummary> {
   for (const it of items) {
     if (it.from === it.to) throw new ApiError(409, 'path_exists', `"${basename(it.to)}" already exists there.`, { paths: [it.to] });
   }
+  await using hold = new Hold(ctx.userId, 'copy');
   const { action } = await withPreparedAction(
     ctx,
     async () => {
       const checked = await checkTransfer(ctx.ws, items, overwrite, 'copy');
       const paths: PathChange[] = [];
-      let added = 0;
+      const proj = new Projection(ctx.ws, await headOf(ctx.ws));
+      const steps: number[] = [];
       for (const i of checked) {
         const fp = await footprint(ctx.ws, i.st);
-        let replacedLogical = 0;
-        if (i.dest) replacedLogical = (await footprint(ctx.ws, i.dest)).logical;
-        added += fp.logical - replacedLogical;
+        steps.push(await proj.transfer('copy', i.from, i.to));
         paths.push({
           op: 'copied',
           path: i.to,
@@ -234,7 +266,7 @@ export async function copyPaths(ctx: ActionCtx, items: TransferItem[], overwrite
           mtime: i.st.mtime,
         });
       }
-      await assertQuota(ctx.userId, added);
+      await hold.reserve({ bytes: peakGrowth(steps) });
       return { spec: { kind: 'copy', summary: transferSummary('Copied', checked, ctx.ws.name), paths }, data: checked };
     },
     async (rec, checked) => {

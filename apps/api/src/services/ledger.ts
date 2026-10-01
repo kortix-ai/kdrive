@@ -10,6 +10,8 @@ import { actionPaths, actions, uploads, workspaces, type ActionPathRow, type Act
 import { newId } from '../lib/ids';
 import { withWorkspaceLock } from '../lib/lock';
 import { getStore } from '../storage';
+import { holdsChanges } from './commit-proof';
+import { notFromOpenPlan } from './proven-blocks';
 import { isStoreError, type CommitResult, type FileStat } from '../storage/types';
 import type { WorkspaceCtx } from '../types';
 
@@ -414,6 +416,8 @@ export async function exactBlockLists(wsId: string, stats: FileStat[]): Promise<
           isNotNull(actionPaths.blockHashes),
           ne(actions.status, 'failed'),
           sql`${actions.commitIds} && ${sql.param(commitIds)}::text[]`,
+          // A plan row whose own upload never committed is a claim, not content.
+          notFromOpenPlan(actionPaths.actionId, actionPaths.path),
         ),
       );
     const want = new Map(chunk.map((s) => [s.path, s]));
@@ -443,7 +447,8 @@ export async function deletedRows(wsId: string, limit: number): Promise<(ActionP
 /**
  * Pending actions older than 2 minutes (and not an upload still in flight):
  * when history holds exactly one commit after base_commit_id that no action
- * claims, attach it and mark committed; otherwise mark failed. Everything is
+ * claims, and storage shows the action's recorded changes in it (see
+ * holdsChanges), attach it and mark committed; otherwise mark failed. Everything is
  * re-read under the workspace lock, so an action that finished while this
  * waited is left alone (and finalize never downgrades a finished action).
  */
@@ -482,7 +487,10 @@ export async function reconcilePending(ws: WorkspaceCtx, opts: { olderThanMs?: n
       const idx = commits.findIndex((c) => c.id === a.baseCommitId);
       const after = idx >= 0 ? commits.slice(0, idx) : [];
       const unclaimed = after.filter((c) => !claimed.has(c.id));
-      if (idx >= 0 && unclaimed.length === 1) {
+      // The one unclaimed commit is this action's only when it holds the
+      // action's recorded changes: another lost write must not be taken for it.
+      const rows = unclaimed.length === 1 ? await db.select().from(actionPaths).where(eq(actionPaths.actionId, a.id)) : [];
+      if (idx >= 0 && unclaimed.length === 1 && (await holdsChanges(ws.volumeId, rows, unclaimed[0]))) {
         const c = unclaimed[0];
         await attachCommit(a.id, { commitId: c.id, headCommitId: c.id, outcome: 'fast', overwritten: [], skipped: [] });
         const summary = await finalize(a.id, 'committed');

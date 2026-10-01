@@ -10,6 +10,7 @@ export const ORIGIN = 'http://localhost:4100';
 
 const TABLES = [
   'audit_events',
+  'quota_reservations',
   'uploads',
   'share_links',
   'checkpoints',

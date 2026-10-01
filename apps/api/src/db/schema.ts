@@ -175,6 +175,11 @@ export type UploadRowPlan = {
   baseCommitId?: string;
   /** Head right before the first commit attempt (recognises a commit whose response was lost). */
   commitHead?: string;
+  /**
+   * Blocks this user had not proven they hold when the plan was made (sorted,
+   * unique). Each must arrive through this upload's block PUTs before it commits.
+   */
+  required?: string[];
 };
 
 export const uploads = pgTable(
@@ -219,6 +224,33 @@ export const auditEvents = pgTable(
     index('audit_user_created_idx').on(t.userId, t.createdAt.desc()),
     index('audit_kind_created_idx').on(t.kind, t.createdAt.desc()),
   ],
+);
+
+/**
+ * Capacity promised to a mutation that is running now (a copy, a restore, a new
+ * or duplicated workspace, a folder) and not yet visible in storage usage. Rows
+ * are written and counted under a Postgres advisory lock (per user, or one for
+ * the whole org), so checks made by any API process at the same time see each
+ * other. A row is deleted when its mutation ends; `expires_at` (renewed while
+ * the holder runs) frees it if the process died. See services/reservations.ts.
+ */
+export const quotaReservations = pgTable(
+  'quota_reservations',
+  {
+    id: text('id').primaryKey(),
+    // 'user': bytes / workspaces of `user_id`; 'org': volumes of the shared org.
+    scope: text('scope').$type<'user' | 'org'>().notNull(),
+    userId: text('user_id').references(() => bauthUser.id, { onDelete: 'cascade' }),
+    // The workspace the mutation creates (no FK: the row may not exist yet).
+    workspaceId: text('workspace_id'),
+    kind: text('kind').notNull(),
+    bytes: bigint('bytes', { mode: 'number' }).notNull().default(0),
+    workspaces: integer('workspaces').notNull().default(0),
+    volumes: integer('volumes').notNull().default(0),
+    expiresAt: timestamp('expires_at', tz).notNull(),
+    createdAt: timestamp('created_at', tz).defaultNow().notNull(),
+  },
+  (t) => [index('quota_reservations_user_idx').on(t.userId, t.expiresAt), index('quota_reservations_scope_idx').on(t.scope, t.expiresAt)],
 );
 
 export type WorkspaceRow = typeof workspaces.$inferSelect;

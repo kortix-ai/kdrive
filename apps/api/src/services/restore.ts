@@ -18,6 +18,7 @@
 import {
   basename,
   BLOCK_SIZE,
+  dirname,
   MAX_PLAN_BLOCKS,
   MAX_PLAN_FILES,
   normalizePath,
@@ -32,13 +33,11 @@ import type { WorkspaceCtx } from '../types';
 import { createCheckpoint, deleteCheckpoint } from './checkpoints';
 import { exactBlockLists, landedCommit, withAction, type ActionCtx, type ActionRecorder, type PathChange } from './ledger';
 import { detachLiveLinks } from './links';
-import { assertQuota } from './quota';
+import { reserveQuota } from './reservations';
 import { listTree, statOrNull } from './tree';
-import { logicalSize } from './upload-plan';
+import { DIR_BYTES, logicalSize, Projection } from './footprint';
 import { hashBlocks, isUnder, mapLimit, readStream, topMost } from './versioning-util';
 
-/** Files whose (size, mtime) match head are version-checked one by one only up to this many. */
-const VERSION_CHECK_MAX = 2000;
 
 interface PlannedFile {
   path: string;
@@ -85,6 +84,81 @@ function dirRemoval(path: string, entries: FileEntry[]): Removal {
 }
 
 const fileRemoval = (path: string, size: number): Removal => ({ path, type: 'file', size, logical: logicalSize(size) });
+
+// ── content identity ────────────────────────────────────────────────────────
+
+/**
+ * A file's bytes at a commit, as block hashes: the ledger's block list of the
+ * exact version when it has one, else the bytes read and hashed.
+ */
+async function contentHash(ws: WorkspaceCtx, s: FileStat, at: string): Promise<string> {
+  if (s.size === 0) return 'empty';
+  if (s.version) {
+    const known = (await exactBlockLists(ws.id, [s])).get(s.path);
+    if (known) return known.join(',');
+  }
+  const h = await hashBlocks((await getStore().read(ws.volumeId, s.path, { at })).body);
+  if (h.size !== s.size) throw new ApiError(503, 'upstream_unavailable', 'Could not read that version completely. Try again.');
+  return h.blocks.join(',');
+}
+
+/**
+ * Whether two stats of a file (`a` read at `atA`, `b` at `atB`) hold the same
+ * content. Identity is the version id (the commit that last wrote the entry);
+ * when the store reports none, the bytes are hashed. With `bytesIfVersionsDiffer`,
+ * two versions are also the same content when their bytes are (a file deleted
+ * and brought back holds what it held). Equal size and mtime alone never count
+ * as the same content.
+ */
+export async function sameContent(
+  ws: WorkspaceCtx,
+  a: FileStat,
+  atA: string,
+  b: FileStat,
+  atB: string,
+  opts: { bytesIfVersionsDiffer?: boolean } = {},
+): Promise<boolean> {
+  if ((a.type === 'dir') !== (b.type === 'dir') || a.size !== b.size) return false;
+  if (a.version && b.version && (a.version === b.version || !opts.bytesIfVersionsDiffer)) return a.version === b.version;
+  const [ha, hb] = await Promise.all([contentHash(ws, a, atA), contentHash(ws, b, atB)]);
+  return ha === hb;
+}
+
+/**
+ * Every path under `root` (itself included) whose content differs between
+ * commits `a` and `b`: added, removed, changed type, or files whose bytes
+ * differ (same version id, else same bytes; see sameContent). Sorted; empty
+ * when all is the same.
+ */
+export async function changedUnder(ws: WorkspaceCtx, root: string, a: string, b: string): Promise<string[]> {
+  const store = getStore();
+  const byBytes = { bytesIfVersionsDiffer: true };
+  const [sa, sb] = await Promise.all([statOrNull(ws, root, a), statOrNull(ws, root, b)]);
+  if (!sa && !sb) return [];
+  if (!sa || !sb || (sa.type === 'dir') !== (sb.type === 'dir')) return [root];
+  if (sa.type !== 'dir') return (await sameContent(ws, sa, a, sb, b, byBytes)) ? [] : [root];
+  const [ta, tb] = await Promise.all([listTree(ws, root, a), listTree(ws, root, b)]);
+  const B = new Map(tb.entries.map((e) => [e.path, e]));
+  const out: string[] = [];
+  const check: string[] = [];
+  for (const ea of ta.entries) {
+    const eb = B.get(ea.path);
+    B.delete(ea.path);
+    if (!eb || (ea.type === 'dir') !== (eb.type === 'dir')) out.push(ea.path);
+    else if (ea.type === 'dir') continue;
+    else if (ea.size !== eb.size) out.push(ea.path);
+    else check.push(ea.path);
+  }
+  out.push(...B.keys());
+  const same = await mapLimit(check, 16, async (p) => {
+    const [x, y] = await Promise.all([store.stat(ws.volumeId, p, { at: a }), store.stat(ws.volumeId, p, { at: b })]);
+    return sameContent(ws, x, a, y, b, byBytes);
+  });
+  check.forEach((p, i) => {
+    if (!same[i]) out.push(p);
+  });
+  return out.sort();
+}
 
 // ── block lists ─────────────────────────────────────────────────────────────
 
@@ -180,18 +254,16 @@ async function planRestore(ws: WorkspaceCtx, roots: string[], target: Commit, he
       if (atMap.has(h.path)) continue;
       remove.set(h.path, h.type === 'dir' ? dirRemoval(h.path, headEntries) : fileRemoval(h.path, h.size));
     }
-    // (size, mtime) equal is almost always the same content; confirm by version when affordable.
-    if (sameLooking.length && sameLooking.length <= VERSION_CHECK_MAX) {
-      const pairs = await mapLimit(sameLooking, 16, async (p) => {
-        const [a, h] = await Promise.all([store.stat(ws.volumeId, p, { at: target.id }), store.stat(ws.volumeId, p, { at: headId })]);
-        return { a, h };
-      });
-      for (const { a, h } of pairs) {
-        if (a.version && h.version && a.version === h.version) continue;
-        if (!a.version && !h.version) continue;
-        replacedSize.set(a.path, h.size);
-        fileStats.push(a);
-      }
+    // Equal (size, mtime) is not the same content: confirm every one by identity,
+    // however many there are, so a restore never skips a changed file.
+    const pairs = await mapLimit(sameLooking, 16, async (p) => {
+      const [a, h] = await Promise.all([store.stat(ws.volumeId, p, { at: target.id }), store.stat(ws.volumeId, p, { at: headId })]);
+      return { a, h, same: await sameContent(ws, a, target.id, h, headId) };
+    });
+    for (const { a, h, same } of pairs) {
+      if (same) continue;
+      replacedSize.set(a.path, h.size);
+      fileStats.push(a);
     }
     const stats = await mapLimit(toStat, 16, (p) => store.stat(ws.volumeId, p, { at: target.id }));
     fileStats.push(...stats);
@@ -221,8 +293,31 @@ async function planRestore(ws: WorkspaceCtx, roots: string[], target: Commit, he
     const prev = replacedSize.get(f.path);
     return s + (prev === undefined || remove.has(f.path) ? 0 : logicalSize(prev));
   }, 0);
-  const addBytes = files.reduce((s, f) => s + logicalSize(f.size), 0) + 4096 * dirList.length - replacedLogical - removedLogical;
+  const addBytes =
+    files.reduce((s, f) => s + logicalSize(f.size), 0) +
+    DIR_BYTES * (dirList.length + (await missingParents(ws, headId, files, dirs))) -
+    replacedLogical -
+    removedLogical;
   return { remove: removeTop, files, dirs: dirList, changes, addBytes };
+}
+
+/**
+ * Folders above the restored items that are missing at head and not restored
+ * themselves (a file whose folders were deleted since): the upload creates
+ * them, and each takes 4 KiB.
+ */
+async function missingParents(ws: WorkspaceCtx, headId: string, files: PlannedFile[], dirs: Set<string>): Promise<number> {
+  const proj = new Projection(ws, headId);
+  const parents = new Set<string>();
+  for (const f of files) parents.add(dirname(f.path));
+  for (const d of dirs) parents.add(dirname(d));
+  let n = 0;
+  // Shallowest first, so shared parents are looked up once.
+  for (const p of [...parents].sort((a, b) => a.length - b.length || (a < b ? -1 : 1))) {
+    if (p === '/' || dirs.has(p)) continue; // a restored folder is counted already (its parents come from its own entry)
+    for (const d of await proj.createDirs(p, true)) if (!dirs.has(d)) n++;
+  }
+  return n;
 }
 
 function sumFiles(entries: FileEntry[]): number {
@@ -300,7 +395,15 @@ async function uploadRestored(ws: WorkspaceCtx, files: PlannedFile[], dirs: stri
 /** Restores files / folders to `at` as one action (re-uploads old block lists; removes later additions). */
 export async function restorePaths(
   ctx: ActionCtx,
-  opts: { paths: string[]; at: Ref; kind: ActionKind; summary: string; undoOfActionId?: string },
+  opts: {
+    paths: string[];
+    at: Ref;
+    kind: ActionKind;
+    summary: string;
+    undoOfActionId?: string;
+    /** Runs under the workspace lock with the head the restore starts from, before anything is written; throw to refuse. */
+    verify?: (headCommitId: string) => Promise<void>;
+  },
 ): Promise<ActionSummary> {
   const store = getStore();
   const roots = topMost(opts.paths.map((p) => normalizePath(p)));
@@ -316,8 +419,9 @@ export async function restorePaths(
       meta: { at: target.id, atCreatedAt: target.createdAt, roots: roots.slice(0, 50) },
     },
     async (rec) => {
+      if (opts.verify) await opts.verify(rec.baseCommitId);
       const work = await planRestore(ctx.ws, roots, target, rec.baseCommitId);
-      await assertQuota(ctx.userId, work.addBytes);
+      await using _quota = await reserveQuota(ctx.userId, work.addBytes, 'restore.paths'); // held until the restore lands
       // Ledger intent before any storage call.
       await rec.addPaths(work.changes);
       for (const r of work.remove) {
@@ -353,7 +457,8 @@ export async function restoreFileFrom(
       if (now && now.type === 'dir') throw new ApiError(409, 'not_a_file', 'A folder has that name now.', { path: to });
       const [planned] = await resolveBlocks(ctx.ws, [src], target);
       const file: PlannedFile = { ...planned, path: to, sourcePath: from };
-      await assertQuota(ctx.userId, logicalSize(file.size) - (now ? logicalSize(now.size) : 0));
+      const parents = (await new Projection(ctx.ws, rec.baseCommitId).createDirs(to)).length * DIR_BYTES; // folders deleted since
+      await using _quota = await reserveQuota(ctx.userId, logicalSize(file.size) - (now ? logicalSize(now.size) : 0) + parents, 'restore.file'); // held until the restore lands
       await rec.addPaths([
         { op: 'restored', path: to, entryType: 'file', size: file.size, prevSize: now?.size, blockHashes: file.blocks, mtime: file.mtime },
       ]);
@@ -396,7 +501,13 @@ async function driveChanges(ws: WorkspaceCtx, headId: string, targetId: string):
 export async function restoreDrive(
   ctx: ActionCtx,
   at: Ref,
-  opts?: { undoOfActionId?: string; autoCheckpoint?: boolean; summary?: string },
+  opts?: {
+    undoOfActionId?: string;
+    autoCheckpoint?: boolean;
+    summary?: string;
+    /** Runs under the workspace lock with the head the restore starts from, before anything is written; throw to refuse. */
+    verify?: (headCommitId: string) => Promise<void>;
+  },
 ): Promise<RestoreResponse> {
   const store = getStore();
   const target = await store.getCommit(ctx.ws.volumeId, at);
@@ -413,9 +524,10 @@ export async function restoreDrive(
       meta: { at: target.id, atCreatedAt: target.createdAt },
     },
     async (rec) => {
+      if (opts?.verify) await opts.verify(rec.baseCommitId);
       if (target.id === rec.baseCommitId) return; // already there: noop
       const head = await store.getCommit(ctx.ws.volumeId, rec.baseCommitId);
-      await assertQuota(ctx.userId, target.logicalBytes - head.logicalBytes);
+      await using _quota = await reserveQuota(ctx.userId, target.logicalBytes - head.logicalBytes, 'restore.drive'); // held until the restore lands
       if (opts?.autoCheckpoint !== false) {
         try {
           const cp = await createCheckpoint(ctx, {

@@ -468,6 +468,22 @@ describe('folders, move, copy, delete', () => {
     expect(failedCount).toBe(0); // guards run before anything is recorded
   });
 
+  test('a folder cannot be moved or copied onto a folder that contains it', async () => {
+    const { client, ws } = await setup('ancestor');
+    await uploadFile(client, ws, '/a/b/keep.txt', 'precious');
+    await uploadFile(client, ws, '/a/other.txt', 'o');
+    for (const verb of ['move', 'copy']) {
+      const r = await client.post(`/api/w/${ws}/files/${verb}`, { items: [{ from: '/a/b', to: '/a' }], overwrite: true });
+      expect(r.status).toBe(400);
+      expect(r.body.error).toMatchObject({ code: 'bad_request', details: { path: '/a' } });
+      const deep = await client.post(`/api/w/${ws}/files/${verb}`, { items: [{ from: '/a/b/keep.txt', to: '/a' }], overwrite: true });
+      expect(deep.status).toBe(400);
+    }
+    expect((await list(client, ws, '/a/b')).body.entries.map((e: { name: string }) => e.name)).toEqual(['keep.txt']);
+    expect((await list(client, ws, '/a')).body.entries.map((e: { name: string }) => e.name)).toEqual(['b', 'other.txt']);
+    expect((await wsActions(ws)).filter((x) => x.status === 'failed')).toHaveLength(0);
+  });
+
   test('copy: files and folders, quota checked, ledger rows `copied`', async () => {
     const { client, ws, me } = await setup('copy');
     await uploadFile(client, ws, '/src/a.txt', 'a');

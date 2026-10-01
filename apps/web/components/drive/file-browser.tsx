@@ -161,6 +161,9 @@ export default function FileBrowser({ path }: { path: string }) {
     setMenu(null);
   }, [path, at, ws]);
 
+  // A Move/Copy picker belongs to the workspace it was opened in.
+  useEffect(() => setMoveReq(null), [ws]);
+
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -297,8 +300,8 @@ export default function FileBrowser({ path }: { path: string }) {
       setRenaming(e.path);
       setFocus(e.path);
     },
-    moveTo: (es) => (past ? readOnly() : setMoveReq({ mode: 'move', entries: es, startDir: path })),
-    copyTo: (es) => (past ? readOnly() : setMoveReq({ mode: 'copy', entries: es, startDir: path })),
+    moveTo: (es) => (past ? readOnly() : ws && setMoveReq({ ws, mode: 'move', entries: es, startDir: path })),
+    copyTo: (es) => (past ? readOnly() : ws && setMoveReq({ ws, mode: 'copy', entries: es, startDir: path })),
     versions: (e) => vx().openVersions(e.path),
     comparePrevious: (e) => ws && void compareWithPrevious(ws, e.path, (href) => router.push(href)),
     compareWithNow: (e) => at && router.push(compareHref(e.path, at, nowListing.data?.commitId ?? 'head')),
@@ -334,7 +337,7 @@ export default function FileBrowser({ path }: { path: string }) {
     const r = await moveItems(ws, paths, dest, { copy });
     if (!r.ok && 'exists' in r) {
       const es = paths.map((p) => byPath.get(p) ?? { path: p, name: basename(p), type: 'file' as const, size: 0, mtime: 0 });
-      setMoveReq({ mode: copy ? 'copy' : 'move', entries: es, startDir: dest, exists: r.exists });
+      setMoveReq({ ws, mode: copy ? 'copy' : 'move', entries: es, startDir: dest, exists: r.exists });
     }
   };
 

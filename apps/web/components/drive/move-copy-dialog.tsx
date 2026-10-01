@@ -16,6 +16,8 @@ import { isSameOrInside } from '@/lib/drive/selection';
 import { compareNames } from '@/lib/drive/sort';
 
 export interface MoveCopyRequest {
+  /** Workspace the request was made in; the picker never acts on another one. */
+  ws: string;
   mode: 'move' | 'copy';
   entries: FileEntry[];
   /** Folder the picker opens at. */
@@ -35,8 +37,9 @@ export default function MoveCopyDialog({
   req: MoveCopyRequest | null;
   onClose: () => void;
 }) {
-  if (!req) return null;
-  return <MoveCopyInner key={`${req.mode}:${req.entries.map((e) => e.path).join('|')}`} ws={ws} rootName={rootName} req={req} onClose={onClose} />;
+  // A request from a workspace no longer in use (deleted or switched away) is dropped.
+  if (!req || req.ws !== ws) return null;
+  return <MoveCopyInner key={`${ws}:${req.mode}:${req.entries.map((e) => e.path).join('|')}`} ws={ws} rootName={rootName} req={req} onClose={onClose} />;
 }
 
 function MoveCopyInner({ ws, rootName, req, onClose }: { ws: string; rootName: string; req: MoveCopyRequest; onClose: () => void }) {

@@ -63,7 +63,7 @@ function Restore({ target }: { target: NonNullable<RestoreTarget> }) {
         else if (r.checkpointSkipped) label += ' · No checkpoint saved (all slots used)';
       }
       if (r.action.status === 'noop') toast({ kind: 'info', message: `${label} · nothing needed to change` });
-      else registerUndo({ label, actionId: r.action.id });
+      else registerUndo({ label, actionId: r.action.id, workspaceId: ws });
     } catch (e) {
       if (e instanceof ApiError && e.code === 'quota_exceeded') {
         const d = e.details as Partial<QuotaDetails>;

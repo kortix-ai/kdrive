@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
 import type { MeResponse } from '@volumes/shared';
+import { api } from './api/endpoints';
 import { useVx } from './store';
 
 const me: MeResponse = {
@@ -69,5 +70,63 @@ describe('store', () => {
     expect(useVx.getState().checkpoint).toEqual({ at: null });
     s.openShare('/x');
     expect(useVx.getState().share).toEqual({ path: '/x' });
+  });
+
+  test('the current workspace deleted elsewhere: falls back to the default and drops everything about the old one', () => {
+    const s = useVx.getState();
+    s.setMe(me);
+    s.setWorkspace('ws-2');
+    s.setPath('/reports');
+    s.enterTimeTravel({ commitId: 'vc_ws2', createdAt: 'x' });
+    s.select(['/reports/q3.pdf']);
+    s.openPreview('/reports/q3.pdf');
+    s.openRestore({ scope: 'file', path: '/reports/q3.pdf', at: 'vc_ws2' });
+    s.openShare('/reports/q3.pdf');
+    const k = useVx.getState().refreshKey;
+    // `me` revalidates without ws-2 (deleted in another tab, or by an admin)
+    s.setMe({ ...me, workspaces: [me.workspaces[0]] });
+    const st = useVx.getState();
+    expect(st.workspaceId).toBe('ws-default');
+    expect({ selection: st.selection, anchor: st.anchor, timeTravel: st.timeTravel, panel: st.panel, path: st.path, restore: st.restore, share: st.share }).toEqual({
+      selection: [],
+      anchor: null,
+      timeTravel: null,
+      panel: null,
+      path: '/',
+      restore: null,
+      share: null,
+    });
+    expect(st.refreshKey).toBe(k + 1);
+    // a revalidation that keeps the workspace changes nothing
+    s.select(['/a']);
+    s.setMe({ ...me, workspaces: [me.workspaces[0]] });
+    expect(useVx.getState().selection).toEqual(['/a']);
+  });
+
+  test('redo from the "Undone" toast goes to the workspace the action ran in, not the selected one', async () => {
+    const calls: string[] = [];
+    const orig = api.versioning.undo;
+    let n = 0;
+    (api.versioning as { undo: unknown }).undo = async (w: string, actionId: string) => {
+      calls.push(`${w}:${actionId}`);
+      return { action: { id: `redo-${++n}`, undoable: true } } as never;
+    };
+    try {
+      const s = useVx.getState();
+      s.setMe(me);
+      s.setWorkspace('ws-2');
+      // an upload that ran in ws-default finished after the switch
+      s.registerUndo({ label: 'Uploaded', actionId: 'act-up', workspaceId: 'ws-default' });
+      await useVx.getState().undo('act-up');
+      const undone = useVx.getState().toasts.find((t) => t.message === 'Undone')!;
+      expect(undone.undoActionId).toBe('redo-1');
+      await useVx.getState().undo(undone.id);
+      // and again, from the next "Undone"
+      const again = useVx.getState().toasts.find((t) => t.message === 'Undone' && t.undoActionId === 'redo-2')!;
+      await useVx.getState().undo(again.id);
+      expect(calls).toEqual(['ws-default:act-up', 'ws-default:redo-1', 'ws-default:redo-2']);
+    } finally {
+      (api.versioning as { undo: unknown }).undo = orig;
+    }
   });
 });

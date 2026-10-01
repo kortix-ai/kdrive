@@ -15,8 +15,10 @@ import {
   type UploadPlanRequest,
 } from '@volumes/shared';
 import { ApiError } from '../lib/http';
+import { getStore } from '../storage';
 import { isStoreError, type FileEntry, type UploadPlan } from '../storage/types';
 import type { WorkspaceCtx } from '../types';
+import { logicalSize, planGrowth } from './footprint';
 import type { PathChange } from './ledger';
 import { listDir, statOrNull } from './tree';
 
@@ -25,14 +27,17 @@ export type ResolvedUploadPlan = {
   renamed: { from: string; to: string }[];
   changes: PathChange[];
   totalBytes: number;
-  /** Estimated growth of the volume's logicalBytes (new files minus the files they replace), for the quota check. */
+  /**
+   * Growth of the volume's logicalBytes at the head the plan was resolved on
+   * (new files minus the files they replace, plus every folder created, missing
+   * parents included), for the quota check.
+   */
   addedBytes: number;
   /** Final paths of files that replace an existing file. */
   replaced: string[];
 };
 
-/** Platinum accounts a file as whole 4 KiB pages. */
-export const logicalSize = (size: number) => Math.ceil(size / 4096) * 4096;
+export { logicalSize };
 
 const SHA = /^[0-9a-f]{64}$/;
 
@@ -51,9 +56,9 @@ function checkPath(p: string, what: string): string {
  * The entries of `dir` at head, keyed by name. A missing folder has none. A
  * folder whose path (or an ancestor) is a file cannot receive children: 409.
  */
-async function childrenAtHead(ws: WorkspaceCtx, dir: string): Promise<Map<string, FileEntry>> {
+async function childrenAtHead(ws: WorkspaceCtx, dir: string, at?: string): Promise<Map<string, FileEntry>> {
   try {
-    const { entries } = await listDir(ws, dir);
+    const { entries } = await listDir(ws, dir, at);
     return new Map(entries.map((e) => [e.name || basename(e.path), e]));
   } catch (e) {
     if (isStoreError(e, 'not_a_directory')) {
@@ -63,7 +68,7 @@ async function childrenAtHead(ws: WorkspaceCtx, dir: string): Promise<Map<string
     // Missing folder: make sure no ancestor is a file (the commit would fail later).
     let up = dirname(dir);
     for (;;) {
-      const st = await statOrNull(ws, up);
+      const st = await statOrNull(ws, up, at);
       if (st) {
         if (st.type !== 'dir') {
           throw new ApiError(409, 'not_a_directory', `"${basename(up)}" is a file, so it cannot hold other items.`, { path: up });
@@ -77,8 +82,11 @@ async function childrenAtHead(ws: WorkspaceCtx, dir: string): Promise<Map<string
   }
 }
 
-/** Validates a browser plan, resolves conflicts (ask / keep-both / replace) against head. */
-export async function resolveUploadPlan(ws: WorkspaceCtx, req: z.output<typeof UploadPlanRequest>): Promise<ResolvedUploadPlan> {
+/**
+ * Validates a browser plan, resolves conflicts (ask / keep-both / replace)
+ * against head, or against commit `at` (the head the caller read) when given.
+ */
+export async function resolveUploadPlan(ws: WorkspaceCtx, req: z.output<typeof UploadPlanRequest>, at?: string): Promise<ResolvedUploadPlan> {
   const files = req.files ?? [];
   const dirsIn = req.dirs ?? [];
   if (files.length === 0 && dirsIn.length === 0) throw new ApiError(400, 'bad_request', 'A plan needs files or folders.');
@@ -122,7 +130,7 @@ export async function resolveUploadPlan(ws: WorkspaceCtx, req: z.output<typeof U
   for (const f of normFiles) parents.add(dirname(f.path));
   for (const d of dirSet) parents.add(dirname(d));
   const head = new Map<string, Map<string, FileEntry>>();
-  for (const p of parents) head.set(p, await childrenAtHead(ws, p));
+  for (const p of parents) head.set(p, await childrenAtHead(ws, p, at));
 
   const conflicts: string[] = [];
   for (const f of normFiles) {
@@ -186,12 +194,10 @@ export async function resolveUploadPlan(ws: WorkspaceCtx, req: z.output<typeof U
 
   // ── ledger rows + quota estimate ──────────────────────────────────────────
   const changes: PathChange[] = [];
-  let addedBytes = 0;
   const replacedSet = new Set(replaced);
   for (const f of finalFiles) {
     // Renamed (keep-both) files never replace anything; replaced files keep their path.
     const cur = replacedSet.has(f.path) ? head.get(dirname(f.path))!.get(basename(f.path)) : undefined;
-    addedBytes += logicalSize(f.size) - (cur ? logicalSize(cur.size) : 0);
     changes.push({
       op: cur ? 'changed' : 'added',
       path: f.path,
@@ -205,9 +211,11 @@ export async function resolveUploadPlan(ws: WorkspaceCtx, req: z.output<typeof U
   for (const d of [...dirSet].sort()) {
     const cur = head.get(dirname(d))!.get(basename(d));
     if (cur) continue; // already there: nothing changes
-    addedBytes += 4096;
     changes.push({ op: 'added', path: d, entryType: 'dir' });
   }
+  // Measured on the tree the listings above were read at, missing parents included.
+  const base = at ?? (await getStore().getVolume(ws.volumeId)).headCommitId;
+  const addedBytes = await planGrowth(ws, base, finalFiles, [...dirSet], head);
 
   return {
     plan: {

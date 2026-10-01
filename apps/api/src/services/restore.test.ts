@@ -3,7 +3,9 @@ import { eq } from 'drizzle-orm';
 import { BLOCK_SIZE } from '@volumes/shared';
 import { db } from '../db/client';
 import { actionPaths, auditEvents, checkpoints } from '../db/schema';
-import { getStore } from '../storage';
+import { getStore, setStoreForTests } from '../storage';
+import type { VolumeStore } from '../storage/types';
+import { uploadFile } from '../../test/helpers';
 import { cleanWorld, freshWorld, countingStore, kitFor, mkdir, move, readText, remove, te, upload } from './versioning-test-kit';
 
 const ls = async (vol: string, at?: string) => (await getStore().list(vol, '/', { at, recursive: true })).entries.map((e) => e.path);
@@ -234,5 +236,171 @@ describe('recently deleted', () => {
     const after = await k.client.get(`/api/w/${k.ws}/deleted`);
     expect(after.body.items.map((i: any) => i.path)).toEqual(['/doc.txt']);
     expect((await k.client.get(`/api/w/${k.ws}/deleted?limit=0`)).status).toBe(400);
+  });
+});
+
+// ── content identity (never size + mtime alone) ─────────────────────────────
+
+/** Swaps in a store whose stat reports no version id (a provider may omit it). */
+function versionlessStat(): () => void {
+  const real = getStore();
+  const proxy = new Proxy(real, {
+    get(target, prop, receiver) {
+      if (prop === 'stat') {
+        return async (...args: Parameters<VolumeStore['stat']>) => ({ ...(await target.stat(...args)), version: null });
+      }
+      const v = Reflect.get(target, prop, receiver);
+      return typeof v === 'function' ? v.bind(target) : v;
+    },
+  });
+  setStoreForTests(proxy);
+  return () => setStoreForTests(real);
+}
+
+describe('undo never overwrites newer content', () => {
+  beforeEach(() => freshWorld());
+  afterEach(cleanWorld);
+
+  const T = 1_700_000_000_000;
+
+  test('undo refuses (409, naming the path) when a later write kept the same size and time', async () => {
+    const k = await kitFor('uc1@test.local');
+    await uploadFile(k.client, k.ws, '/a.txt', 'AAAA', { mtime: T });
+    const target = await uploadFile(k.client, k.ws, '/a.txt', 'BBBB', { mtime: T });
+    await uploadFile(k.client, k.ws, '/a.txt', 'CCCC', { mtime: T });
+    const u = await k.client.post(`/api/w/${k.ws}/actions/${target.commit.action.id}/undo`, {});
+    expect(u.status).toBe(409);
+    expect(u.body.error.code).toBe('conflict');
+    expect(u.body.error.message).toContain('Later changes would be lost');
+    expect(u.body.error.message).toContain('a.txt');
+    expect(u.body.error.details.paths).toEqual(['/a.txt']);
+    expect(await readText(k, '/a.txt')).toBe('CCCC');
+  });
+
+  test('undo refuses when a file inside the undone folder changed later with the same size and time', async () => {
+    const k = await kitFor('uc2@test.local');
+    await uploadFile(k.client, k.ws, '/box/keep.txt', 'keep', { mtime: T });
+    const target = await uploadFile(k.client, k.ws, '/box/f.txt', 'BBBB', { mtime: T });
+    const mv = await move(k, '/box', '/crate');
+    await uploadFile(k.client, k.ws, '/crate/f.txt', 'CCCC', { mtime: T });
+    // Undo the move: /box and /crate go back. /crate/f.txt changed since, silently.
+    const u = await k.client.post(`/api/w/${k.ws}/actions/${mv.action.id}/undo`, {});
+    expect(u.status).toBe(409);
+    expect(u.body.error.details.paths).toEqual(['/crate/f.txt']);
+    expect(await readText(k, '/crate/f.txt')).toBe('CCCC');
+    // The earlier upload is buried under the move too.
+    expect((await k.client.post(`/api/w/${k.ws}/actions/${target.commit.action.id}/undo`, {})).status).toBe(409);
+  });
+
+  test('undo refuses when versions are unknown and the bytes differ', async () => {
+    const k = await kitFor('uc3@test.local');
+    await uploadFile(k.client, k.ws, '/a.txt', 'AAAA', { mtime: T });
+    const target = await uploadFile(k.client, k.ws, '/a.txt', 'BBBB', { mtime: T });
+    await uploadFile(k.client, k.ws, '/a.txt', 'CCCC', { mtime: T });
+    const restore = versionlessStat();
+    try {
+      const u = await k.client.post(`/api/w/${k.ws}/actions/${target.commit.action.id}/undo`, {});
+      expect(u.status).toBe(409);
+    } finally {
+      restore();
+    }
+    expect(await readText(k, '/a.txt')).toBe('CCCC');
+  });
+
+  test('undo still works when later work left its paths as the action left them', async () => {
+    const k = await kitFor('uc4@test.local');
+    await uploadFile(k.client, k.ws, '/a.txt', 'AAAA', { mtime: T });
+    const target = await uploadFile(k.client, k.ws, '/a.txt', 'BBBB', { mtime: T });
+    await upload(k, { '/elsewhere.txt': 'x', '/dir/y.txt': 'y' });
+    const u = await k.client.post(`/api/w/${k.ws}/actions/${target.commit.action.id}/undo`, {});
+    expect(u.status).toBe(200);
+    expect(await readText(k, '/a.txt')).toBe('AAAA');
+    // Same with versions unknown: the bytes are compared instead.
+    const t2 = await uploadFile(k.client, k.ws, '/dir/y.txt', 'z', { mtime: T });
+    await upload(k, { '/other.txt': 'o' });
+    const restore = versionlessStat();
+    try {
+      expect((await k.client.post(`/api/w/${k.ws}/actions/${t2.commit.action.id}/undo`, {})).status).toBe(200);
+    } finally {
+      restore();
+    }
+    expect(await readText(k, '/dir/y.txt')).toBe('y');
+  });
+});
+
+describe('undo re-checks under the workspace lock', () => {
+  beforeEach(() => freshWorld());
+  afterEach(cleanWorld);
+
+  test('a change landing between the check and the undo is never overwritten', async () => {
+    const k = await kitFor('uc5@test.local');
+    await upload(k, { '/a.txt': 'AAAA' });
+    const target = await upload(k, { '/a.txt': 'BBBB' });
+    await upload(k, { '/b.txt': 'later, elsewhere' });
+    const real = getStore();
+    let fired = false;
+    // The first head read of the undo lets a newer write land, then answers with the stale head.
+    const proxy = new Proxy(real, {
+      get(t, prop, receiver) {
+        if (prop === 'getVolume') {
+          return async (...args: Parameters<VolumeStore['getVolume']>) => {
+            const v = await t.getVolume(...args);
+            if (!fired) {
+              fired = true;
+              await upload(k, { '/a.txt': 'CCCC' });
+            }
+            return v;
+          };
+        }
+        const v = Reflect.get(t, prop, receiver);
+        return typeof v === 'function' ? v.bind(t) : v;
+      },
+    });
+    setStoreForTests(proxy);
+    try {
+      const u = await k.client.post(`/api/w/${k.ws}/actions/${target.action.id}/undo`, {});
+      expect(fired).toBe(true);
+      expect(u.status).toBe(409);
+      expect(u.body.error.details.paths).toEqual(['/a.txt']);
+    } finally {
+      setStoreForTests(real);
+    }
+    expect(await readText(k, '/a.txt')).toBe('CCCC');
+  });
+});
+
+describe('large folder restore is complete', () => {
+  beforeEach(() => freshWorld());
+  afterEach(cleanWorld);
+
+  test('a folder of more than 2,000 files still restores a change with the same size and time', async () => {
+    const k = await kitFor('lr1@test.local');
+    const files = Object.fromEntries(Array.from({ length: 2001 }, (_, i) => [`/d/f${String(i).padStart(4, '0')}`, 'a']));
+    const first = await upload(k, files);
+    const st = await getStore().stat(k.vol, '/d/f1500');
+    await uploadFile(k.client, k.ws, '/d/f1500', 'b', { mtime: st.mtime });
+    const r = await k.client.post(`/api/w/${k.ws}/restore`, { scope: 'folder', path: '/d', at: first.action.headCommitId });
+    expect(r.status).toBe(200);
+    expect(r.body.action.status).toBe('committed');
+    expect(await readText(k, '/d/f1500')).toBe('a');
+    const rows = await db.select().from(actionPaths).where(eq(actionPaths.actionId, r.body.action.id));
+    expect(rows.map((x) => x.path)).toEqual(['/d/f1500']);
+  }, 60_000);
+
+  test('same-looking files without a version id are compared by their bytes', async () => {
+    const k = await kitFor('lr2@test.local');
+    const first = await upload(k, { '/d/x.txt': 'xxxx', '/d/y.txt': 'yyyy' });
+    const st = await getStore().stat(k.vol, '/d/x.txt');
+    await uploadFile(k.client, k.ws, '/d/x.txt', 'XXXX', { mtime: st.mtime });
+    const restore = versionlessStat();
+    try {
+      const r = await k.client.post(`/api/w/${k.ws}/restore`, { scope: 'folder', path: '/d', at: first.action.headCommitId });
+      expect(r.status).toBe(200);
+      expect(r.body.action.status).toBe('committed');
+    } finally {
+      restore();
+    }
+    expect(await readText(k, '/d/x.txt')).toBe('xxxx');
+    expect(await readText(k, '/d/y.txt')).toBe('yyyy');
   });
 });

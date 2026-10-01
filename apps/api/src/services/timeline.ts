@@ -20,6 +20,7 @@ import type { Commit } from '../storage/types';
 import type { WorkspaceCtx } from '../types';
 import { checkpointsByCommit } from './checkpoints';
 import { actionsByCommits, reconcilePending, restoredToOf } from './ledger';
+import { reconcileLostCommits } from './lost-commits';
 import { cmpCommitId } from './versioning-util';
 
 const PREVIEW_PATHS = 5;
@@ -90,6 +91,8 @@ function groupCommits(commits: Commit[], actionOf: Map<string, ActionRow>, befor
 
 /** Timeline entries (one per action, newest first). See architecture §9.2. */
 export async function buildTimeline(ws: WorkspaceCtx, opts: { limit: number; before?: string }): Promise<TimelineResponse> {
+  // Commits whose response was lost are recorded first, so they show as their upload.
+  await reconcileLostCommits(ws);
   await reconcilePending(ws);
   const store = getStore();
   const limit = Math.min(Math.max(Math.trunc(opts.limit) || 50, 1), 200);

@@ -61,7 +61,7 @@ describe('resolveUploadPlan', () => {
     });
     expect(r.renamed).toEqual([]);
     expect(r.totalBytes).toBe(5);
-    expect(r.addedBytes).toBe(4096 + 0 + 4096);
+    expect(r.addedBytes).toBe(4096 + 0 + 4096 + 4096); // x.txt, empty.txt, /a/sub, and /a (a missing parent)
     expect(r.changes).toEqual([
       { op: 'added', path: '/a/x.txt', entryType: 'file', size: 5, prevSize: undefined, blockHashes: [sha256Hex('hello')], mtime: undefined },
       { op: 'added', path: '/a/empty.txt', entryType: 'file', size: 0, prevSize: undefined, blockHashes: [], mtime: undefined },

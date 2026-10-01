@@ -153,12 +153,17 @@ describe('ledger', () => {
     expect(range[1].paths[0].fromPath).toBe('/dir/f.bin');
   });
 
-  test('reconcilePending attaches the single unclaimed commit, else fails', async () => {
+  test('reconcilePending attaches the single unclaimed commit when it holds the action’s changes, else fails', async () => {
     const ctx = await ctxFor('ledger6@test.local');
     const store = getStore();
-    const a = await recordIntent(ctx, { kind: 'rename', summary: 'lost response', paths: [] });
-    const r = await store.write(ctx.ws.volumeId, '/orphan.txt', enc('o'));
-    const b = await recordIntent(ctx, { kind: 'delete', summary: 'never ran', paths: [] });
+    await store.write(ctx.ws.volumeId, '/src.txt', enc('o'));
+    const a = await recordIntent(ctx, {
+      kind: 'rename',
+      summary: 'lost response',
+      paths: [{ op: 'moved', path: '/orphan.txt', fromPath: '/src.txt', entryType: 'file', size: 1 }],
+    });
+    const r = await store.move(ctx.ws.volumeId, '/src.txt', '/orphan.txt');
+    const b = await recordIntent(ctx, { kind: 'delete', summary: 'never ran', paths: [{ op: 'deleted', path: '/orphan.txt', entryType: 'file', size: 1 }] });
     // age both intents past the 2-minute window
     await db.update(actions).set({ createdAt: new Date(Date.now() - 10 * 60_000) }).where(eq(actions.workspaceId, ctx.ws.id));
     await reconcilePending(ctx.ws);
@@ -167,5 +172,23 @@ describe('ledger', () => {
     expect(ra!.status).toBe('committed');
     expect(ra!.headCommitId).toBe(r.commitId);
     expect(rb!.status).toBe('failed');
+  });
+
+  test('reconcilePending never gives an action a commit that does not hold its changes', async () => {
+    const ctx = await ctxFor('ledger7@test.local');
+    const store = getStore();
+    await store.write(ctx.ws.volumeId, '/keep.txt', enc('k'));
+    // A delete of /keep.txt whose call never landed, then someone else's write.
+    const a = await recordIntent(ctx, { kind: 'delete', summary: 'never ran', paths: [{ op: 'deleted', path: '/keep.txt', entryType: 'file', size: 1 }] });
+    await store.write(ctx.ws.volumeId, '/other.txt', enc('x'));
+    // An action with no recorded changes proves nothing either.
+    const b = await recordIntent(ctx, { kind: 'rename', summary: 'no rows', paths: [] });
+    await store.write(ctx.ws.volumeId, '/third.txt', enc('y'));
+    await db.update(actions).set({ createdAt: new Date(Date.now() - 10 * 60_000) }).where(eq(actions.workspaceId, ctx.ws.id));
+    await reconcilePending(ctx.ws);
+    expect((await getAction(ctx.ws.id, a.actionId))!.status).toBe('failed');
+    const rb = await getAction(ctx.ws.id, b.actionId);
+    expect(rb!.status).toBe('failed');
+    expect(rb!.commitIds).toEqual([]);
   });
 });

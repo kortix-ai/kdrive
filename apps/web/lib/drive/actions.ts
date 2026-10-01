@@ -40,10 +40,10 @@ export function itemsLabel(entries: readonly { name: string }[]): string {
   return `${entries.length} items`;
 }
 
-function afterAction(action: ActionSummary, fallbackLabel: string, preferOwnLabel = false) {
+function afterAction(ws: string, action: ActionSummary, fallbackLabel: string, preferOwnLabel = false) {
   const s = vx();
   const label = preferOwnLabel ? fallbackLabel : actionText(action.summary, action.restoredTo) || fallbackLabel;
-  if (action.undoable && action.status === 'committed') s.registerUndo({ label, actionId: action.id });
+  if (action.undoable && action.status === 'committed') s.registerUndo({ label, actionId: action.id, workspaceId: ws });
   s.refresh();
 }
 
@@ -91,7 +91,7 @@ export async function deleteItems(ws: string, entries: readonly FileEntry[]): Pr
     s.select(s.selection.filter((p) => !paths.includes(p)), 'replace');
     const panel = s.panel;
     if (panel && paths.some((p) => panel.path === p || panel.path.startsWith(p + '/'))) s.closePanel();
-    afterAction(r.action, `Deleted ${itemsLabel(entries)}`, true);
+    afterAction(ws, r.action, `Deleted ${itemsLabel(entries)}`, true);
     return true;
   } catch (e) {
     vx().toast({ kind: 'error', message: `Couldn't delete ${itemsLabel(entries)}. ${friendlyError(e)}` });
@@ -115,7 +115,7 @@ export async function renameItem(ws: string, entry: FileEntry, newName: string):
       if (s.panel.kind === 'preview') s.openPreview(to, { at: s.panel.at });
       else s.openVersions(to);
     }
-    afterAction(r.action, `Renamed ${entry.name} to ${newName}`);
+    afterAction(ws, r.action, `Renamed ${entry.name} to ${newName}`);
     return true;
   } catch (e) {
     vx().toast({ kind: 'error', message: `Couldn't rename ${entry.name}. ${friendlyError(e)}` });
@@ -147,7 +147,7 @@ export async function moveItems(
     const s = vx();
     if (!opts.copy) s.select(s.selection.filter((p) => !paths.includes(p)), 'replace');
     const destName = dest === '/' ? 'My Drive' : basename(dest);
-    afterAction(r.action, `${opts.copy ? 'Copied' : 'Moved'} ${paths.length === 1 ? basename(paths[0]) : `${paths.length} items`} to ${destName}`);
+    afterAction(ws, r.action, `${opts.copy ? 'Copied' : 'Moved'} ${paths.length === 1 ? basename(paths[0]) : `${paths.length} items`} to ${destName}`);
     return { ok: true };
   } catch (e) {
     if (isApiError(e) && e.code === 'path_exists') {
@@ -173,7 +173,7 @@ export async function createFolder(ws: string, parent: string, name: string): Pr
       // A new folder is an upload plan: when every upload slot is busy it waits its turn.
       () => retryBusy(() => api.files.createFolder(ws, path), { onWait: () => markPending([path], 'waiting') }),
     );
-    afterAction(r.action, `Created folder ${name}`);
+    afterAction(ws, r.action, `Created folder ${name}`);
     return path;
   } catch (e) {
     vx().toast({ kind: 'error', message: `Couldn't create ${name}. ${friendlyError(e)}` });

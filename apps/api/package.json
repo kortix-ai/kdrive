@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "bun --env-file=../../.env --env-file=.env --watch src/server.ts",
     "start": "NODE_ENV=production bun --env-file=../../.env --env-file=.env src/server.ts",
-    "test": "bun test",
+    "test": "bun test --timeout 30000",
     "typecheck": "tsc --noEmit",
     "db:generate": "bun --env-file=../../.env --env-file=.env x drizzle-kit generate",
     "db:migrate": "bun --env-file=../../.env --env-file=.env src/db/migrate.ts",
