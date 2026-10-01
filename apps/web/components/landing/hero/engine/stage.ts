@@ -3,6 +3,7 @@
 // fan and the specks. Rebuilt wholesale when the layout switches.
 import * as THREE from 'three';
 import { Fanout } from './fanout';
+import type { ScenePalette } from './palette';
 import type { Layout } from './layout';
 import { LineBatch } from './lines';
 import { Shades } from './shade';
@@ -54,6 +55,14 @@ export class Stage {
     this.specks = layout.mobile ? null : new Specks(90);
     field.add(this.cores, this.voxels, this.shades.mesh, this.solid.object, this.dashed.object);
     if (this.specks) field.add(this.specks.points);
+  }
+
+  /** Live theme switch for everything the stage owns (lines, seam, shades, slices, specks). */
+  retheme(p: ScenePalette): void {
+    for (const v of this.volumes) v.retheme(p);
+    this.shades.retheme(p);
+    this.fanout.retheme(p, this.volumes);
+    this.specks?.retheme(p);
   }
 
   /** Flag every per-frame buffer for upload. */

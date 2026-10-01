@@ -233,7 +233,7 @@ describe('consent card', () => {
     consentInfo = base;
     await mount(<mod.consent.ConsentCard oauthQuery="client_id=c1&sig=s" />);
     await tick();
-    expect(document.body.textContent).toContain('Connect Helper app to Volumes');
+    expect(document.body.textContent).toContain('Connect Helper app to KDRIVE');
     expect(document.body.textContent).toContain('127.0.0.1:8765');
     const write = radio('Make changes')!;
     expect(write.disabled).toBe(true);

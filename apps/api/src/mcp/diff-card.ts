@@ -50,25 +50,25 @@ var list=el('div','list');ch.slice(0,shown).forEach(function(c){var k=kindOf(c);
 row.appendChild(el('span','path',c.from_path?(c.from_path+' \\u2192 '+c.path):c.path));list.appendChild(row);
 if(typeof c.diff==='string'&&c.diff){var pre=el('pre');c.diff.split('\\n').forEach(function(line){var cls=/^\\+(?!\\+\\+)/.test(line)?'add':/^-(?!--)/.test(line)?'del':/^@@/.test(line)?'hunk':'';pre.appendChild(el('span',cls,line||' '));});list.appendChild(pre);}});
 var foot=el('div','foot');if(n>shown){var more=el('button','btn','Show '+Math.min(5,n-shown)+' more');more.onclick=function(){shown+=5;render();};foot.appendChild(more);}
-var u=openUrl();if(u){var a=el('button','link','Open in Volumes');a.onclick=function(){request('ui/open-link',{url:u});};foot.appendChild(a);}
+var u=openUrl();if(u){var a=el('button','link','Open in KDRIVE');a.onclick=function(){request('ui/open-link',{url:u});};foot.appendChild(a);}
 list.appendChild(foot);root.appendChild(list);}
 window.addEventListener('message',function(ev){if(ev.source!==window.parent)return;var m=ev.data;if(!m||m.jsonrpc!=='2.0')return;
 if(m.id!=null&&pending[m.id]){pending[m.id](m.result);delete pending[m.id];return;}
 if(m.method==='ui/notifications/tool-result'){var p=m.params||{};data=p.structuredContent||(p.result&&p.result.structuredContent)||null;shown=5;render();}});
 render();
-request('ui/initialize',{appInfo:{name:'Volumes change card',version:'1.0.0'},appCapabilities:{},protocolVersion:'2026-01-26'}).then(function(){send({jsonrpc:'2.0',method:'ui/notifications/initialized',params:{}});});
+request('ui/initialize',{appInfo:{name:'KDRIVE change card',version:'1.0.0'},appCapabilities:{},protocolVersion:'2026-01-26'}).then(function(){send({jsonrpc:'2.0',method:'ui/notifications/initialized',params:{}});});
 })();
 `;
 
 /** One self-contained document: inline CSS and script, no network. */
-export const DIFF_CARD_HTML = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Volumes change card</title><style>${STYLE}</style></head><body><div id="card" role="region" aria-label="Changes"></div><script>${SCRIPT}</script></body></html>`;
+export const DIFF_CARD_HTML = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>KDRIVE change card</title><style>${STYLE}</style></head><body><div id="card" role="region" aria-label="Changes"></div><script>${SCRIPT}</script></body></html>`;
 
 /** Registers the card resource on a server. */
 export function registerDiffCard(server: McpServer): void {
   server.registerResource(
     'diff-card',
     DIFF_CARD_URI,
-    { title: 'Volumes change card', mimeType: MIME, description: 'Shows the files a Volumes change touched.' },
+    { title: 'KDRIVE change card', mimeType: MIME, description: 'Shows the files a KDRIVE change touched.' },
     async (uri) => ({
       contents: [
         {

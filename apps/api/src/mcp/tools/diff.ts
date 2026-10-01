@@ -149,7 +149,7 @@ export function registerDiffTool(server: McpServer, p: AgentPrincipal, ctx: Tool
         const to = toIsHead ? 'now' : data.to.commit_id;
         const tally = [`+${data.counts.added}`, `~${data.counts.changed}`, `−${data.counts.removed}`];
         if (data.counts.moved) tally.push(`↪${data.counts.moved}`);
-        const links: Link[] = [{ uri: data.drive_compare_url, name: 'Compare', title: 'Compare in Volumes' }];
+        const links: Link[] = [{ uri: data.drive_compare_url, name: 'Compare', title: 'Compare in KDRIVE' }];
         if (toIsHead) {
           for (const c of data.changes) {
             if (c.op === 'removed') continue;

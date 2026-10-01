@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { ThemeToggle } from '@/components/shell/theme-toggle';
 import { PrimaryCta, SIGNIN_HREF } from './cta';
 import { LogoMark } from './logo-mark';
 import { useReveal } from './use-reveal';
@@ -65,6 +66,7 @@ export function Nav({ signedIn }: { signedIn: boolean }) {
             ))}
           </nav>
           <div className="kd-nav__right">
+            <ThemeToggle className="kd-nav__theme" />
             {!signedIn && (
               <Link href={SIGNIN_HREF} className="kd-nav__signin">
                 Sign in

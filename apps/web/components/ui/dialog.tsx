@@ -169,10 +169,10 @@ export function Dialog({
         )}
         style={{ maxWidth: width }}
       >
-        <div className="flex shrink-0 items-start gap-3 px-6 pb-4 pt-5">
+        <div className="flex shrink-0 items-start gap-3 px-5 pb-3.5 pt-[18px]">
           {icon ? <span className="mt-0.5 inline-flex shrink-0">{icon}</span> : null}
           <div className="min-w-0 flex-1">
-            <h2 id={titleId} className="text-[20px] font-semibold leading-[26px] tracking-[-0.02em] text-vx-text-1">
+            <h2 id={titleId} className="text-[18px] font-semibold leading-6 tracking-[-0.02em] text-vx-text-1">
               {title}
             </h2>
             {description ? (
@@ -187,24 +187,24 @@ export function Dialog({
             aria-label="Close"
             onClick={onClose}
             disabled={busy}
-            className="-mr-2 -mt-1.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-vx-text-2 transition-colors duration-[120ms] hover:bg-vx-surface-3 hover:text-vx-text-1 disabled:opacity-[.38]"
+            className="-mr-1 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-vx-sm text-vx-text-2 transition-colors duration-[120ms] hover:bg-vx-raise hover:text-vx-text-1 disabled:opacity-[.38]"
           >
-            <X size={20} strokeWidth={1.75} aria-hidden />
+            <X size={16} strokeWidth={1.75} aria-hidden />
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-auto px-6 pb-2">{children}</div>
+        <div className="min-h-0 flex-1 overflow-auto px-5 pb-4">{children}</div>
         {error ? (
-          <div role="alert" className="mx-6 mt-2 flex items-start gap-2 rounded-vx-sm bg-vx-danger-wash px-3 py-2 text-[13px] leading-5 text-vx-del-fg">
+          <div role="alert" className="mx-5 mb-3 flex items-start gap-2 rounded-vx-sm bg-vx-danger-wash px-3 py-2 text-[13px] leading-5 text-vx-danger">
             <CircleAlert size={16} strokeWidth={1.75} className="mt-0.5 shrink-0" aria-hidden />
             <span className="min-w-0">{error}</span>
           </div>
         ) : null}
         {footer ? (
-          <div ref={footerRef} className="flex shrink-0 items-center justify-end gap-2 px-6 pb-4 pt-4 max-[720px]:flex-col-reverse max-[720px]:items-stretch max-[720px]:[&>*]:w-full">
+          <div ref={footerRef} className="flex shrink-0 items-center justify-end gap-2 border-t border-vx-hair px-5 py-3.5 max-[720px]:flex-col-reverse max-[720px]:items-stretch max-[720px]:[&>*]:w-full">
             {footer}
           </div>
         ) : null}
-        {note ? <div className="vx-meta flex shrink-0 items-center gap-2 bg-vx-surface-2 px-6 py-3 text-vx-text-3">{note}</div> : null}
+        {note ? <div className="vx-micro flex shrink-0 items-center gap-2 border-t border-vx-hair bg-vx-surface-2 px-5 py-3 text-vx-text-3">{note}</div> : null}
       </div>
     </div>,
     document.body,

@@ -125,15 +125,15 @@ function MenuList({ items, onClose, style, className, onMeasure, minWidth = 240 
       tabIndex={-1}
       style={{ minWidth, ...style }}
       className={cx(
-        'vx-pop fixed z-[70] max-h-[calc(100dvh-16px)] max-w-[calc(100vw-16px)] overflow-y-auto rounded-vx-md border border-vx-hair bg-vx-float p-1.5 shadow-vx-3 outline-none',
+        'vx-pop fixed z-[70] max-h-[calc(100dvh-16px)] max-w-[calc(100vw-16px)] overflow-y-auto rounded-vx-md bg-vx-float p-1 shadow-vx-3 outline-none',
         className,
       )}
     >
       {items.map((it) => {
-        if (it.type === 'separator') return <div key={it.id} role="separator" className="mx-1.5 my-1.5 h-px bg-vx-hair-soft" />;
+        if (it.type === 'separator') return <div key={it.id} role="separator" className="-mx-1 my-1 h-px bg-vx-hair-soft" />;
         if (it.type === 'label')
           return (
-            <div key={it.id} className="vx-meta px-3 pb-1 pt-1.5 text-vx-text-3">
+            <div key={it.id} className="vx-meta px-2.5 pb-1 pt-1.5 text-vx-text-3">
               {it.label}
             </div>
           );
@@ -154,20 +154,20 @@ function MenuList({ items, onClose, style, className, onMeasure, minWidth = 240 
               it.onSelect();
             }}
             className={cx(
-              'flex w-full items-center gap-3 rounded-vx-sm px-3 text-left text-[14px] leading-5 transition-colors duration-[120ms] disabled:cursor-not-allowed disabled:opacity-[.38]',
-              it.hint ? 'min-h-11 py-1.5' : 'h-9',
-              danger ? 'text-vx-del-fg' : 'text-vx-text-1',
-              isActive && 'bg-vx-hover',
+              'flex w-full items-center gap-2.5 rounded-vx-sm px-2.5 text-left text-[14px] leading-5 transition-colors duration-[120ms] disabled:cursor-not-allowed disabled:opacity-[.38]',
+              it.hint ? 'min-h-10 py-1.5' : 'h-8',
+              danger ? 'text-vx-danger' : 'text-vx-text-1',
+              isActive && 'bg-vx-raise',
             )}
           >
             <span
               className={cx(
-                'flex w-[18px] shrink-0 items-center justify-center [&>svg]:h-[18px] [&>svg]:w-[18px]',
-                it.checked ? 'text-vx-accent' : danger ? 'text-vx-del-fg' : it.tone === 'past' ? 'text-vx-past' : 'text-vx-text-2',
+                'flex w-4 shrink-0 items-center justify-center [&>svg]:h-4 [&>svg]:w-4',
+                it.checked ? 'text-vx-text-1' : danger ? 'text-vx-danger' : it.tone === 'past' ? 'text-vx-past' : 'text-vx-text-2',
               )}
               aria-hidden
             >
-              {it.checked ? <Check size={18} strokeWidth={2} /> : it.icon}
+              {it.checked ? <Check size={16} strokeWidth={2} /> : it.icon}
             </span>
             <span className="min-w-0 flex-1">
               <span data-menu-label className="block truncate">
@@ -175,7 +175,7 @@ function MenuList({ items, onClose, style, className, onMeasure, minWidth = 240 
               </span>
               {it.hint ? <span className="vx-meta block truncate text-vx-text-3">{it.hint}</span> : null}
             </span>
-            {it.kbd ? <span className="shrink-0 pl-2 text-[11px] font-medium text-vx-text-4">{it.kbd}</span> : null}
+            {it.kbd ? <span className="shrink-0 pl-2 font-mono text-[11px] text-vx-text-3">{it.kbd}</span> : null}
           </button>
         );
       })}

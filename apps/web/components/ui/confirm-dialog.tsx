@@ -69,6 +69,7 @@ export function ConfirmDialog({ open, title, body, confirmLabel, onConfirm, onCl
             value={typed}
             onChange={(e) => setTyped(e.target.value)}
             size="sm"
+            mono
             autoComplete="off"
             spellCheck={false}
           />

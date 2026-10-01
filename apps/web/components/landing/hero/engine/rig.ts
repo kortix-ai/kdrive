@@ -2,14 +2,13 @@
 // scroll moving the camera through the field, the damped orbit, the slow field
 // yaw, the platinum cursor light and its CSS glow twin (transform writes only).
 import * as THREE from 'three';
+import { palette, type ScenePalette } from './palette';
 import { Spring3, clamp, damp } from './springs';
 
 // parked over the middle of the field (touch, or the pointer away): it lights the cubes evenly
 const PARK = { x: 0.5, y: 0.42 };
 // a modelling light, not a flashlight: the key keeps the top > left > right
 // hierarchy on a hovered or dragged cube, hover itself reads from the rim
-const IDLE = 14;
-const ACTIVE = 18;
 const _ray = new THREE.Vector3();
 
 export class Rig {
@@ -25,9 +24,20 @@ export class Rig {
   constructor(private readonly camera: THREE.PerspectiveCamera, private readonly glowEl: HTMLElement | null) {
     // platinum lerped 10% toward the violet accent; a finite reach with a
     // squared falloff, so the nearest cube is not washed out
-    const c = new THREE.Color(0xdfe3ea).lerp(new THREE.Color(0xa78bfa), 0.1);
-    this.light = new THREE.PointLight(c, IDLE, 14, 2);
+    this.light = new THREE.PointLight(0xffffff, palette().cursor.idle, 14, 2);
     this.light.position.set(0, 0, 3);
+    this.retheme(palette());
+  }
+
+  private idle = 14;
+  private active = 18;
+
+  /** Live theme switch: the cursor light's colour (platinum, a touch of violet) and strength. */
+  retheme(p: ScenePalette): void {
+    this.light.color.set(p.cursor.color).lerp(new THREE.Color(p.cursor.tint), p.cursor.mix);
+    this.idle = p.cursor.idle;
+    this.active = p.cursor.active;
+    this.lightTarget = this.idle;
   }
 
   /** Drag on empty canvas: rotate the field directly; release springs home. */
@@ -37,7 +47,7 @@ export class Rig {
     else this.orbit.setTarget(0, 0, 0);
   }
 
-  private lightTarget = IDLE;
+  private lightTarget = 14;
 
   get energy(): number {
     return this.orbit.energy + Math.abs(this.light.intensity - this.lightTarget) * 0.01;
@@ -70,7 +80,7 @@ export class Rig {
     const lp = this.light.position;
     // up and back toward the key light, so it rakes the top faces instead of flattening the fronts
     lp.set(damp(lp.x, this.target.x - 0.8, 5, dt), damp(lp.y, this.target.y + 1.6, 5, dt), 4.5);
-    this.lightTarget = p ? ACTIVE : IDLE;
+    this.lightTarget = p ? this.active : this.idle;
     this.light.intensity = damp(this.light.intensity, this.lightTarget, p ? 12 : 5, dt);
 
     // the CSS glow follows the same point on screen (720px circle, centred)

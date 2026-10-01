@@ -6,7 +6,8 @@ import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeom
 import { fitHomes, measureZones, type Zones } from './exclusion';
 import { Labels } from './labels';
 import { pickLayout } from './layout';
-import { brushedTexture, metalMaterial, shadeTexture, studioEnvironment } from './materials';
+import { brushedTexture, metalMaterial, shadeTexture, studioEnvironment, tintMetal } from './materials';
+import { documentPalette, palette, setPalette, type ScenePalette } from './palette';
 import { Rig } from './rig';
 import { Stage, type Shared } from './stage';
 import { Interaction } from './interaction';
@@ -30,6 +31,8 @@ export interface FieldOptions {
 export interface FieldHandle {
   /** Keyboard path: toggle the fan on the first volume (Studio). */
   toggleFirst(): void;
+  /** Re-theme in place (no remount, no poster): lights, fog, metal, environment, lines, slices, specks. */
+  setTheme(p: ScenePalette): void;
   dispose(): void;
 }
 
@@ -48,22 +51,25 @@ export function createField(o: FieldOptions): FieldHandle {
   renderer.setClearColor(0x000000, 0);
   renderer.setPixelRatio(dpr);
 
+  setPalette(documentPalette());
+  const P0 = palette();
   const scene = new THREE.Scene();
-  const envRT = studioEnvironment(renderer);
+  let envRT = studioEnvironment(renderer, P0);
   scene.environment = envRT.texture;
-  const fog = new THREE.Fog(0x0a0a0b, 12, 27);
+  const fog = new THREE.Fog(P0.ground, 12, 27);
   scene.fog = fog;
   const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 60);
   const field = new THREE.Group();
   scene.add(field);
   // a neutral ground: a violet one gave the cubes a periwinkle cast
-  scene.add(new THREE.HemisphereLight(0xcfd6e4, 0x16161a, 0.35));
-  const key = new THREE.DirectionalLight(0xe8eaee, 0.75);
+  const hemi = new THREE.HemisphereLight(P0.hemi.sky, P0.hemi.ground, P0.hemi.intensity);
+  scene.add(hemi);
+  const key = new THREE.DirectionalLight(P0.key.color, P0.key.intensity);
   key.position.set(-3, 8, 6);
   scene.add(key);
   // a low, dim fill from the right: right faces read as dark graphite, not as holes
   // (dimmer than the key's side: a cube's three faces read as three distinct values)
-  const fill = new THREE.DirectionalLight(0xc8ccd4, 0.28);
+  const fill = new THREE.DirectionalLight(P0.fill.color, P0.fill.intensity);
   fill.position.set(7, -3, 5);
   scene.add(fill);
   const rig = new Rig(camera, o.glow);
@@ -73,8 +79,8 @@ export function createField(o: FieldOptions): FieldHandle {
   const shared: Shared = {
     voxelGeo: new RoundedBoxGeometry(1, 1, 1, 2, 0.06),
     coreGeo: new THREE.BoxGeometry(1, 1, 1),
-    metal: metalMaterial(rough),
-    core: new THREE.MeshBasicMaterial({ color: 0x09090b }),
+    metal: metalMaterial(rough, P0),
+    core: new THREE.MeshBasicMaterial({ color: P0.core }),
     shadeTex: shadeTexture(),
   };
   const labels = new Labels(o.layer, 6);
@@ -109,9 +115,15 @@ export function createField(o: FieldOptions): FieldHandle {
     stage = new Stage(layout, field, shared, o.reduced);
     camera.fov = layout.fov;
     // the small phone cubes sit further off: a touch more light keeps their tops reading lightest
-    renderer.toneMappingExposure = layout.mobile ? 1.15 : 1;
-    shared.metal.envMapIntensity = layout.mobile ? 1.35 : 1.15;
+    tone(layout.mobile);
     return true;
+  }
+
+  /** Exposure and env strength: the small phone cubes sit further off, so a touch more light. */
+  function tone(mobile: boolean): void {
+    const p = palette();
+    renderer.toneMappingExposure = p.exposure * (mobile ? 1.15 : 1);
+    shared.metal.envMapIntensity = p.metal.envIntensity * (mobile ? 1.35 / 1.15 : 1);
   }
 
   /** Camera distance, fog and the exclusion pass, from the live size. Never in the loop. */
@@ -121,9 +133,9 @@ export function createField(o: FieldOptions): FieldHandle {
     camera.aspect = w / h;
     rig.camZ = Math.max(L.camZ, L.halfW / (Math.tan((L.fov * Math.PI) / 360) * camera.aspect));
     camera.updateProjectionMatrix();
-    fog.near = rig.camZ - 2;
+    fog.near = rig.camZ + palette().fogNear;
     // the far volumes (Archive, the ghost) stay legible: their shells read at rest
-    fog.far = rig.camZ + 18;
+    fog.far = rig.camZ + palette().fogFar;
     stage.shades.setFog(fog.near, fog.far);
     const navH = parseFloat(getComputedStyle(o.hero).getPropertyValue('--kd-nav-h')) || 64;
     zones = measureZones(o.hero, o.copyEls(), navH);
@@ -174,6 +186,37 @@ export function createField(o: FieldOptions): FieldHandle {
     if (o.reduced && energy < 0.004 && frames > 2) loop.stop();
   });
 
+  /** Live re-theme: one PMREM re-bake (≈ 10 ms) and colour writes, then one frame (also under reduced motion). */
+  function setTheme(p: ScenePalette): void {
+    if (disposed || p === palette()) return;
+    setPalette(p);
+    const was = envRT;
+    envRT = studioEnvironment(renderer, p);
+    scene.environment = envRT.texture;
+    was.dispose();
+    fog.color.set(p.ground);
+    hemi.color.set(p.hemi.sky);
+    hemi.groundColor.set(p.hemi.ground);
+    hemi.intensity = p.hemi.intensity;
+    key.color.set(p.key.color);
+    key.intensity = p.key.intensity;
+    fill.color.set(p.fill.color);
+    fill.intensity = p.fill.intensity;
+    tintMetal(shared.metal, p);
+    (shared.core as THREE.MeshBasicMaterial).color.set(p.core);
+    rig.retheme(p);
+    stage?.retheme(p);
+    if (stage) {
+      tone(stage.layout.mobile);
+      fog.near = rig.camZ + p.fogNear;
+      fog.far = rig.camZ + p.fogFar;
+      stage.shades.setFog(fog.near, fog.far);
+    }
+    loop.wake();
+  }
+  const onTheme = () => setTheme(documentPalette());
+  window.addEventListener('vx-theme', onTheme);
+
   const ro = new ResizeObserver(resize);
   ro.observe(o.hero);
   document.fonts?.ready.then(() => {
@@ -190,8 +233,10 @@ export function createField(o: FieldOptions): FieldHandle {
       ix.toggleFirst();
       loop.wake();
     },
+    setTheme,
     dispose() {
       disposed = true;
+      window.removeEventListener('vx-theme', onTheme);
       unprobe?.();
       loop.dispose();
       ro.disconnect();

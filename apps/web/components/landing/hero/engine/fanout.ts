@@ -9,6 +9,7 @@ import { anchorOf, type Pt } from './fan-layout';
 import { LineBatch, type LineItem } from './lines';
 import { boxEdges } from './build';
 import { faceTexture } from './materials';
+import { palette, type ScenePalette } from './palette';
 import { AXES, faceExtents, sliceCentre, type FanPlan } from './fan-plan';
 import { Spring1, clamp, smoothstep } from './springs';
 import type { Volume } from './volume';
@@ -46,8 +47,25 @@ export class Fanout {
       mesh.renderOrder = 10 + count - i;
       mesh.visible = false;
       mesh.matrixAutoUpdate = true;
-      return { mesh, s: new Spring1(0, 150, 0.62), delay: 0, edges: LineBatch.item(boxEdges(new THREE.Vector3(0.5, 0.5, 0.5)), i === 0 ? 0xf6f7f9 : 0xcfd3db) };
+      return { mesh, s: new Spring1(0, 150, 0.62), delay: 0, edges: LineBatch.item(boxEdges(new THREE.Vector3(0.5, 0.5, 0.5)), i === 0 ? palette().slice.head : palette().slice.edge) };
     });
+  }
+
+  /**
+   * Live theme switch: re-bake the face textures (≈ 2 ms) in the new tones and re-colour the edges.
+   * Slices showing a texture now get its re-baked twin.
+   */
+  retheme(p: ScenePalette, vols: Volume[]): void {
+    const old = new Map(this.textures);
+    this.textures.clear();
+    this.prebuild(vols);
+    for (const sl of this.slices) {
+      const was = sl.mesh.material.map;
+      if (was) for (const [k, t] of old) if (t === was) sl.mesh.material.map = this.textures.get(k) ?? null;
+      sl.edges.color.set(p.slice.edge);
+    }
+    this.slices.forEach((sl, i) => this.labels[i]?.bright && sl.edges.color.set(p.slice.head));
+    for (const t of old.values()) t.dispose();
   }
 
   /** Every face texture a volume can need, baked up front (warm-up). */
@@ -108,7 +126,7 @@ export class Fanout {
       // the plate's local x/y map onto the face's u/w after the orientation
       sl.mesh.scale.set(e.a * sc, e.b * sc, depth);
       sl.mesh.material.map = tex;
-      sl.edges.color.set(this.labels[i]?.bright ? 0xf6f7f9 : 0xcfd3db);
+      sl.edges.color.set(this.labels[i]?.bright ? palette().slice.head : palette().slice.edge);
       sl.delay = t + 0.09 + i * 0.045;
       if (this.reduced) sl.s.set(900, 1);
       else sl.s.set(150, 0.62);

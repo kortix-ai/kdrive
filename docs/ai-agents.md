@@ -1,17 +1,17 @@
 # Connect an AI agent
 
-Volumes is an MCP server. Any agent or client that speaks the Model Context
+KDRIVE is an MCP server. Any agent or client that speaks the Model Context
 Protocol over Streamable HTTP can read your drive and, if you allow it, change
 it. Every change an agent makes is a version in the timeline, attributed to the
 agent, and can be undone.
 
-This page uses placeholders: `https://<your-volumes-host>` is the web address
-you open Volumes at, and `your-agent` is your client's own command.
+This page uses placeholders: `https://<your-kdrive-host>` is the web address
+you open KDRIVE at, and `your-agent` is your client's own command.
 
 ## The MCP URL
 
 ```
-https://<your-volumes-host>/mcp
+https://<your-kdrive-host>/mcp
 ```
 
 Settings → AI agents shows the exact URL for your server with a Copy button.
@@ -26,7 +26,7 @@ Add the server to your client with only the URL:
 ```json
 {
   "mcpServers": {
-    "volumes": { "type": "http", "url": "https://<your-volumes-host>/mcp" }
+    "kdrive": { "type": "http", "url": "https://<your-kdrive-host>/mcp" }
   }
 }
 ```
@@ -34,7 +34,7 @@ Add the server to your client with only the URL:
 or, for clients with a command line:
 
 ```bash
-your-agent mcp add --transport http volumes https://<your-volumes-host>/mcp
+your-agent mcp add --transport http kdrive https://<your-kdrive-host>/mcp
 ```
 
 On the first request the server answers `401` with a
@@ -71,9 +71,9 @@ it as a bearer token:
 ```json
 {
   "mcpServers": {
-    "volumes": {
+    "kdrive": {
       "type": "http",
-      "url": "https://<your-volumes-host>/mcp",
+      "url": "https://<your-kdrive-host>/mcp",
       "headers": { "Authorization": "Bearer <your token>" }
     }
   }

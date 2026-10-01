@@ -103,9 +103,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   if (error && !unauthorized) {
     return (
-      <div className="flex h-dvh items-center justify-center bg-vx-bg p-4">
-        <div className="vx-sheet w-full max-w-[480px]">
+      <div className="vx-atmos flex h-dvh items-center justify-center p-4">
+        <div className="vx-sheet w-full max-w-[480px] shadow-vx-mock">
           <EmptyState
+            art="gone"
             title="Could not load your drive"
             body={error instanceof Error ? error.message : 'Unknown error'}
             actions={
@@ -124,16 +125,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="vx-app" aria-busy>
         <header className="vx-topbar">
           <div className="flex items-center gap-2.5 pl-4">
-            <span className="skeleton h-8 w-8 !rounded-vx-sm" />
-            <span className="skeleton skel-line w-24" />
+            <span className="skeleton h-4 w-4 !rounded-vx-xs" />
+            <span className="skeleton skel-line w-16" />
           </div>
-          <div className="flex justify-center px-2">
-            <span className="skeleton h-12 w-full max-w-[720px] !rounded-full" />
+          <div className="flex justify-start px-3">
+            <span className="skeleton h-9 w-full max-w-[640px] !rounded-vx-sm" />
           </div>
-          <span className="skeleton mx-2 h-8 w-8 !rounded-full" />
+          <span className="skeleton mx-2 h-7 w-7 !rounded-full" />
         </header>
         <div className="vx-side">
-          <span className="skeleton h-14 w-32 !rounded-full" />
+          <span className="skeleton h-9 w-full !rounded-vx-sm" />
           <span className="skeleton skel-line mt-6 w-40" />
           <span className="skeleton skel-line w-32" />
           <span className="skeleton skel-line w-36" />

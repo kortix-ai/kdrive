@@ -1,7 +1,7 @@
 'use client';
 
-// "+ New" (DESIGN-v2 §5): the raised pill at the top of the sidebar and, on phones,
-// the tonal FAB. Its menu: New folder N · Upload files U · Upload folder ⇧U.
+// "+ New" (UNIFY-SPEC §11): the full-width primary button at the top of the sidebar and,
+// on phones, the primary FAB. Its menu: New folder N · Upload files U · Upload folder ⇧U.
 // Uploads start here (into the open folder on /drive, else the drive root);
 // New folder is handed to the drive through lib/shell-intents.
 import { usePathname, useRouter } from 'next/navigation';
@@ -35,15 +35,15 @@ function useNewItems(): { past: boolean; items: MenuItem[] } {
     if (!onDriveRoute(pathname)) router.push('/drive');
   };
   const items: MenuItem[] = [
-    { id: 'new-folder', label: 'New folder', icon: <FolderPlus size={18} strokeWidth={1.75} />, kbd: 'N', onSelect: newFolder, disabled: past, reason: READ_ONLY_REASON },
+    { id: 'new-folder', label: 'New folder', icon: <FolderPlus size={16} strokeWidth={1.75} />, kbd: 'N', onSelect: newFolder, disabled: past, reason: READ_ONLY_REASON },
     { id: 'sep', type: 'separator' },
-    { id: 'upload-files', label: 'Upload files', icon: <Upload size={18} strokeWidth={1.75} />, kbd: 'U', onSelect: () => upload(false), disabled: past, reason: READ_ONLY_REASON },
-    { id: 'upload-folder', label: 'Upload folder', icon: <FolderUp size={18} strokeWidth={1.75} />, kbd: '⇧U', onSelect: () => upload(true), disabled: past, reason: READ_ONLY_REASON },
+    { id: 'upload-files', label: 'Upload files', icon: <Upload size={16} strokeWidth={1.75} />, kbd: 'U', onSelect: () => upload(false), disabled: past, reason: READ_ONLY_REASON },
+    { id: 'upload-folder', label: 'Upload folder', icon: <FolderUp size={16} strokeWidth={1.75} />, kbd: '⇧U', onSelect: () => upload(true), disabled: past, reason: READ_ONLY_REASON },
   ];
   return { past, items };
 }
 
-/** The sidebar pill: 56 px, float fill, shadow-2; plus-only in the 72 px sidebar. */
+/** The sidebar button: primary, 36 px, r4, full width; a 40 × 40 plus in the 64 px sidebar. */
 export function NewButton() {
   const { past, items } = useNewItems();
   const button = (p: Record<string, unknown>) => (
@@ -54,13 +54,13 @@ export function NewButton() {
       data-testid="new-button"
       aria-label={past ? `New. ${READ_ONLY_REASON}` : 'New'}
       className={cx(
-        'inline-flex h-14 shrink-0 items-center gap-3 rounded-full bg-vx-float pl-4 pr-6 text-[14px] font-semibold text-vx-text-1 shadow-vx-2 transition-[background-color,box-shadow] duration-[120ms] ease-vx',
-        'hover:bg-vx-surface-2 hover:shadow-vx-3 aria-expanded:bg-vx-surface-2 aria-expanded:shadow-vx-3',
-        'disabled:cursor-not-allowed disabled:opacity-45 disabled:shadow-vx-1 disabled:hover:bg-vx-float',
-        'max-[1023px]:w-14 max-[1023px]:justify-center max-[1023px]:p-0 max-[720px]:w-auto max-[720px]:justify-start max-[720px]:pl-4 max-[720px]:pr-6',
+        'inline-flex h-9 w-full shrink-0 items-center justify-center gap-2 rounded-vx-sm bg-vx-primary px-3.5 text-[14px] font-medium text-vx-on-primary transition-[background-color,opacity] duration-[120ms] ease-vx',
+        'hover:bg-vx-primary-hover aria-expanded:bg-vx-primary-hover',
+        'disabled:cursor-not-allowed disabled:opacity-[.38] disabled:hover:bg-vx-primary',
+        'max-[1023px]:h-10 max-[1023px]:w-10 max-[1023px]:p-0 max-[720px]:h-9 max-[720px]:w-full max-[720px]:px-3.5',
       )}
     >
-      <Plus size={24} strokeWidth={2.25} className="text-vx-accent" aria-hidden />
+      <Plus size={16} strokeWidth={2} aria-hidden />
       <span className="vx-side-full">New</span>
     </button>
   );
@@ -68,7 +68,7 @@ export function NewButton() {
   return <Menu placement="over" minWidth={240} items={items} trigger={(p) => button(p)} />;
 }
 
-/** Phone FAB (≤ 720 px, /drive only): tonal, 56 px, r16, bottom-right above the strip pill. */
+/** Phone FAB (≤ 720 px, /drive only): primary, 48 px, r4, bottom-right above the strip pill. */
 export function NewFab() {
   const { past, items } = useNewItems();
   return (
@@ -83,9 +83,9 @@ export function NewFab() {
             {...p}
             disabled={past}
             title={past ? READ_ONLY_REASON : undefined}
-            className="inline-flex h-14 items-center gap-2 rounded-vx-lg bg-vx-accent-wash pl-4 pr-5 text-[14px] font-semibold text-vx-on-accent-wash shadow-vx-3 disabled:cursor-not-allowed disabled:opacity-45"
+            className="inline-flex h-12 items-center gap-2 rounded-vx-sm bg-vx-primary pl-4 pr-5 text-[14px] font-medium text-vx-on-primary shadow-vx-3 hover:bg-vx-primary-hover disabled:cursor-not-allowed disabled:opacity-[.38]"
           >
-            <Plus size={24} strokeWidth={2.25} aria-hidden />
+            <Plus size={18} strokeWidth={2} aria-hidden />
             New
           </button>
         )}

@@ -1,13 +1,13 @@
 'use client';
 
-// Sidebar (DESIGN-v2 §6.0): on the page colour, no border. Top to bottom:
-// + New, the workspace switcher, nav pills (chord hints on hover), a flexible gap,
-// then storage and the emulated-storage badge. 72 px icon column at 720–1023 px;
-// a drawer on phones (AppShell opens it from the top bar).
+// Sidebar (UNIFY-SPEC §11): on the page ground with a 1px hair right rule. Top to bottom:
+// + New (primary), the DRIVES eyebrow + workspace switcher, 32 px nav items (chord hints
+// on hover, Mono counts), a flexible gap, then storage and the emulated-storage badge on a
+// hair rule. 64 px icon column at 720–1023 px; a drawer on phones (AppShell opens it).
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
-import { Bookmark, HardDrive, Inbox, Settings, Shield, Trash } from 'lucide-react';
+import { Diamond, HardDrive, Inbox, Settings, Shield, Trash } from 'lucide-react';
 import StorageMeter from '@/components/drive/storage-meter';
 import WorkspaceSwitcher from '@/components/workspaces/workspace-switcher';
 import { ProposalsNavCount } from '@/components/proposals/proposals-nav-count';
@@ -21,7 +21,7 @@ type NavItem = { href: string; label: string; short: string; icon: typeof HardDr
 
 const NAV_MAIN: NavItem[] = [
   { href: '/drive', label: 'My Drive', short: 'Drive', icon: HardDrive, chord: 'g d' },
-  { href: '/checkpoints', label: 'Checkpoints', short: 'Saved', icon: Bookmark, chord: 'g c' },
+  { href: '/checkpoints', label: 'Checkpoints', short: 'Saved', icon: Diamond, chord: 'g c' },
   { href: '/recently-deleted', label: 'Recently deleted', short: 'Deleted', icon: Trash, chord: 'g x' },
   { href: '/proposals', label: 'Proposals', short: 'Review', icon: Inbox, chord: 'g p' },
 ];
@@ -46,16 +46,16 @@ function NavLink({
   return (
     <Link href={n.href} onClick={onNavigate} aria-current={active ? 'page' : undefined} title={n.label} className="vx-nav">
       <span className="vx-nav-icon">
-        <Icon size={18} strokeWidth={1.75} aria-hidden />
+        <Icon size={16} strokeWidth={1.75} aria-hidden />
       </span>
       <span className="vx-side-full min-w-0 flex-1 truncate">{n.label}</span>
       {n.chord ? (
-        <span className="vx-nav-chord vx-side-full vx-micro shrink-0 text-vx-text-4" aria-hidden>
+        <span className="vx-nav-chord vx-side-full shrink-0" aria-hidden>
           {n.chord}
         </span>
       ) : null}
-      {countSlot ?? (count ? <span className="vx-nav-count vx-side-full vx-meta shrink-0 tabular-nums">{count}</span> : null)}
-      <span className="vx-side-compact text-[12px] font-medium leading-4">{n.short}</span>
+      {countSlot ?? (count ? <span className="vx-nav-count vx-side-full shrink-0">{count}</span> : null)}
+      <span className="vx-side-compact">{n.short}</span>
     </Link>
   );
 }
@@ -69,9 +69,10 @@ export function LeftRail({ open, onNavigate }: { open?: boolean; onNavigate?: ()
 
   return (
     <nav data-open={open ? 'true' : 'false'} className="vx-side" aria-label="Main">
-      <div className="pb-3">
+      <div className="pb-4">
         <NewButton />
       </div>
+      <div className="vx-eyebrow vx-side-full px-2.5 pb-1.5">Drives</div>
       <div className="pb-2">
         <WorkspaceSwitcher />
       </div>
@@ -87,7 +88,7 @@ export function LeftRail({ open, onNavigate }: { open?: boolean; onNavigate?: ()
             />
           </li>
         ))}
-        <li role="separator" aria-hidden className="mx-4 my-2 h-px bg-vx-hair max-[1023px]:mx-2" />
+        <li role="separator" aria-hidden className="mx-2.5 my-2 h-px bg-vx-hair max-[1023px]:mx-1" />
         <li>
           <NavLink n={NAV_SETTINGS} active={isActive(NAV_SETTINGS.href)} onNavigate={onNavigate} />
         </li>
@@ -98,7 +99,7 @@ export function LeftRail({ open, onNavigate }: { open?: boolean; onNavigate?: ()
         ) : null}
       </ul>
       <div className="min-h-6 flex-1" />
-      <div className={cx('vx-side-full border-t border-vx-hair-soft px-1 pt-4')}>
+      <div className={cx('vx-side-full -mx-3 border-t border-vx-hair px-4 pt-3')}>
         <StorageMeter />
         <EmulatedBadge className="mt-3" />
       </div>

@@ -2,7 +2,7 @@ import { Folder, Link2 } from 'lucide-react';
 import { extname, previewKind } from '@volumes/shared';
 import { cx } from './cx';
 
-/** The coloured tile families (DESIGN-v2 §4.1). Each maps to a `--vx-ft-*` token. */
+/** The tinted tile families (UNIFY-SPEC §2.5). Each maps to a `--vx-ft-*` token. */
 export type FileKind = 'folder' | 'link' | 'markdown' | 'doc' | 'sheet' | 'pdf' | 'slides' | 'image' | 'photo' | 'video' | 'audio' | 'code' | 'archive' | 'other';
 
 const ARCHIVES = new Set(['.zip', '.gz', '.tar', '.tgz', '.bz2', '.xz', '.7z', '.rar', '.zst']);
@@ -51,7 +51,7 @@ export function fileKindColor(kind: FileKind): string {
   return kind === 'folder' ? 'var(--vx-ft-folder)' : kind === 'link' ? 'var(--vx-ft-other)' : `var(--vx-ft-${kind === 'markdown' ? 'doc' : kind})`;
 }
 
-const G = { fill: 'none', stroke: 'var(--vx-ft-glyph)', strokeLinecap: 'round', strokeLinejoin: 'round' } as const;
+const G = { fill: 'none', stroke: 'currentColor', strokeLinecap: 'round', strokeLinejoin: 'round' } as const;
 
 function Glyph({ kind }: { kind: FileKind }) {
   switch (kind) {
@@ -63,7 +63,7 @@ function Glyph({ kind }: { kind: FileKind }) {
       return <path d="M7 7.5h10v9H7zM7 10.5h10M7 13.5h10M12 7.5v9" {...G} strokeWidth={1.4} />;
     case 'pdf':
       return (
-        <text x="12" y="14.6" fontSize="6.4" fontWeight="800" textAnchor="middle" fontFamily="Inter, system-ui, sans-serif" fill="var(--vx-ft-glyph)">
+        <text x="12" y="14.4" fontSize="6" fontWeight="700" textAnchor="middle" fontFamily="var(--vx-font-mono)" fill="currentColor">
           PDF
         </text>
       );
@@ -73,18 +73,18 @@ function Glyph({ kind }: { kind: FileKind }) {
     case 'photo':
       return (
         <>
-          <circle cx="9" cy="9" r="1.7" fill="var(--vx-ft-glyph)" />
+          <circle cx="9" cy="9" r="1.7" fill="currentColor" />
           <path d="M6 17.5l4-4.5 3 3 2.2-2.2 2.8 3.7" {...G} strokeWidth={1.6} />
         </>
       );
     case 'video':
-      return <path d="M10 8.5v7l6-3.5z" fill="var(--vx-ft-glyph)" />;
+      return <path d="M10 8.5v7l6-3.5z" fill="currentColor" />;
     case 'audio':
       return (
         <>
           <path d="M11 16V8l5-1.2v7.7" {...G} strokeWidth={1.6} />
-          <circle cx="9.4" cy="16" r="1.7" fill="var(--vx-ft-glyph)" />
-          <circle cx="14.4" cy="14.5" r="1.7" fill="var(--vx-ft-glyph)" />
+          <circle cx="9.4" cy="16" r="1.7" fill="currentColor" />
+          <circle cx="14.4" cy="14.5" r="1.7" fill="currentColor" />
         </>
       );
     case 'code':
@@ -92,13 +92,14 @@ function Glyph({ kind }: { kind: FileKind }) {
     case 'archive':
       return <path d="M12 5v2M12 9v2M12 13v2M10.5 16.5h3v2.5h-3z" {...G} strokeWidth={1.5} />;
     default:
-      return <circle cx="12" cy="12" r="1.6" fill="var(--vx-ft-glyph)" />;
+      return <circle cx="12" cy="12" r="1.6" fill="currentColor" />;
   }
 }
 
 /**
- * File-type icon (DESIGN-v2 §4.1): a rounded tile in `--vx-ft-*` with a glyph in `--vx-ft-glyph`,
- * drawn in a `size` px box (24 default: rows use 24, panel heads 32, grid mats 48). Folders are
+ * File-type icon (UNIFY-SPEC §2.5): a tinted r2 tile (`--vx-ft-*` at `--vx-ft-tint`) with a glyph in the
+ * kind's colour, drawn in a `size` px box (24 default: rows 24, panel heads 24–32, mats 48/64, which add
+ * a 1 px hair border). Folders are
  * an outline folder in `--vx-ft-folder`; `shared` adds a small person badge.
  * `muted` dims the icon (ghost rows, unrestorable items).
  */
@@ -135,8 +136,19 @@ export function FileIcon({
     );
   }
   return (
-    <svg className={cls} width={size} height={size} viewBox="0 0 24 24" aria-hidden data-kind={kind}>
-      <rect x="3" y="2" width="18" height="20" rx="3.5" fill={fileKindColor(kind)} />
+    <svg className={cls} width={size} height={size} viewBox="0 0 24 24" aria-hidden data-kind={kind} style={{ color: fileKindColor(kind) }}>
+      <rect
+        x="2.5"
+        y="2.5"
+        width="19"
+        height="19"
+        rx="2"
+        style={{
+          fill: `color-mix(in srgb, ${fileKindColor(kind)} var(--vx-ft-tint), transparent)`,
+          stroke: size >= 40 ? 'var(--vx-hair)' : 'none',
+        }}
+        strokeWidth={size >= 40 ? 24 / size : 0}
+      />
       <Glyph kind={kind} />
     </svg>
   );

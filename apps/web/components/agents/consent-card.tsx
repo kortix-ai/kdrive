@@ -6,7 +6,9 @@
 import { useEffect, useState } from 'react';
 import { Bot, CircleAlert } from 'lucide-react';
 import type { AgentScope, OAuthConsentInfo } from '@volumes/shared';
-import { Mark } from '@/components/shell/brand';
+import { AuthCard, AuthFrame } from '@/components/auth/auth-frame';
+import { Brand } from '@/components/shell/brand';
+import { ThemeToggle } from '@/components/shell/theme-toggle';
 import { Button } from '@/components/ui/button';
 import { isApiError } from '@/lib/api/client';
 import { api } from '@/lib/api/endpoints';
@@ -23,7 +25,7 @@ export function signedQueryUsable(params: URLSearchParams, now = Date.now()): bo
 
 function ErrorRow({ children }: { children: React.ReactNode }) {
   return (
-    <p role="alert" className="flex items-start gap-2 rounded-vx-sm bg-vx-danger-wash px-3 py-2 text-[13px] leading-5 text-vx-del-fg">
+    <p role="alert" className="flex items-start gap-2 rounded-vx-sm bg-vx-danger-wash px-3 py-2 text-[13px] leading-5 text-vx-danger">
       <CircleAlert size={16} strokeWidth={1.75} className="mt-0.5 shrink-0" aria-hidden />
       <span className="min-w-0">{children}</span>
     </p>
@@ -99,7 +101,7 @@ export function ConsentCard({ oauthQuery }: { oauthQuery: string }) {
   if (loadError) {
     return (
       <div className="flex flex-col gap-4">
-        <h1 className="text-[20px] font-semibold leading-[26px] tracking-[-0.01em] text-vx-text-1">Connect an app to Volumes</h1>
+        <h1 className="vx-h2">Connect an app to KDRIVE</h1>
         <ErrorRow>{loadError}</ErrorRow>
       </div>
     );
@@ -107,7 +109,7 @@ export function ConsentCard({ oauthQuery }: { oauthQuery: string }) {
   if (!info) {
     return (
       <div className="flex flex-col gap-3" aria-busy="true">
-        <span className="skeleton block h-12 w-12 !rounded-full" />
+        <span className="skeleton block h-10 w-10 !rounded-vx-sm" />
         <span className="skeleton block h-6 w-3/4" />
         <span className="skeleton block h-16 w-full" />
         <span className="skeleton block h-16 w-full" />
@@ -119,45 +121,52 @@ export function ConsentCard({ oauthQuery }: { oauthQuery: string }) {
   return (
     <div className="flex flex-col gap-5">
       <div>
-        <span aria-hidden className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-vx-accent-wash text-vx-on-accent-wash">
-          <Bot size={24} strokeWidth={1.75} />
+        <span aria-hidden className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-vx-sm border border-vx-hair bg-vx-surface-3 text-vx-text-1">
+          <Bot size={20} strokeWidth={1.75} />
         </span>
-        <h1 className="text-[20px] font-semibold leading-[26px] tracking-[-0.01em] text-vx-text-1">Connect {name} to Volumes</h1>
+        <h1 className="vx-h2">Connect {name} to KDRIVE</h1>
         <p className="vx-body mt-1 text-vx-text-3">
-          {info.client.redirectHost ? <span className="font-mono text-[13px] text-vx-text-2">{info.client.redirectHost}</span> : 'This app'} wants access
+          {info.client.redirectHost ? <span className="font-mono text-[12.5px] text-vx-text-2">{info.client.redirectHost}</span> : 'This app'} wants access
           to your drive
         </p>
-        {info.client.uri ? <p className="vx-meta mt-1 break-all font-mono text-vx-text-3">{info.client.uri}</p> : null}
-        {info.existing ? <p className="vx-meta mt-2 text-vx-text-2">You connected this app before. Allowing again replaces its access.</p> : null}
+        {info.client.uri ? <p className="vx-meta mt-1 break-all text-vx-text-3">{info.client.uri}</p> : null}
+        {info.existing ? <p className="vx-body mt-2 text-vx-text-2">You connected this app before. Allowing again replaces its access.</p> : null}
       </div>
       <AccessOptions value={access} onChange={setAccess} maxScope={info.requested.scope} />
       <WorkspacePicker workspaces={info.workspaces} value={workspaceId} onChange={setWorkspaceId} />
       {error ? <ErrorRow>{error}</ErrorRow> : null}
       <div className="flex items-center justify-end gap-2 max-[720px]:flex-col-reverse max-[720px]:items-stretch">
-        <Button variant="text" size="lg" onClick={() => void decide(false)} loading={busy === 'deny'} disabled={!!busy}>
+        <Button variant="outline" size="lg" onClick={() => void decide(false)} loading={busy === 'deny'} disabled={!!busy}>
           Deny
         </Button>
         <Button variant="primary" size="lg" onClick={() => void decide(true)} loading={busy === 'allow'} disabled={!!busy}>
           Allow
         </Button>
       </div>
-      <p className="vx-micro text-vx-text-3">You can disconnect it any time in Settings → AI agents. Volumes never shares your password with apps.</p>
+      <p className="vx-micro text-vx-text-3">You can disconnect it any time in Settings → AI agents. KDRIVE never shares your password with apps.</p>
     </div>
   );
 }
 
-/** The page shell of /oauth/*: the sign-in card look (r24, 520 wide) centred on surface-2, the mark above. */
-export function OAuthShell({ children }: { children: React.ReactNode }) {
+/**
+ * The page shell of /oauth/* (UNIFY-SPEC §14.1): one card (440 to sign in, 520 for consent) on the landing's
+ * atmosphere, the flat KDRIVE lockup at its top, the sun/moon toggle under it.
+ */
+export function OAuthShell({ children, width = 520 }: { children: React.ReactNode; width?: number }) {
   return (
-    <div className="flex min-h-dvh flex-col items-center overflow-auto bg-vx-surface-2 px-4 py-10 max-[720px]:p-0">
-      <main className="my-auto w-full max-w-[520px] rounded-[24px] border border-vx-hair bg-vx-surface p-8 shadow-vx-1 max-[720px]:min-h-dvh max-[720px]:rounded-none max-[720px]:border-0 max-[720px]:px-4 max-[720px]:py-8 max-[720px]:shadow-none">
-        <div className="mb-6 flex items-center gap-2">
-          <Mark size={28} />
-          <span className="text-[16px] font-semibold leading-6 tracking-[-0.02em] text-vx-text-1">Volumes</span>
-        </div>
-        {children}
-      </main>
-    </div>
+    <AuthFrame>
+      <AuthCard className="p-8 max-[720px]:max-w-none max-[720px]:px-5 max-[720px]:py-7" style={{ maxWidth: width }}>
+        <main>
+          <div className="mb-7">
+            <Brand href={null} />
+          </div>
+          {children}
+        </main>
+      </AuthCard>
+      <footer className="relative z-[1] mt-4 flex w-full justify-end max-[720px]:mt-0 max-[720px]:!max-w-none max-[720px]:bg-vx-surface max-[720px]:px-4 max-[720px]:pb-5" style={{ maxWidth: width }}>
+        <ThemeToggle size="sm" />
+      </footer>
+    </AuthFrame>
   );
 }
 

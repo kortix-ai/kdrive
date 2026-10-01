@@ -3,8 +3,8 @@
 import { cx } from './cx';
 
 /**
- * Checkbox (DESIGN-v2 §5): 18 px, r4, 2 px outline; on = accent fill + white check;
- * indeterminate = white bar. Controlled; renders a real <input type=checkbox> for a11y.
+ * Checkbox (UNIFY-SPEC §10): 16 px, r2, 1.5 px outline; on = accent (platinum / graphite) fill + on-accent tick;
+ * indeterminate = a bar. Controlled; renders a real <input type=checkbox> for a11y.
  */
 export function Checkbox({
   checked,
@@ -29,7 +29,7 @@ export function Checkbox({
 }) {
   const on = checked || indeterminate;
   return (
-    <span className={cx('relative inline-flex h-[18px] w-[18px] shrink-0', className)}>
+    <span className={cx('relative inline-flex h-4 w-4 shrink-0', className)}>
       <input
         type="checkbox"
         aria-label={label}
@@ -41,21 +41,21 @@ export function Checkbox({
         }}
         onChange={(e) => onChange?.(e.target.checked, e)}
         onClick={onClick}
-        className="peer absolute inset-0 m-0 cursor-pointer appearance-none rounded-[4px] disabled:cursor-not-allowed"
+        className="peer absolute inset-0 m-0 cursor-pointer appearance-none rounded-vx-xs disabled:cursor-not-allowed"
       />
       <span
         aria-hidden
         className={cx(
-          'pointer-events-none flex h-full w-full items-center justify-center rounded-[4px] border-2 transition-colors duration-[120ms] peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-vx-accent-edge peer-disabled:opacity-[.38]',
-          on ? 'border-vx-accent bg-vx-accent text-vx-on-accent' : 'border-vx-outline bg-vx-surface',
+          'pointer-events-none flex h-full w-full items-center justify-center rounded-vx-xs border-[1.5px] transition-colors duration-[120ms] peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-vx-focus peer-disabled:opacity-[.38]',
+          on ? 'border-vx-accent bg-vx-accent text-vx-on-accent' : 'border-vx-outline bg-transparent',
         )}
       >
         {indeterminate ? (
-          <svg width="10" height="2" viewBox="0 0 10 2" aria-hidden>
-            <rect width="10" height="2" rx="1" fill="currentColor" />
+          <svg width="8" height="2" viewBox="0 0 8 2" aria-hidden>
+            <rect width="8" height="2" fill="currentColor" />
           </svg>
         ) : checked ? (
-          <svg width="12" height="10" viewBox="0 0 12 10" fill="none" aria-hidden>
+          <svg width="10" height="8" viewBox="0 0 12 10" fill="none" aria-hidden>
             <path d="M1 5l3.5 3.5L11 1.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         ) : null}

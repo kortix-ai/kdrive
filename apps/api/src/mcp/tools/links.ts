@@ -54,7 +54,7 @@ export function registerLinksTool(server: McpServer, p: AgentPrincipal, ctx: Too
         const workspace_url = driveUrl(ws.id, '/', 'dir');
         const data = { workspace_url, links, proposal_url };
         const out: Link[] = [{ uri: workspace_url, name: ws.name, title: ws.name, description: 'Workspace' }];
-        if (proposal_url) out.push({ uri: proposal_url, name: 'Proposal', title: 'Proposal in Volumes' });
+        if (proposal_url) out.push({ uri: proposal_url, name: 'Proposal', title: 'Proposal in KDRIVE' });
         for (const l of links) if (l.url) out.push({ uri: l.url, name: basename(l.path) || ws.name, title: l.path });
         const count = links.filter((l) => l.url).length + 1 + (proposal_url ? 1 : 0);
         return ok({ summary: plural(count, 'link'), links: out, data });

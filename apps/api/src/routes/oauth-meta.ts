@@ -23,7 +23,7 @@ export function protectedResourceMetadata() {
     authorization_servers: [OAUTH_ISSUER],
     bearer_methods_supported: ['header'],
     scopes_supported: [...AGENT_SCOPES],
-    resource_name: 'Volumes',
+    resource_name: 'KDRIVE',
     resource_documentation: `${PUBLIC_ORIGIN}/settings/agents`,
   };
 }

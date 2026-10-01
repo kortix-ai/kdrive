@@ -18,11 +18,11 @@ function Keys({ k }: { k: string }) {
     <span className="flex shrink-0 items-center gap-1">
       {k.split('  ').map((alt, i) => (
         <span key={alt} className="flex items-center gap-1">
-          {i > 0 ? <span className="vx-micro text-vx-text-4">or</span> : null}
+          {i > 0 ? <span className="vx-micro text-vx-text-3">or</span> : null}
           {alt.includes(' ') && alt.length <= 4 ? (
             alt.split(' ').map((part, j) => (
               <span key={part + j} className="flex items-center gap-1">
-                {j > 0 ? <span className="vx-micro text-vx-text-4">then</span> : null}
+                {j > 0 ? <span className="vx-micro text-vx-text-3">then</span> : null}
                 <Kbd>{part}</Kbd>
               </span>
             ))
@@ -47,10 +47,10 @@ export function ShortcutList({ className }: { className?: string }) {
         <div key={i} className="flex flex-col gap-5">
           {col.map((g) => (
             <section key={g.label}>
-              <h3 className="mb-1 text-[13px] font-semibold leading-5 text-vx-text-2">{g.label}</h3>
+              <h3 className="vx-eyebrow mb-1.5">{g.label}</h3>
               <ul>
                 {g.keys.map(([k, label]) => (
-                  <li key={k + label} className="flex min-h-8 items-center justify-between gap-3">
+                  <li key={k + label} className="flex min-h-[30px] items-center justify-between gap-3">
                     <span className="text-[14px] leading-5 text-vx-text-1">{label}</span>
                     <Keys k={k} />
                   </li>
@@ -64,7 +64,7 @@ export function ShortcutList({ className }: { className?: string }) {
   );
 }
 
-/** Keyboard shortcuts (DESIGN-v2 §6.21): a 560 dialog holding the list. */
+/** Keyboard shortcuts (UNIFY-SPEC §14.1): a 560 dialog; group titles as eyebrows, 30 px rows, Mono kbd. */
 export function ShortcutSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   return (
     <Dialog open={open} onClose={onClose} title="Keyboard shortcuts" width={560}>

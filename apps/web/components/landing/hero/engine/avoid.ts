@@ -1,4 +1,4 @@
-// Volumes gently avoid each other (LANDING-SPEC §5.6): pairwise spheres with
+// Cubes gently avoid each other (LANDING-SPEC §5.6): pairwise spheres with
 // r = .8 × size, measured in the view plane (depth counts a quarter: two cubes
 // at different depths still overlap on screen); an overlap adds a velocity
 // impulse of 18 × overlap along the separation normal, split by mass (size³);
