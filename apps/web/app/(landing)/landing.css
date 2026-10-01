@@ -1,0 +1,178 @@
+/* ════════════════════════════════════════════════════════════════════════
+ * KDRIVE landing: tokens and base (LANDING-SPEC §1–3).
+ * Everything is scoped to the `.kd` wrapper; the app's --vx-* tokens and its
+ * light theme are untouched. Class prefix: kd-. Dark only.
+ * Section and hero styles live in ./landing-*.css, imported by the layout.
+ * ════════════════════════════════════════════════════════════════════════ */
+
+.kd {
+  /* colour */
+  --kd-bg: #0a0a0b;
+  --kd-bg-2: #0d0d0f;
+  --kd-surface: #121215;
+  --kd-surface-2: #17171b;
+  --kd-raise: #1d1d22;
+  --kd-hair: #232329;
+  --kd-hair-strong: #30303a;
+  --kd-hair-dash: #3b3b46;
+  --kd-text-1: #ededf0;
+  --kd-text-2: #b4b4bd;
+  --kd-text-3: #8b8b96;
+  --kd-text-4: #63636d;
+  --kd-plat-hi: #f6f7f9;
+  --kd-plat-mid: #c8ccd4;
+  --kd-plat-lo: #8d929c;
+  --kd-violet: #a78bfa;
+  --kd-violet-deep: #2a1f4d;
+  --kd-add-fg: #86e0ad;
+  --kd-add-bg: rgb(46 160 90 / .13);
+  --kd-add-word: rgb(46 160 90 / .34);
+  --kd-del-fg: #ff9d97;
+  --kd-del-bg: rgb(229 72 77 / .12);
+  --kd-del-word: rgb(229 72 77 / .32);
+  --kd-ok: #6fd39a;
+  --kd-past-hatch: repeating-linear-gradient(135deg, rgb(200 204 212 / .07) 0 4px, transparent 4px 9px);
+  --kd-metal: linear-gradient(180deg, var(--kd-plat-hi) 0%, #e3e6eb 38%, var(--kd-plat-mid) 52%, #eef0f3 70%, var(--kd-plat-lo) 100%);
+
+  /* radii, elevation */
+  --kd-r-1: 2px;
+  --kd-r-2: 4px;
+  --kd-r-3: 6px;
+  --kd-shadow-mock: 0 40px 90px -50px rgb(0 0 0 / .9);
+
+  /* motion */
+  --kd-ease-out: cubic-bezier(.2, .7, .2, 1);
+  --kd-ease-io: cubic-bezier(.65, 0, .35, 1);
+  --kd-t-fast: 120ms;
+  --kd-t-mid: 240ms;
+  --kd-t-slow: 500ms;
+
+  /* type */
+  --kd-font-sans: var(--font-inter), "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --kd-font-mono: var(--font-kd-mono), ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* layout */
+  --kd-max: 1200px;
+  --kd-pad: clamp(16px, 4vw, 48px);
+  --kd-section-pad: clamp(72px, 8vw, 112px);
+  --kd-nav-h: 64px;
+
+  color-scheme: dark;
+  position: relative;
+  min-height: 100svh;
+  background: var(--kd-bg);
+  color: var(--kd-text-2);
+  font-family: var(--kd-font-sans);
+  font-size: 15px;
+  line-height: 1.6;
+  overflow-x: clip;
+}
+
+@media (max-width: 639px) {
+  .kd { --kd-nav-h: 56px; }
+}
+
+/* The app shell pins the body (overflow hidden, 100% height). The landing is a
+ * normal scrolling document on a dark ground, so undo that only here. */
+html:has(.kd) {
+  height: auto;
+  background: #0a0a0b;
+  color-scheme: dark;
+}
+html:has(.kd) body {
+  height: auto;
+  min-height: 100%;
+  overflow: visible;
+  overflow-x: clip;
+  background: #0a0a0b;
+}
+@media (prefers-reduced-motion: no-preference) {
+  html:has(.kd) { scroll-behavior: smooth; }
+}
+
+.kd ::selection { background: rgb(167 139 250 / .3); color: inherit; }
+.kd :focus-visible { outline: 2px solid var(--kd-violet); outline-offset: 2px; }
+.kd section[id] { scroll-margin-top: 80px; }
+
+/* ── shared primitives (§7) ───────────────────────────────────────────── */
+.kd-container {
+  width: 100%;
+  max-width: calc(var(--kd-max) + 2 * var(--kd-pad));
+  margin-inline: auto;
+  padding-inline: var(--kd-pad);
+}
+
+.kd-eyebrow {
+  font-family: var(--kd-font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  font-weight: 500;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--kd-text-3);
+}
+
+.kd-metal {
+  background: var(--kd-metal);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.kd-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.kd-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 18px;
+  border-radius: var(--kd-r-2);
+  font: 500 15px/1 var(--kd-font-sans);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: filter var(--kd-t-fast) var(--kd-ease-out), background-color var(--kd-t-fast) var(--kd-ease-out);
+}
+.kd-btn:active { transform: translateY(1px); }
+.kd-btn--primary {
+  background: linear-gradient(180deg, #f7f8fa, #d9dce2);
+  color: #0a0a0b;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .6);
+}
+.kd-btn--primary:hover { filter: brightness(1.05); }
+.kd-btn--ghost {
+  background: transparent;
+  color: var(--kd-text-1);
+  box-shadow: inset 0 0 0 1px var(--kd-hair-strong);
+}
+.kd-btn--ghost:hover { background: rgb(255 255 255 / .04); }
+.kd-btn__arrow { transition: transform var(--kd-t-fast) var(--kd-ease-out); }
+.kd-btn:hover .kd-btn__arrow { transform: translateX(2px); }
+
+.kd-kbd {
+  font: 11px/1.4 var(--kd-font-mono);
+  border: 1px solid var(--kd-hair-strong);
+  border-radius: var(--kd-r-1);
+  padding: 1px 5px;
+  color: var(--kd-text-2);
+}
+
+/* Section reveal (§1): only when JS is on and motion is allowed, so the SSR
+ * HTML is fully visible without JS. Children opt in with .kd-reveal. */
+@media (prefers-reduced-motion: no-preference) {
+  html[data-kd-js] .kd-reveal:not(.is-in) { opacity: 0; transform: translateY(12px); }
+  html[data-kd-js] .kd-reveal {
+    transition: opacity var(--kd-t-slow) var(--kd-ease-out), transform var(--kd-t-slow) var(--kd-ease-out);
+  }
+}

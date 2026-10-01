@@ -25,6 +25,7 @@
     "remark-gfm": "^4",
     "shiki": "^4",
     "swr": "^2",
+    "three": "^0.184.0",
     "zod": "^4",
     "zustand": "^5"
   },
@@ -36,6 +37,7 @@
     "@types/papaparse": "^5.5.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/three": "^0.184.0",
     "tailwindcss": "^4",
     "typescript": "^5.7"
   }

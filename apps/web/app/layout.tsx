@@ -7,6 +7,9 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'], weight: ['400', '500', '600', '700'], variable: '--font-inter', display: 'swap' });
 
 export const metadata: Metadata = {
+  // Fallback for absolute share-card URLs; the landing sets its own from each request's origin.
+  // BETTER_AUTH_URL is the web origin (auth lives on this origin, see .env.example).
+  metadataBase: new URL(process.env.BETTER_AUTH_URL ?? 'http://localhost:4100'),
   title: { default: 'Volumes', template: '%s · Volumes' },
   description: 'A personal drive where every change is a version you can browse, compare, restore or share.',
 };

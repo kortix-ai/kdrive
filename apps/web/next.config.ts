@@ -26,7 +26,6 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     return [
-      { source: '/', destination: '/drive', permanent: false },
       { source: '/recent-deleted', destination: '/recently-deleted', permanent: false },
     ];
   },
