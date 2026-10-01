@@ -67,4 +67,5 @@ http://localhost:4100:
 7. **Checkpoints:** create one. The budget readout counts pinned links too.
 8. **Share:** create a live or a pinned link. Open `/s/<token>` in a private window (no sign-in needed), then revoke the link.
 9. **Workspaces:** duplicate the drive at a past version, then switch between workspaces in the left rail.
-10. **Settings and admin:** check the theme, activity log and workspaces in Settings. The admin page lists users and quotas; admins are the emails in `VOLUMES_ADMIN_EMAILS`.
+10. **Themes:** KDRIVE opens in Dark for a new browser. Switch with the sun/moon button in the top bar (or the landing nav), or pick Dark, Light or System under Settings → Appearance. The choice applies before paint on reload, to the landing too, and to other open tabs.
+11. **Settings and admin:** check the activity log and drives in Settings. The admin page lists users and quotas; admins are the emails in `VOLUMES_ADMIN_EMAILS`.
