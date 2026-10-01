@@ -4,10 +4,11 @@ import { cx } from '@/components/ui/cx';
  * The ground for sign-in, OAuth and the 404 (UNIFY-SPEC §14.1): the page colour with the landing's static
  * atmosphere (a violet tint from above, a floor glow below) and grain at half strength. No canvas.
  */
-export function AuthFrame({ children, className, corner }: { children: React.ReactNode; className?: string; corner?: React.ReactNode }) {
+export function AuthFrame({ children, className, bar }: { children: React.ReactNode; className?: string; bar?: React.ReactNode }) {
   return (
-    <div className={cx('vx-atmos vx-grain relative flex h-dvh flex-col items-center overflow-auto px-4 py-10 max-[720px]:p-0', className)}>
-      {corner ? <div className="absolute left-5 top-4 max-[720px]:left-4">{corner}</div> : null}
+    <div className={cx('vx-atmos vx-grain relative flex h-dvh flex-col items-center overflow-auto px-4 py-10 max-[720px]:p-0', !!bar && 'pt-14 max-[720px]:pt-14', className)}>
+      {/* The chrome-less bar (404): the app top bar's 56 px row, lockup left, actions right. */}
+      {bar ? <header className="absolute inset-x-0 top-0 z-[2] flex h-14 items-center justify-between gap-3 px-4">{bar}</header> : null}
       <div className="my-auto flex w-full flex-col items-center max-[720px]:my-0 max-[720px]:min-h-full">{children}</div>
     </div>
   );

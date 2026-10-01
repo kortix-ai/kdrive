@@ -34,15 +34,15 @@ export default function PublicSharePage() {
   });
 
   useEffect(() => {
-    document.title = meta ? `${meta.name} · Volumes` : 'Shared link · Volumes';
-  }, [meta]);
+    document.title = meta ? `${meta.name} · KDRIVE` : 'Shared link · KDRIVE';
+  }, [meta, error]);
 
   if (error || (!token && !isLoading)) {
     const copy = inactiveCopy(error ?? new ApiError(404, 'not_found', 'Not found'));
     return (
       <PublicShell>
         <div className="flex flex-1 items-center justify-center">
-          <EmptyState tone="past" title={copy.title} body={copy.body} />
+          <EmptyState art="gone" tone="past" title={copy.title} body={copy.body} />
         </div>
       </PublicShell>
     );
@@ -55,7 +55,7 @@ export default function PublicSharePage() {
           <span className="skeleton skel-line w-24" />
           <span className="skeleton block h-11 w-2/3" />
           <span className="skeleton skel-line w-48" />
-          <span className="skeleton mt-6 block h-[50vh] w-full rounded-vx-lg" />
+          <span className="skeleton mt-6 block h-[50vh] w-full !rounded-vx-lg" />
         </div>
       </PublicShell>
     );
@@ -72,16 +72,14 @@ export default function PublicSharePage() {
       {isDir ? (
         <PublicBrowser token={token} meta={meta} rel={rel} />
       ) : (
-        <div className="vx-sheet overflow-hidden p-3 max-[720px]:p-2">
-          <FilePreview
-            src={publicContentUrl(token, '/')}
-            downloadHref={publicContentUrl(token, '/', { download: true })}
-            name={meta.name}
-            size={meta.size ?? 0}
-            mime={meta.mime}
-            className="overflow-hidden rounded-vx-md bg-vx-surface-2"
-          />
-        </div>
+        <FilePreview
+          src={publicContentUrl(token, '/')}
+          downloadHref={publicContentUrl(token, '/', { download: true })}
+          name={meta.name}
+          size={meta.size ?? 0}
+          mime={meta.mime}
+          className="overflow-hidden rounded-vx-lg border border-vx-hair bg-vx-surface-2"
+        />
       )}
     </PublicShell>
   );

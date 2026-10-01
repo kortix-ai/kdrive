@@ -5,14 +5,12 @@
 import { Suspense, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ConsentCard, OAuthShell } from '@/components/agents/consent-card';
-import { isApiError } from '@/lib/api/client';
-import { useMe } from '@/lib/api/hooks';
+import { useMeIfSignedIn } from '@/lib/api/hooks';
 
 function Consent() {
   const params = useSearchParams();
   const query = params.toString();
-  const { data: me, error } = useMe();
-  const signedOut = !!error && isApiError(error) && error.status === 401;
+  const { data: me, error, signedOut } = useMeIfSignedIn();
 
   useEffect(() => {
     if (signedOut) window.location.assign(`/oauth/sign-in${window.location.search}`);

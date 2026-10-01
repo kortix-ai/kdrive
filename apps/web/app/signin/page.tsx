@@ -17,7 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { isApiError } from '@/lib/api/client';
 import { api } from '@/lib/api/endpoints';
-import { useConfig, useMe } from '@/lib/api/hooks';
+import { useConfig, useMeIfSignedIn } from '@/lib/api/hooks';
 import { authClient } from '@/lib/auth-client';
 
 /** Only same-origin relative paths are honoured as `?next=`. */
@@ -52,7 +52,7 @@ function SignIn() {
   const params = useSearchParams();
   const next = safeNext(params.get('next'));
   const { data: config, error: configError } = useConfig();
-  const { data: me, error: meError } = useMe();
+  const { data: me, error: meError } = useMeIfSignedIn();
   const [email, setEmail] = useState('dev@volumes.local');
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(params.get('error') ? 'Sign-in was cancelled or failed. Try again.' : null);
@@ -100,7 +100,7 @@ function SignIn() {
 
   return (
     <AuthFrame>
-      <AuthCard className="grid max-w-[960px] grid-cols-[1.1fr_1fr] max-[860px]:grid-cols-1">
+      <AuthCard className="grid max-w-[960px] grid-cols-[1.1fr_1fr] max-[860px]:grid-cols-1 max-[720px]:content-start">
         <section className="flex flex-col border-r border-vx-hair bg-vx-bg-2 p-10 max-[860px]:border-b max-[860px]:border-r-0 max-[720px]:min-h-[140px] max-[720px]:justify-center max-[720px]:px-6 max-[720px]:py-7">
           <BrandMetal />
           <div className="vx-eyebrow mt-10 max-[860px]:mt-6 max-[720px]:hidden">Versioned cloud drive</div>
@@ -119,8 +119,13 @@ function SignIn() {
 
         <section className="flex items-center justify-center p-10 max-[720px]:items-start max-[720px]:px-6 max-[720px]:py-8">
           <div className="w-full max-w-[360px]">
-            <h2 className="vx-h1">Sign in</h2>
-            <p className="vx-meta mt-1 text-vx-text-3">to continue to your drive</p>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="vx-h1">Sign in</h2>
+                <p className="vx-meta mt-1 text-vx-text-3">to continue to your drive</p>
+              </div>
+              <ThemeToggle size="sm" className="-mr-1.5 mt-0.5" />
+            </div>
 
             <div className="mt-8 flex flex-col gap-3">
               {!config && !configError ? (
@@ -184,9 +189,8 @@ function SignIn() {
         </section>
       </AuthCard>
 
-      <footer className="relative z-[1] mt-5 flex w-full max-w-[960px] items-center justify-between gap-4 max-[720px]:mt-0 max-[720px]:bg-vx-surface max-[720px]:px-6 max-[720px]:pb-6">
+      <footer className="relative z-[1] mt-5 flex w-full max-w-[960px] items-center gap-4 max-[720px]:mt-0 max-[720px]:bg-vx-surface max-[720px]:px-6 max-[720px]:pb-6">
         <p className="vx-micro text-vx-text-3">{RETENTION_COPY}</p>
-        <ThemeToggle size="sm" />
       </footer>
     </AuthFrame>
   );

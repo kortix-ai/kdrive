@@ -33,15 +33,15 @@ function Crumbs({ token, rootName, rel }: { token: string; rootName: string; rel
         const last = i === crumbs.length - 1;
         return (
           <span key={c.rel} className={cx('flex items-center gap-0.5', last ? 'min-w-0' : 'min-w-0 shrink max-[520px]:hidden')}>
-            {i > 0 ? <ChevronRight size={18} strokeWidth={1.75} className="shrink-0 text-vx-text-4" aria-hidden /> : null}
+            {i > 0 ? <ChevronRight size={14} strokeWidth={1.75} className="shrink-0 text-vx-text-4" aria-hidden /> : null}
             {last ? (
-              <span className="truncate px-2 text-[18px] font-semibold leading-7 tracking-[-0.01em] text-vx-text-1" aria-current="page">
+              <span className="truncate px-1.5 text-[18px] font-semibold leading-7 tracking-[-0.015em] text-vx-text-1" aria-current="page">
                 {c.label}
               </span>
             ) : (
               <Link
                 href={publicShareHref(token, c.rel)}
-                className="truncate rounded-full px-2 py-1 text-[18px] font-semibold leading-7 tracking-[-0.01em] text-vx-text-3 transition-colors duration-[120ms] hover:bg-vx-hover hover:text-vx-text-1"
+                className="truncate rounded-vx-sm px-1.5 py-0.5 text-[18px] font-semibold leading-7 tracking-[-0.015em] text-vx-text-3 transition-colors duration-[120ms] hover:bg-vx-raise hover:text-vx-text-1"
               >
                 {c.label}
               </Link>
@@ -54,15 +54,15 @@ function Crumbs({ token, rootName, rel }: { token: string; rootName: string; rel
 }
 
 const iconLink =
-  'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-vx-text-2 transition-colors duration-[120ms] ease-vx hover:bg-vx-surface-3 hover:text-vx-text-1';
+  'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-vx-sm text-vx-text-2 transition-colors duration-[120ms] ease-vx hover:bg-vx-raise hover:text-vx-text-1';
 
 function PreviewDrawer({ token, entry, onClose, onStep }: { token: string; entry: FileEntry; onClose: () => void; onStep: (dir: 1 | -1) => void }) {
   useHotkeys({ escape: onClose, arrowleft: () => onStep(-1), arrowright: () => onStep(1) });
   const download = publicContentUrl(token, entry.path, { download: true });
   return (
-    <aside className="vx-sheet flex min-w-0 flex-col self-start overflow-hidden min-[1000px]:sticky min-[1000px]:top-20" aria-label={`Preview of ${entry.name}`}>
-      <div className="flex items-center gap-3 pb-3 pl-5 pr-2 pt-4">
-        <FileIcon name={entry.name} type="file" size={32} />
+    <aside className="vx-sheet flex min-w-0 flex-col self-start overflow-hidden min-[1000px]:sticky min-[1000px]:top-[72px]" aria-label={`Preview of ${entry.name}`}>
+      <div className="flex items-center gap-2.5 pb-3 pl-4 pr-2 pt-3">
+        <FileIcon name={entry.name} type="file" size={24} />
         <div className="min-w-0 flex-1">
           <div className="vx-title truncate" title={entry.name}>
             {middleTruncate(entry.name, 48)}
@@ -72,10 +72,10 @@ function PreviewDrawer({ token, entry, onClose, onStep }: { token: string; entry
           </div>
         </div>
         <a href={download} className={iconLink} aria-label={`Download ${entry.name}`} title="Download">
-          <Download size={18} strokeWidth={1.75} aria-hidden />
+          <Download size={16} strokeWidth={1.75} aria-hidden />
         </a>
-        <IconButton label="Close preview (Esc)" onClick={onClose}>
-          <X size={20} strokeWidth={1.75} aria-hidden />
+        <IconButton label="Close preview (Esc)" size="sm" onClick={onClose}>
+          <X size={16} strokeWidth={1.75} aria-hidden />
         </IconButton>
       </div>
       <FilePreview
@@ -84,13 +84,13 @@ function PreviewDrawer({ token, entry, onClose, onStep }: { token: string; entry
         downloadHref={download}
         name={entry.name}
         size={entry.size}
-        className="mx-3 mb-3 overflow-hidden rounded-vx-md bg-vx-surface-2"
+        className="mx-3 mb-3 overflow-hidden rounded-vx-sm border border-vx-hair bg-vx-surface-2"
       />
     </aside>
   );
 }
 
-const cols = 'grid-cols-[24px_minmax(0,1fr)_120px_88px_32px] max-[640px]:grid-cols-[24px_minmax(0,1fr)_32px]';
+const cols = 'grid-cols-[20px_minmax(0,1fr)_140px_88px_64px] max-[640px]:grid-cols-[20px_minmax(0,1fr)_64px]';
 
 /** Read-only folder browser for a shared folder: breadcrumbs clamped to the link root, list, preview sheet, per-row download. */
 export function PublicBrowser({ token, meta, rel }: { token: string; meta: PublicShareMeta; rel: string }) {
@@ -121,22 +121,21 @@ export function PublicBrowser({ token, meta, rel }: { token: string; meta: Publi
 
   return (
     <div className={cx('grid min-w-0 items-start gap-2', preview ? 'min-[1000px]:grid-cols-[minmax(0,1fr)_minmax(0,480px)]' : 'grid-cols-1')}>
-      <section className="vx-sheet min-w-0 overflow-hidden pb-2">
-        <div className="flex h-16 items-center gap-3 pl-3 pr-5">
-          <Crumbs token={token} rootName={meta.name} rel={rel} />
-          <span className="flex-1" />
-          {data ? (
-            <span className="vx-meta shrink-0 text-vx-text-3">
-              {entries.length} {entries.length === 1 ? 'item' : 'items'}
-            </span>
-          ) : null}
-        </div>
-        <div className={cx('mx-2 grid h-11 items-center gap-3 border-b border-vx-hair px-3 text-[13px] font-medium leading-5 text-vx-text-3', cols)}>
+      <section className="vx-sheet min-w-0 overflow-hidden">
+        {/* The folder's name is the page title already: crumbs appear only inside a subfolder. */}
+        {rel !== '/' ? (
+          <div className="flex h-[52px] items-center gap-3 border-b border-vx-hair pl-2.5 pr-4">
+            <Crumbs token={token} rootName={meta.name} rel={rel} />
+          </div>
+        ) : null}
+        <div className={cx('vx-colhead grid h-9 items-center gap-3 border-b border-vx-hair px-4', cols)}>
           <span />
           <span>Name</span>
           <span className="max-[640px]:hidden">Modified</span>
           <span className="text-right max-[640px]:hidden">Size</span>
-          <span />
+          <span className="whitespace-nowrap text-right normal-case tracking-normal">
+            {data ? `${entries.length} ${entries.length === 1 ? 'item' : 'items'}` : null}
+          </span>
         </div>
         {apiErr ? (
           <PreviewError status={apiErr.status} code={apiErr.code} onRetry={() => void mutate()} />
@@ -147,9 +146,9 @@ export function PublicBrowser({ token, meta, rel }: { token: string; meta: Publi
             ))}
           </div>
         ) : entries.length === 0 ? (
-          <EmptyState title="This folder is empty." body="Nothing has been added here yet." />
+          <EmptyState art="folder" title="This folder is empty." body="Nothing has been added here yet." />
         ) : (
-          <ul role="list" className="px-2 pt-1">
+          <ul role="list">
             {entries.map((e) => {
               const active = preview?.path === e.path;
               const dl = e.type === 'dir' ? publicZipUrl(token, e.path) : publicContentUrl(token, e.path, { download: true });
@@ -157,12 +156,12 @@ export function PublicBrowser({ token, meta, rel }: { token: string; meta: Publi
                 <li
                   key={e.path}
                   className={cx(
-                    'group grid h-10 cursor-default items-center gap-3 rounded-vx-sm px-3 transition-colors duration-[120ms] max-[640px]:h-[60px]',
+                    'group grid h-9 cursor-default items-center gap-3 border-b border-vx-hair-soft px-4 transition-colors duration-[120ms] last:border-b-0 max-[640px]:h-14',
                     cols,
-                    active ? 'bg-vx-selection text-vx-on-selection' : 'hover:bg-vx-hover',
+                    active ? 'vx-selected' : 'hover:bg-vx-raise',
                   )}
                 >
-                  <FileIcon name={e.name} type={e.type} size={24} />
+                  <FileIcon name={e.name} type={e.type} size={20} />
                   <div className="min-w-0">
                     <button
                       type="button"
@@ -172,7 +171,7 @@ export function PublicBrowser({ token, meta, rel }: { token: string; meta: Publi
                     >
                       {middleTruncate(e.name, 64)}
                     </button>
-                    <div className="vx-meta hidden truncate text-vx-text-3 max-[640px]:block">
+                    <div className="vx-meta mt-0.5 hidden truncate text-vx-text-3 max-[640px]:block">
                       Modified {formatWhen(e.mtime)}
                       {e.type === 'dir' ? null : <> · {formatBytes(e.size)}</>}
                     </div>
@@ -187,9 +186,9 @@ export function PublicBrowser({ token, meta, rel }: { token: string; meta: Publi
                     href={dl}
                     aria-label={e.type === 'dir' ? `Download ${e.name} as .zip` : `Download ${e.name}`}
                     title={e.type === 'dir' ? 'Download .zip' : 'Download'}
-                    className={cx(iconLink, 'opacity-0 focus-visible:opacity-100 group-hover:opacity-100 max-[640px]:opacity-100 [@media(hover:none)]:opacity-100')}
+                    className={cx(iconLink, 'justify-self-end opacity-0 focus-visible:opacity-100 group-hover:opacity-100 max-[640px]:opacity-100 [@media(hover:none)]:opacity-100')}
                   >
-                    {e.type === 'dir' ? <FolderDown size={18} strokeWidth={1.75} aria-hidden /> : <Download size={18} strokeWidth={1.75} aria-hidden />}
+                    {e.type === 'dir' ? <FolderDown size={16} strokeWidth={1.75} aria-hidden /> : <Download size={16} strokeWidth={1.75} aria-hidden />}
                   </a>
                 </li>
               );

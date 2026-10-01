@@ -49,11 +49,14 @@ export function initialChoice(info: OAuthConsentInfo): { access: AccessValue; wo
   return { access: { scope, mode: 'review' }, workspaceId: def ? def.id : null };
 }
 
-function errorText(e: unknown): string {
+/** Plain sentences only: a validator's message (`oauth_query: Invalid input…`) is never shown. */
+export function errorText(e: unknown): string {
   if (isApiError(e) && e.status === 404) return `This app is not registered anymore. ${START_AGAIN}`;
-  if (isApiError(e) && e.status === 400) return e.message.includes('expired') ? e.message : `${e.message} ${START_AGAIN}`;
+  if (isApiError(e) && e.status === 400) {
+    return /expired/i.test(e.message) ? `This sign-in link expired. ${START_AGAIN}` : `This sign-in link is incomplete or out of date. ${START_AGAIN}`;
+  }
   if (isApiError(e) && e.status === 0) return "Can't reach the server. Check your connection and try again.";
-  return e instanceof Error && e.message ? `${e.message} ${START_AGAIN}` : `Something went wrong. ${START_AGAIN}`;
+  return `Something went wrong. ${START_AGAIN}`;
 }
 
 export function ConsentCard({ oauthQuery }: { oauthQuery: string }) {
@@ -157,15 +160,14 @@ export function OAuthShell({ children, width = 520 }: { children: React.ReactNod
     <AuthFrame>
       <AuthCard className="p-8 max-[720px]:max-w-none max-[720px]:px-5 max-[720px]:py-7" style={{ maxWidth: width }}>
         <main>
-          <div className="mb-7">
+          {/* The theme switch rides in the card's brand row, not loose under the card. */}
+          <div className="mb-7 flex items-center justify-between gap-3">
             <Brand href={null} />
+            <ThemeToggle size="sm" className="-mr-1.5" />
           </div>
           {children}
         </main>
       </AuthCard>
-      <footer className="relative z-[1] mt-4 flex w-full justify-end max-[720px]:mt-0 max-[720px]:!max-w-none max-[720px]:bg-vx-surface max-[720px]:px-4 max-[720px]:pb-5" style={{ maxWidth: width }}>
-        <ThemeToggle size="sm" />
-      </footer>
     </AuthFrame>
   );
 }
