@@ -1,32 +1,97 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import * as THREE from 'three';
+import { useEffect, useRef, useState } from 'react';
+import { createField, type FieldHandle } from './engine/field';
 
-// STUB (owned by the HERO builder): owns the canvas and calls the engine
-// (hero/engine/*). For now it proves three loads client-side: one clear frame.
+// Owns the WebGL layer of the hero (LANDING-SPEC §5): the canvas host, the CSS
+// cursor glow, the label layer and the hint row. It mounts the engine, hands
+// the poster off after the first frame, and cleans everything up on unmount.
+const COPY_SELECTOR = [
+  '.kd-hero__copy > .kd-eyebrow',
+  '.kd-wordmark',
+  '.kd-hero__mark',
+  '.kd-tagline',
+  '.kd-hero__sub',
+  '.kd-hero__ctas > *',
+  '.kd-hero__agents',
+].join(',');
+
 export default function SceneClient() {
-  const host = useRef<HTMLDivElement>(null);
+  const hostRef = useRef<HTMLDivElement>(null);
+  const glowRef = useRef<HTMLDivElement>(null);
+  const layerRef = useRef<HTMLDivElement>(null);
+  const field = useRef<FieldHandle | null>(null);
+  const [ready, setReady] = useState(false);
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    const el = host.current;
-    if (!el) return;
-    let renderer: THREE.WebGLRenderer;
+    const host = hostRef.current;
+    const hero = host?.closest<HTMLElement>('.kd-hero');
+    if (!host || !hero || !layerRef.current) return;
+    const dev = process.env.NODE_ENV !== 'production';
+    if (dev && new URLSearchParams(window.location.search).has('nogl')) return;
+    const reduced =
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches ||
+      (dev && new URLSearchParams(window.location.search).has('reduced'));
+    const copy = hero.querySelector<HTMLElement>('.kd-hero__copy');
+    let fade = 0;
     try {
-      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      field.current = createField({
+        hero,
+        canvasHost: host,
+        layer: layerRef.current,
+        glow: glowRef.current,
+        copyEls: () => Array.from(hero.querySelectorAll(COPY_SELECTOR)),
+        reduced,
+        dev,
+        onReady: () => {
+          setReady(true);
+          hero.setAttribute('data-kd-gl', 'live');
+          // poster → canvas crossfade (240ms), then the poster leaves the DOM
+          // (only the SVG markup goes; the wrappers stay React's)
+          fade = window.setTimeout(() => {
+            hero.querySelectorAll('.kd-hero__poster-art').forEach((el) => el.replaceChildren());
+            hero.setAttribute('data-kd-gl', 'done');
+          }, 300);
+        },
+        onFan: (isOpen) => {
+          setOpen(isOpen);
+          copy?.classList.toggle('kd-hero__copy--fanned', isOpen);
+        },
+      });
     } catch {
-      return; // no WebGL: the SSR poster stays
+      return; // no WebGL: the poster stays as the illustration, and no hint shows
     }
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setSize(el.clientWidth, el.clientHeight, false);
-    renderer.setClearColor(0x000000, 0);
-    el.appendChild(renderer.domElement);
-    renderer.render(new THREE.Scene(), new THREE.PerspectiveCamera());
     return () => {
-      renderer.dispose();
-      renderer.domElement.remove();
+      window.clearTimeout(fade);
+      field.current?.dispose();
+      field.current = null;
+      copy?.classList.remove('kd-hero__copy--fanned');
+      hero.removeAttribute('data-kd-gl');
     };
   }, []);
 
-  return <div ref={host} className="kd-hero__canvas" aria-hidden="true" />;
+  return (
+    <>
+      <div ref={glowRef} className="kd-hero__glow" aria-hidden="true" />
+      <div ref={hostRef} className="kd-hero__canvas" aria-hidden="true" />
+      <div ref={layerRef} className="kd-hero__labels" aria-hidden="true" />
+      <div className={`kd-hero__hint${ready ? ' is-on' : ''}`} hidden={!ready}>
+        <span className="kd-hero__hint-fine" aria-hidden="true">
+          <kbd>Click</kbd> a drive to see its versions · <kbd>drag</kbd> to throw it
+        </span>
+        <span className="kd-hero__hint-coarse" aria-hidden="true">
+          <kbd>Tap</kbd> a drive to see its versions
+        </span>
+        <button
+          type="button"
+          className="kd-hero__hint-btn"
+          aria-pressed={open}
+          onClick={() => field.current?.toggleFirst()}
+        >
+          Show a drive&apos;s versions
+        </button>
+      </div>
+    </>
+  );
 }

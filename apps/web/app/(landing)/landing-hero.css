@@ -1,4 +1,6 @@
-/* KDRIVE landing: hero styles (LANDING-SPEC §5). Owned by the HERO builder. */
+/* KDRIVE landing: hero styles (LANDING-SPEC §5). Owned by the HERO builder.
+ * Layers, back to front: atmosphere (+ cursor glow), poster, canvas, grain,
+ * copy, labels and hint. The scene writes only transforms per frame. */
 
 .kd-hero {
   position: relative;
@@ -8,44 +10,382 @@
   overflow: clip;
   isolation: isolate;
 }
+
+/* ── atmosphere ──────────────────────────────────────────────────────── */
 .kd-hero__atmos {
   position: absolute;
   inset: 0;
-  z-index: -3;
+  z-index: -4;
+  /* a short fade at the foot so the hero settles into the page, not a hard band */
   background:
+    linear-gradient(180deg, transparent 86%, var(--kd-bg)),
     radial-gradient(130% 100% at 50% 45%, transparent 55%, rgb(0 0 0 / .55)),
     radial-gradient(62% 52% at 50% 56%, rgb(76 56 150 / .20), transparent 70%),
     radial-gradient(120% 80% at 50% 120%, var(--kd-violet-deep) 0%, transparent 60%);
 }
-.kd-hero__canvas { position: absolute; inset: 0; z-index: -1; }
-.kd-hero__canvas canvas { display: block; width: 100%; height: 100%; touch-action: pan-y; }
+.kd-hero__glow {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: -3;
+  width: 720px;
+  height: 720px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgb(167 139 250 / .10), transparent);
+  pointer-events: none;
+  transform: translate3d(-9999px, 0, 0);
+  will-change: transform;
+}
+
+/* ── poster (SSR) → canvas handoff ───────────────────────────────────── */
+.kd-hero__poster {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  transition: opacity 240ms linear;
+}
+.kd-hero__poster-art { position: absolute; inset: 0; }
+.kd-hero__poster-art svg { display: block; width: 100%; height: 100%; }
+/* the same switch as the scene: wide (aspect ≥ .9), tablet (≥640px, aspect ≥ .6), phone */
+.kd-hero__poster-art--mid,
+.kd-hero__poster-art--tall { display: none; }
+@media (max-aspect-ratio: 9/10) {
+  .kd-hero__poster-art--wide { display: none; }
+  .kd-hero__poster-art--tall { display: block; }
+}
+@media (max-aspect-ratio: 9/10) and (min-width: 640px) and (min-aspect-ratio: 3/5) {
+  .kd-hero__poster-art--mid { display: block; }
+  .kd-hero__poster-art--tall { display: none; }
+}
+.kd-hero[data-kd-gl] .kd-hero__poster { opacity: 0; }
+.kd-hero[data-kd-gl='done'] .kd-hero__poster { display: none; }
+
+.kd-hero__canvas {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  opacity: 0;
+  transition: opacity 240ms linear;
+}
+.kd-hero[data-kd-gl] .kd-hero__canvas { opacity: 1; }
+.kd-hero__canvas canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: pan-y;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.kd-hero__canvas canvas.is-grab { cursor: grab; }
+.kd-hero__canvas canvas.is-grabbing { cursor: grabbing; }
+
+/* ── grain ───────────────────────────────────────────────────────────── */
+.kd-hero::after {
+  content: "";
+  position: absolute;
+  inset: -50%;
+  z-index: 0;
+  pointer-events: none;
+  opacity: .055;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation: kd-grain 1s steps(6) infinite;
+}
+@keyframes kd-grain {
+  0% { transform: translate3d(0, 0, 0); }
+  17% { transform: translate3d(-4%, 3%, 0); }
+  33% { transform: translate3d(3%, -5%, 0); }
+  50% { transform: translate3d(-6%, -2%, 0); }
+  67% { transform: translate3d(5%, 4%, 0); }
+  83% { transform: translate3d(-2%, 6%, 0); }
+  100% { transform: translate3d(0, 0, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .kd-hero::after { animation: none; }
+}
+
+/* ── copy (§5.1) ─────────────────────────────────────────────────────── */
 .kd-hero__copy {
   position: relative;
-  max-width: 880px;
-  padding: calc(var(--kd-nav-h) + 24px) var(--kd-pad) 64px;
+  z-index: 1;
+  width: 100%;
+  max-width: calc(880px + 2 * var(--kd-pad));
+  padding: calc(var(--kd-nav-h) + 24px) var(--kd-pad) 72px;
   text-align: center;
-  transform: translateY(-2vh);
+  /* the scene underneath takes the pointer; links and buttons keep it */
+  pointer-events: none;
 }
+.kd-hero__copy a,
+.kd-hero__copy button { pointer-events: auto; }
+.kd-hero__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 28px;
+  /* the category line carries the five-second test: not the faintest text on screen */
+  font-size: 13px;
+  letter-spacing: .16em;
+  color: var(--kd-text-2);
+}
+.kd-hero__eyebrow::before,
+.kd-hero__eyebrow::after {
+  content: "";
+  width: 12px;
+  height: 1px;
+  background: var(--kd-hair-strong);
+}
+.kd-hero__title { margin: 0; font-weight: inherit; }
 .kd-wordmark {
-  display: block;
-  font: 700 clamp(64px, 12.5vw, 184px)/.9 var(--kd-font-sans);
+  /* mark + word as one lockup, centred as a whole over the copy; the mark sits
+   * on the baseline at near cap height, so the line never reads as a bullet */
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  font: 700 min(clamp(64px, 12.5vw, 184px), calc((100vw - 32px) / 4.75)) / .9 var(--kd-font-sans);
   letter-spacing: -.035em;
+  color: var(--kd-text-1);
+}
+.kd-wordmark .kd-metal { padding-right: .02em; }
+.kd-hero__mark {
+  flex: none;
+  /* secondary to the word: the cube spans 86% of the box, about 71% of the cap height */
+  width: .6em;
+  height: .6em;
+  margin: 0 .08em .05em 0;
 }
 .kd-tagline {
   display: block;
   margin-top: 20px;
-  font: 600 clamp(28px, 3.4vw, 46px)/1.1 var(--kd-font-sans);
-  letter-spacing: -.03em;
+  /* one colour for the whole line; only "remembers." takes the wordmark's metal */
+  font: 600 clamp(28px, 3.4vw, 44px) / 1.1 var(--kd-font-sans);
+  letter-spacing: -.025em;
   color: var(--kd-text-1);
-}
-.kd-tagline em { font-style: normal; }
-.kd-hero__sub {
-  max-width: 44ch;
-  margin: 24px auto 0;
-  font-size: 18px;
-  line-height: 1.55;
   text-wrap: balance;
 }
-.kd-hero__ctas { display: flex; gap: 12px; justify-content: center; margin-top: 28px; flex-wrap: wrap; }
-.kd-hero__agents { display: inline-block; margin-top: 20px; font: 12px/1.4 var(--kd-font-mono); color: var(--kd-text-3); }
-.kd-hero__mark { display: inline-block; width: .42em; height: .42em; margin-right: .18em; vertical-align: baseline; }
+.kd-tagline em { font-style: normal; }
+.kd-tagline em.kd-metal {
+  background: var(--kd-metal);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+.kd-hero__sub {
+  max-width: 44ch;
+  margin: 22px auto 0;
+  font-size: 18px;
+  line-height: 1.55;
+  color: var(--kd-text-2);
+  text-wrap: balance;
+  transition: opacity var(--kd-t-mid) var(--kd-ease-out);
+}
+@media (min-width: 640px) {
+  /* one sentence per line from tablets up (the <br> splits them) */
+  .kd-hero__sub { max-width: 62ch; }
+}
+.kd-hero__ctas {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 28px;
+}
+/* a cube passing behind never shows through the ghost button */
+.kd-hero__ctas .kd-btn--ghost { background: rgb(10 10 11 / .75); }
+.kd-hero__ctas .kd-btn--ghost:hover { background: rgb(29 29 34 / .9); }
+.kd-hero__agents {
+  display: inline-block;
+  margin-top: 20px;
+  font: 12px/1.5 var(--kd-font-mono);
+  color: var(--kd-text-3);
+  text-decoration: none;
+  transition: color var(--kd-t-fast) var(--kd-ease-out), opacity var(--kd-t-mid) var(--kd-ease-out);
+}
+.kd-hero__agents:hover { color: var(--kd-text-1); }
+/* while a fan is open only the subline and the agents line step back */
+.kd-hero__copy.kd-hero__copy--fanned .kd-hero__sub,
+.kd-hero__copy.kd-hero__copy--fanned .kd-hero__agents { opacity: .45; }
+
+@media (max-width: 639px) {
+  .kd-hero__br { display: none; }
+  /* phones: the copy sits between two bands of cubes (above and below), so the
+   * hero grows a little past the fold rather than squeezing the scene */
+  .kd-hero__copy {
+    /* a lane between the top band and the eyebrow carries an open fan's caption */
+    padding-top: calc(var(--kd-nav-h) + 176px);
+    padding-bottom: 152px;
+    transform: none;
+  }
+  .kd-hero__eyebrow { margin-bottom: 22px; }
+  .kd-tagline { margin-top: 16px; }
+  .kd-hero__sub { font-size: 17px; margin-top: 18px; }
+  .kd-hero__ctas { flex-direction: column; align-items: stretch; margin-top: 24px; }
+  .kd-hero__ctas .kd-btn { height: 48px; }
+  .kd-hero__agents { margin-top: 18px; text-wrap: balance; }
+}
+
+/* ── labels: hover tag and version column (§5.6) ─────────────────────── */
+.kd-hero__labels {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+  pointer-events: none;
+  font: 12px/1.2 var(--kd-font-mono);
+}
+.kd-hero__tag {
+  position: absolute;
+  left: 0;
+  top: 0;
+  opacity: 0;
+  transition: opacity var(--kd-t-fast) linear;
+  will-change: transform;
+}
+.kd-hero__tag.is-on { opacity: 1; }
+.kd-hero__tag-lead {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 24px;
+  height: 1px;
+  background: var(--kd-text-4);
+  transform-origin: 0 0;
+  transform: rotate(-45deg);
+}
+.kd-hero__tag.is-left .kd-hero__tag-lead { transform: rotate(-135deg); }
+.kd-hero__tag-box {
+  position: absolute;
+  left: 17px;
+  bottom: 17px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 7px 9px;
+  white-space: nowrap;
+  background: rgb(10 10 11 / .8);
+  box-shadow: inset 0 0 0 1px var(--kd-hair);
+  border-radius: var(--kd-r-1);
+  color: var(--kd-text-3);
+}
+.kd-hero__tag.is-left .kd-hero__tag-box { left: auto; right: 17px; }
+.kd-hero__tag.is-below .kd-hero__tag-lead { transform: rotate(45deg); }
+.kd-hero__tag.is-left.is-below .kd-hero__tag-lead { transform: rotate(135deg); }
+.kd-hero__tag.is-below .kd-hero__tag-box { bottom: auto; top: 17px; }
+.kd-hero__tag-box b { font-weight: 500; color: var(--kd-text-1); }
+
+.kd-hero__fan-row {
+  position: absolute;
+  z-index: 1;
+  left: 0;
+  top: 0;
+  padding: 0 6px;
+  font-size: 12px;
+  line-height: 20px;
+  white-space: nowrap;
+  color: var(--kd-text-3);
+  background: rgb(10 10 11 / .72);
+  border-radius: var(--kd-r-1);
+  opacity: 0;
+  transition: opacity 140ms linear;
+  will-change: transform;
+}
+.kd-hero__fan-row.is-bright { color: var(--kd-text-1); }
+.kd-hero__fan-row.is-on { opacity: 1; transition-delay: 80ms; }
+.kd-hero__fan-lead {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  background: var(--kd-text-4);
+  transform-origin: 0 50%;
+  opacity: 0;
+  transition: opacity 140ms linear;
+  will-change: transform;
+}
+.kd-hero__fan-lead.is-on { opacity: 1; transition-delay: 80ms; }
+
+/* the open fan's caption, in the hint's place, where no labels fit beside the stack */
+.kd-hero__caption {
+  position: absolute;
+  left: 50%;
+  bottom: 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  max-width: calc(100% - 32px);
+  padding: 5px 9px;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: var(--kd-text-3);
+  background: rgb(10 10 11 / .72);
+  border-radius: var(--kd-r-1);
+  opacity: 0;
+  transition: opacity 140ms linear;
+}
+.kd-hero__caption.is-on { opacity: 1; transition-delay: 80ms; }
+/* beside its stack: placed by the scene (a transform from the top-left), left-aligned */
+.kd-hero__caption.is-placed { left: 0; top: 0; bottom: auto; align-items: flex-start; padding: 4px 8px; background: rgb(10 10 11 / .5); }
+.kd-hero__caption.is-placed span:empty { display: none; }
+.kd-hero__caption b { font-weight: 500; color: var(--kd-text-1); }
+.kd-hero__labels:has(.kd-hero__caption.is-on) + .kd-hero__hint { animation: none; opacity: 0; }
+
+/* ── hint (§5.1, §5.8) ───────────────────────────────────────────────── */
+.kd-hero__hint {
+  position: absolute;
+  left: 50%;
+  bottom: 28px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transform: translateX(-50%);
+  font: 11.5px/1.4 var(--kd-font-mono);
+  color: var(--kd-text-3);
+  white-space: nowrap;
+  pointer-events: none;
+}
+.kd-hero__hint.is-on { animation: kd-hint-in 300ms var(--kd-ease-out) both; }
+@keyframes kd-hint-in { from { opacity: 0; } to { opacity: 1; } }
+.kd-hero__hint kbd {
+  font: inherit;
+  color: var(--kd-text-2);
+  padding: 1px 5px;
+  border: 1px solid var(--kd-hair-strong);
+  border-radius: var(--kd-r-1);
+}
+.kd-hero__hint-coarse { display: none; }
+@media (pointer: coarse) {
+  .kd-hero__hint-fine { display: none; }
+  .kd-hero__hint-coarse { display: inline; }
+}
+.kd-hero__hint-btn {
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  margin-bottom: 10px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  pointer-events: auto;
+  font: 500 12px/1 var(--kd-font-mono);
+  color: var(--kd-text-1);
+  background: var(--kd-surface-2);
+  border: 1px solid var(--kd-hair-strong);
+  border-radius: var(--kd-r-2);
+  cursor: pointer;
+}
+.kd-hero__hint-btn:focus-visible {
+  width: auto;
+  height: auto;
+  padding: 7px 10px;
+  clip-path: none;
+  transform: translateX(-50%);
+}
+.kd-hero__hint-btn[aria-pressed='true'] { border-color: var(--kd-plat-lo); }
+@media (max-width: 639px) {
+  .kd-hero__hint { bottom: 20px; }
+}

@@ -8,10 +8,10 @@ export function primaryCtaLabel(signedIn: boolean): string {
   return signedIn ? 'Open your drive' : 'Get started';
 }
 
-/** The primary landing button (LANDING-SPEC §7), always to /drive. */
+/** The primary landing button (LANDING-SPEC §7): the drive when signed in, otherwise straight to sign-in (then the drive). */
 export function PrimaryCta({ signedIn, className }: { signedIn: boolean; className?: string }) {
   return (
-    <Link href={DRIVE_HREF} className={`kd-btn kd-btn--primary${className ? ` ${className}` : ''}`}>
+    <Link href={signedIn ? DRIVE_HREF : SIGNIN_HREF} className={`kd-btn kd-btn--primary${className ? ` ${className}` : ''}`}>
       {primaryCtaLabel(signedIn)}
       <span className="kd-btn__arrow" aria-hidden="true">→</span>
     </Link>
