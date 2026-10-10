@@ -7,7 +7,8 @@ import { cx } from '@/components/ui/cx';
 
 const onDriveRoute = (pathname: string) => pathname === '/drive' || pathname.startsWith('/drive/');
 /** Routes drawn inside the app shell (sidebar on the left). */
-const inShell = (pathname: string) => !(pathname === '/signin' || pathname.startsWith('/signin/') || pathname.startsWith('/s/'));
+const AUTH_PAGES = /^\/(signin|signup|forgot-password|reset-password)(?:\/|$)/;
+const inShell = (pathname: string) => !(AUTH_PAGES.test(pathname) || pathname.startsWith('/s/'));
 
 /** Where the stack sits: 16 px above the history strip on /drive (never over its dots), 16 px from the bottom elsewhere. */
 export function toastBottom(pathname: string): string {

@@ -15,7 +15,8 @@ import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { cx } from '@/components/ui/cx';
 import { isApiError } from '@/lib/api/client';
-import { useMe } from '@/lib/api/hooks';
+import { VerifyBanner, VerifyHold } from '@/components/auth/verify-email';
+import { useConfig, useMe } from '@/lib/api/hooks';
 import { useDeepLink } from '@/lib/deep-link';
 import { useHotkeys } from '@/lib/keys';
 import { endSession } from '@/lib/session';
@@ -41,6 +42,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname() ?? '/drive';
   const { data: me, error, mutate } = useMe();
+  const { data: config } = useConfig();
   const setMe = useVx((s) => s.setMe);
   const timelineOpen = useVx((s) => s.timelineOpen);
   const panel = useVx((s) => s.panel);
@@ -148,6 +150,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     );
   }
 
+  // Unverified address: held at the verify screen when the server requires it, else a banner.
+  const unverified = me.user.emailVerified === false && !!config?.emailVerification;
+  if (unverified && config?.requireEmailVerification) return <VerifyHold me={me} onVerified={() => void mutate()} />;
+
   // The history strip belongs to the drive only (never on /proposals/**, whose review page is full height).
   const onDrive = pathname === '/drive' || pathname.startsWith('/drive/');
   const timeless = isTimeless(pathname);
@@ -161,6 +167,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {drawer ? <div className="dlg-fade fixed inset-0 z-[55] hidden bg-vx-scrim max-[720px]:block" onClick={() => setDrawer(false)} aria-hidden /> : null}
       <div className="vx-content" data-strip={onDrive ? 'true' : 'false'}>
         <main id="vx-main" tabIndex={-1} className={cx('vx-main vx-sheet outline-none', past && !timeless && 'is-past')} data-past={past ? 'true' : undefined}>
+          {unverified ? <VerifyBanner email={me.user.email} /> : null}
           <TimeTravelBanner />
           <div className="min-h-0 flex-1 overflow-auto">{children}</div>
         </main>

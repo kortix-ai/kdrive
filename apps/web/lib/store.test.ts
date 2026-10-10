@@ -4,7 +4,7 @@ import { api } from './api/endpoints';
 import { useVx } from './store';
 
 const me: MeResponse = {
-  user: { id: 'u1', email: 'a@b.c', name: 'A', image: null },
+  user: { id: 'u1', email: 'a@b.c', name: 'A', image: null, emailVerified: true },
   isAdmin: false,
   defaultWorkspaceId: 'ws-default',
   workspaces: [

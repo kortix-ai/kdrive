@@ -1,10 +1,11 @@
 'use client';
 
-// Settings (UNIFY-SPEC §14.4): one sheet, a 720 column; profile, appearance, storage, workspaces, agents,
+// Settings (UNIFY-SPEC §14.4): one sheet, a 720 column; profile, account, appearance, storage, workspaces, agents,
 // activity, shortcuts, session and the danger zone as hairline-separated blocks.
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { LogOut } from 'lucide-react';
+import { AccountSection } from '@/components/settings/account-section';
 import { ActivitySection } from '@/components/settings/activity-section';
 import { AgentsCard } from '@/components/settings/agents-card';
 import { AppearanceSection } from '@/components/settings/appearance-section';
@@ -65,6 +66,7 @@ export default function SettingsPage() {
   return (
     <SettingsSheet title="Settings">
       <ProfileSection me={me} />
+      <AccountSection me={me} />
       <AppearanceSection />
       <StorageSection fallback={me.usage} />
       <WorkspacesSection />

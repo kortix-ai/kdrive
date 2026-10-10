@@ -151,7 +151,7 @@ export function WorkspacesSection() {
   const remove = async () => {
     if (!deleting) return;
     await api.workspaces.remove(deleting.id);
-    if (deleting.id === current && me) setWorkspace(me.defaultWorkspaceId);
+    if (deleting.id === current && me?.defaultWorkspaceId) setWorkspace(me.defaultWorkspaceId);
     await refreshWorkspaces();
     toast({ kind: 'success', message: `Deleted ${deleting.name}` });
   };
