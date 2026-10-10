@@ -3,6 +3,7 @@ import { z } from 'zod';
 export const ERROR_CODES = [
   'unauthorized',
   'forbidden',
+  'email_not_verified',
   'csrf',
   'not_found',
   'bad_request',

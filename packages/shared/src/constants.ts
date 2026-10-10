@@ -51,3 +51,7 @@ export const PROPOSAL_TTL_DAYS = 30;
 export const PROPOSAL_OPEN_MAX = 50;
 /** Staged bytes per user, across all open proposals. */
 export const PROPOSAL_STAGED_MAX = 256 * MiB;
+
+/** Email + password accounts: length bounds the server and the forms both enforce. */
+export const PASSWORD_MIN = 8;
+export const PASSWORD_MAX = 128;

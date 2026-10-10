@@ -3,6 +3,8 @@ export interface SessionUser {
   email: string;
   name: string | null;
   image: string | null;
+  /** Set for cookie sessions (agent principals leave it out). */
+  emailVerified?: boolean;
 }
 
 export interface SessionInfo {

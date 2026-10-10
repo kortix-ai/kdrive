@@ -23,6 +23,11 @@ Object.assign(process.env, {
   GITHUB_CLIENT_SECRET: '',
 });
 
+// Account mail is swallowed unless a test captures it (test/mail.ts), so suites that create
+// users through dev login do not print welcome mails.
+const { setEmailSinkForTests } = await import('../src/email/client');
+setEmailSinkForTests(() => {});
+
 const { runMigrations } = await import('../src/db/migrate');
 await runMigrations(process.env.DATABASE_URL!);
 
