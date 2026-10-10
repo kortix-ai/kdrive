@@ -9,9 +9,24 @@ export type Provider = z.infer<typeof ProviderSchema>;
 export const StorageModeSchema = z.enum(['platinum', 'emulated']);
 export type StorageMode = z.infer<typeof StorageModeSchema>;
 
+export const SignupModeSchema = z.enum(['open', 'invite-only', 'closed']);
+export type SignupMode = z.infer<typeof SignupModeSchema>;
+
 export const ConfigResponse = z.object({
   providers: z.array(ProviderSchema),
   devLogin: z.boolean(),
+  /** Email + password sign-up and sign-in. */
+  emailPassword: z.boolean().default(false),
+  /** "Forgot password" is offered (email + password on, and reset links can reach the user). */
+  passwordReset: z.boolean().default(false),
+  /** Verification links can reach the user (a provider is configured, or a local run prints them). */
+  emailVerification: z.boolean().default(false),
+  /** Signed-in users with an unverified email are held at the verify screen. */
+  requireEmailVerification: z.boolean().default(false),
+  /** Who may create an account. */
+  signupMode: SignupModeSchema.default('open'),
+  /** Transactional email: `enabled` when a delivery provider is configured (never which one, never a key). */
+  email: z.object({ enabled: z.boolean() }).default({ enabled: false }),
   storageMode: StorageModeSchema,
   retentionCopy: z.string().default(RETENTION_COPY),
   /** AI agent access: whether /mcp is on, and the MCP server URL to give an agent. */
@@ -34,13 +49,16 @@ export const MeUserSchema = z.object({
   email: z.string(),
   name: z.string().nullable(),
   image: z.string().nullable(),
+  /** The address is confirmed (always true for provider sign-ins that vouch for it). */
+  emailVerified: z.boolean().default(true),
 });
 export type MeUser = z.infer<typeof MeUserSchema>;
 
 export const MeResponse = z.object({
   user: MeUserSchema,
   isAdmin: z.boolean(),
-  defaultWorkspaceId: z.string(),
+  /** Null only while the user is held for email verification (no drive is provisioned yet). */
+  defaultWorkspaceId: z.string().nullable(),
   workspaces: z.array(WorkspaceSummarySchema),
   usage: UsageResponse,
 });
@@ -52,6 +70,11 @@ export type DeleteAccountRequest = z.infer<typeof DeleteAccountRequest>;
 export const AUDIT_KINDS = [
   'auth.sign_in',
   'auth.sign_out',
+  'auth.sign_up',
+  'auth.email_verify',
+  'auth.email_change',
+  'auth.password_change',
+  'auth.password_reset',
   'account.delete',
   'workspace.create',
   'workspace.duplicate',

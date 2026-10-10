@@ -7,6 +7,7 @@ import type { AgentMode, AgentScope, ConnectedApp } from '@volumes/shared';
 import { db } from '../db/client';
 import {
   agentGrants,
+  agentTokens,
   bauthOAuthAccessToken,
   bauthOAuthClient,
   bauthOAuthConsent,
@@ -188,5 +189,34 @@ export async function revokeGrant(userId: string, grantId: string): Promise<{ gr
       .set({ revoked: now })
       .where(and(own(bauthOAuthRefreshToken), isNull(bauthOAuthRefreshToken.revoked)));
     return { grant, revoked: !row.revokedAt };
+  });
+}
+
+/**
+ * Ends every credential an AI agent holds for this user: personal agent tokens,
+ * connected-app grants, OAuth consents, access tokens and refresh tokens. Used
+ * when the account is taken back (password reset) or the user signs out
+ * everywhere, so whoever held the account before keeps nothing that still works.
+ */
+export async function revokeAllAgentAccess(userId: string): Promise<{ tokens: number; apps: number }> {
+  return db.transaction(async (tx) => {
+    const now = new Date();
+    const tokens = await tx
+      .update(agentTokens)
+      .set({ revokedAt: now })
+      .where(and(eq(agentTokens.userId, userId), isNull(agentTokens.revokedAt)))
+      .returning({ id: agentTokens.id });
+    const apps = await tx
+      .update(agentGrants)
+      .set({ revokedAt: now, updatedAt: now })
+      .where(and(eq(agentGrants.userId, userId), isNull(agentGrants.revokedAt)))
+      .returning({ id: agentGrants.id });
+    await tx.delete(bauthOAuthConsent).where(eq(bauthOAuthConsent.userId, userId));
+    await tx.delete(bauthOAuthAccessToken).where(eq(bauthOAuthAccessToken.userId, userId));
+    await tx
+      .update(bauthOAuthRefreshToken)
+      .set({ revoked: now })
+      .where(and(eq(bauthOAuthRefreshToken.userId, userId), isNull(bauthOAuthRefreshToken.revoked)));
+    return { tokens: tokens.length, apps: apps.length };
   });
 }

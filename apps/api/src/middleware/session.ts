@@ -1,6 +1,6 @@
 import type { MiddlewareHandler } from 'hono';
 import { auth } from '../auth';
-import { isAdminEmail } from '../env';
+import { env, isAdminUser } from '../env';
 import { ApiError } from '../lib/http';
 import type { AppEnv } from '../types';
 
@@ -11,7 +11,13 @@ export const sessionMiddleware: MiddlewareHandler<AppEnv> = async (c, next) => {
     // deleted account (or a revoked session) signed in until it expires.
     const s = await auth.api.getSession({ headers: c.req.raw.headers, query: { disableCookieCache: true } });
     if (s?.user && s.session) {
-      c.set('user', { id: s.user.id, email: s.user.email, name: s.user.name ?? null, image: s.user.image ?? null });
+      c.set('user', {
+        id: s.user.id,
+        email: s.user.email,
+        name: s.user.name ?? null,
+        image: s.user.image ?? null,
+        emailVerified: !!s.user.emailVerified,
+      });
       c.set('session', { id: s.session.id, expiresAt: new Date(s.session.expiresAt) });
     }
   } catch (e) {
@@ -26,10 +32,20 @@ export const requireUser: MiddlewareHandler<AppEnv> = async (c, next) => {
   await next();
 };
 
-/** 403 `forbidden` unless the user's email is in VOLUMES_ADMIN_EMAILS. */
+/** 403 `forbidden` unless the user's email is in VOLUMES_ADMIN_EMAILS and verified (see isAdminUser). */
 export const requireAdmin: MiddlewareHandler<AppEnv> = async (c, next) => {
   const u = c.get('user');
   if (!u) throw new ApiError(401, 'unauthorized', 'Sign in to continue.');
-  if (!isAdminEmail(u.email)) throw new ApiError(403, 'forbidden', 'Admins only.');
+  if (!isAdminUser(u)) throw new ApiError(403, 'forbidden', 'Admins only.');
   await next();
 };
+
+/** What an unverified user may still reach while VOLUMES_REQUIRE_EMAIL_VERIFICATION holds them: who am I, and leaving. */
+const UNVERIFIED_OK = new Set(['GET /api/me', 'DELETE /api/me']);
+
+/** 403 `email_not_verified` for a signed-in user with an unconfirmed address, when verification is required. */
+export function assertEmailVerified(method: string, path: string, user: { emailVerified?: boolean }): void {
+  if (!env.requireEmailVerification || user.emailVerified !== false) return;
+  if (UNVERIFIED_OK.has(`${method} ${path}`)) return;
+  throw new ApiError(403, 'email_not_verified', 'Verify your email to continue. Check your inbox for the link.');
+}

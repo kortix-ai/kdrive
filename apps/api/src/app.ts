@@ -8,7 +8,8 @@ import { errorResponse, onError } from './middleware/errors';
 import { env } from './env';
 import { handleMcp } from './mcp/http';
 import { checkRateLimit, clientIp, isLoopback, limits, socketIp } from './middleware/rate-limit';
-import { requireAdmin, requireUser, sessionMiddleware } from './middleware/session';
+import { checkAuthLimits } from './middleware/auth-limits';
+import { assertEmailVerified, requireAdmin, requireUser, sessionMiddleware } from './middleware/session';
 import { requireWorkspace } from './middleware/workspace';
 import { accountRoutes } from './routes/account';
 import { adminRoutes } from './routes/admin';
@@ -99,6 +100,7 @@ export function createApp(): Hono<AppEnv> {
       headers.set(CLIENT_IP_HEADER, clientIp(c));
       // Auth bodies are small JSON: buffer them (re-wrapping a streamed body can stall).
       const body = raw.method === 'GET' || raw.method === 'HEAD' ? undefined : await raw.arrayBuffer();
+      checkAuthLimits(c, body);
       return await auth.handler(new Request(raw.url, { method: raw.method, headers, body, signal: raw.signal }));
     } catch (e) {
       return errorResponse(c, e);
@@ -113,6 +115,7 @@ export function createApp(): Hono<AppEnv> {
     if (PUBLIC_PATHS.has(p) || p.startsWith('/api/public/') || p === '/api/public') return next();
     return requireUser(c, async () => {
       const u = c.get('user');
+      assertEmailVerified(c.req.method, p, u);
       const block = c.req.method === 'PUT' ? BLOCK_PUT.exec(p) : null;
       if (block) checkRateLimit({ ...limits.blockPut, key: () => `${u.id}|${block[1]}` }, c);
       else checkRateLimit({ ...limits.user, key: () => u.id }, c);

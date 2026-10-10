@@ -122,6 +122,35 @@ export function checkRateLimitKey(o: Omit<RateLimitOptions, 'key'>, key: string)
   }
 }
 
+/** Takes a token without throwing: true when allowed (for work that is skipped silently when over budget). */
+export function tryTakeRateLimitKey(o: Omit<RateLimitOptions, 'key'>, key: string): boolean {
+  let b = registry.get(o.name);
+  if (!b) {
+    b = new TokenBucket(o.capacity, o.refillPerSec);
+    registry.set(o.name, b);
+  }
+  return b.take(key) === 0;
+}
+
+/**
+ * The rate-limit identity of a client address. IPv6 clients usually own a whole
+ * /64 and can rotate through it freely, so an IPv6 address counts as its /64.
+ */
+export function ipBucket(ip: string): string {
+  const v = ip.trim().toLowerCase().replace(/^\[|\]$/g, '').split('%')[0]!;
+  if (!v.includes(':')) return v;
+  const mapped = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/.exec(v);
+  if (mapped) return mapped[1]!;
+  const [head = '', tail] = v.split('::');
+  const h = head ? head.split(':') : [];
+  const t = tail ? tail.split(':') : [];
+  const groups = tail === undefined ? h : [...h, ...Array<string>(Math.max(0, 8 - h.length - t.length)).fill('0'), ...t];
+  return `${groups
+    .slice(0, 4)
+    .map((g) => (Number.parseInt(g, 16) || 0).toString(16))
+    .join(':')}::/64`;
+}
+
 /** Gives back the token checkRateLimitKey took for `key` (a request that should not count). */
 export function refundRateLimitKey(o: Omit<RateLimitOptions, 'key'>, key: string): void {
   registry.get(o.name)?.refund(key);
@@ -153,6 +182,21 @@ export const limits = {
   mcpAuthIp: { name: 'mcp-auth-ip', capacity: 60, refillPerSec: 0.5 },
   /** Per agent grant on /mcp: 120 requests/min, burst 60. */
   mcp: { name: 'mcp', capacity: 60, refillPerSec: 2 },
+  // Account flows (middleware/auth-limits.ts). Where a target address is known it is checked
+  // first: it is the axis an attacker cannot rotate (the mailbox being bombed or guessed).
+  /** Sign-in: 10 per address per 15 min, 30 per client per 15 min (burst = capacity). */
+  signInEmail: { name: 'auth-sign-in-email', capacity: 10, refillPerSec: 10 / 900 },
+  signInIp: { name: 'auth-sign-in-ip', capacity: 30, refillPerSec: 30 / 900 },
+  /** Sign-up: 5 per address and 10 per client, per hour. */
+  signUpEmail: { name: 'auth-sign-up-email', capacity: 5, refillPerSec: 5 / 3600 },
+  signUpIp: { name: 'auth-sign-up-ip', capacity: 10, refillPerSec: 10 / 3600 },
+  /** "You already have an account" mail: at most one per address per hour (over budget: skipped silently). */
+  accountExistsMail: { name: 'auth-account-exists-mail', capacity: 1, refillPerSec: 1 / 3600 },
+  /** Anything that sends mail to a named address (forgot password, resend verify): 3 per address, 10 per client, per hour. */
+  mailEmail: { name: 'auth-mail-email', capacity: 3, refillPerSec: 3 / 3600 },
+  mailIp: { name: 'auth-mail-ip', capacity: 10, refillPerSec: 10 / 3600 },
+  /** Token and password submissions (reset, change password, change email): 10 per client per 15 min. */
+  credentialIp: { name: 'auth-credential-ip', capacity: 10, refillPerSec: 10 / 900 },
   /** Per agent grant: write_changes calls, 30/min. */
   mcpWrite: { name: 'mcp-write', capacity: 10, refillPerSec: 0.5 },
 } as const;
