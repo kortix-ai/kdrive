@@ -350,11 +350,14 @@ export class PlatinumStore implements VolumeStore {
         signal: opts.signal,
         timeoutMs: 10 * 60_000,
       });
-      const len = Number(res.headers.get('content-length') ?? '0');
+      // A compressed or chunked response carries no usable length for the decoded body.
+      const raw = res.headers.get('content-length');
+      const encoded = !!res.headers.get('content-encoding');
+      const len = raw === null || encoded ? NaN : Number(raw);
       return {
         status: res.status === 206 ? 206 : 200,
         body: res.body ?? new ReadableStream({ start: (c) => c.close() }),
-        contentLength: Number.isFinite(len) ? len : 0,
+        contentLength: Number.isFinite(len) ? len : null,
         contentRange: res.headers.get('content-range'),
         etag: res.headers.get('etag'),
         commitId: res.headers.get('x-pt-commit') ?? '',

@@ -134,10 +134,19 @@ export async function streamFile(
 
   // Pin the read to the commit the stat resolved, so headers and bytes agree.
   const r = await store.read(ws.volumeId, path, { at: st.commitId || opts.at, range, signal: c.req.raw.signal });
-  h.set('Content-Length', String(r.contentLength));
+  // Never announce a length the body does not have: a wrong Content-Length corrupts the
+  // connection for whatever proxy sits in front of us.
+  const length = r.contentLength ?? (r.status === 200 ? st.size : rangeLength(r.contentRange));
+  if (length !== null) h.set('Content-Length', String(length));
   if (r.status === 206 && r.contentRange) h.set('Content-Range', r.contentRange);
   if (r.etag) h.set('ETag', r.etag);
   return new Response(r.body, { status: r.status, headers: h });
+}
+
+/** Bytes covered by a `Content-Range: bytes a-b/total` header, or null. */
+function rangeLength(contentRange: string | null): number | null {
+  const m = contentRange ? /^bytes (\d+)-(\d+)\//.exec(contentRange) : null;
+  return m ? Number(m[2]) - Number(m[1]) + 1 : null;
 }
 
 /** Deepest common ancestor directory of normalised paths. */

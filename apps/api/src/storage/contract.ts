@@ -142,7 +142,7 @@ export function storeContract(label: string, make: () => Promise<ContractTarget>
       await expectStoreError(store.read(v.id, '/r.bin', { range: 'bytes=99-' }), 'range_not_satisfiable');
       await expectStoreError(store.read(v.id, '/empty.txt', { range: 'bytes=0-0' }), 'range_not_satisfiable');
       const e = await store.read(v.id, '/empty.txt');
-      expect(e.contentLength).toBe(0);
+      expect(e.contentLength ?? 0).toBe(0);
       expect((await readAll(e.body)).length).toBe(0);
     });
 
@@ -169,7 +169,8 @@ export function storeContract(label: string, make: () => Promise<ContractTarget>
       expect(rec.entries.map((e) => e.path)).toEqual(['/dir/sub', '/dir/sub/y.txt', '/dir/x.txt']);
       const p1 = await store.list(v.id, '/', { limit: 2 });
       expect(p1.entries.length).toBe(2);
-      expect(p1.nextCursor).toBe('/b.txt');
+      // Cursors are opaque (Platinum's carries the commit it pages through).
+      expect(p1.nextCursor).toBeTruthy();
       const p2 = await store.list(v.id, '/', { limit: 2, cursor: p1.nextCursor! });
       expect(p2.entries.map((e) => e.path)).toEqual(['/c.txt', '/dir']);
       expect(p2.nextCursor).toBeNull();
@@ -202,8 +203,11 @@ export function storeContract(label: string, make: () => Promise<ContractTarget>
 
     test('block upload: plan → missing → PUT → commit; dedup; incomplete commit; path_exists', async () => {
       const v = await fresh();
+      // Random bytes: a real store dedupes blocks across volumes, so fixed bytes from an
+      // earlier run would already be stored and nothing would need sending.
       const big = new Uint8Array(BLOCK_SIZE + 10);
-      for (let i = 0; i < big.length; i++) big[i] = (i * 31 + 7) % 251;
+      crypto.getRandomValues(big.subarray(0, 65536));
+      for (let i = 65536; i < big.length; i++) big[i] = big[i % 65536]! ^ (i & 0xff);
       const first = await uploadBytes(store, v.id, '/up/big.bin', big);
       expect(first.plan.uploadId).toMatch(/^vu_/);
       expect(first.sent).toBe(2);
