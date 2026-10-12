@@ -9,7 +9,7 @@ import { useVx } from './store';
 import { askConflict, showQuota, useUploadPrompts } from './upload/prompts';
 
 const me: MeResponse = {
-  user: { id: 'u1', email: 'a@b.c', name: 'A', image: null },
+  user: { id: 'u1', email: 'a@b.c', name: 'A', image: null, emailVerified: true },
   isAdmin: false,
   defaultWorkspaceId: 'ws-default',
   workspaces: [

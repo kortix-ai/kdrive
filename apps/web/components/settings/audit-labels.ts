@@ -3,6 +3,11 @@ import { formatBytes, shortId } from '@volumes/shared';
 const LABELS: Record<string, string> = {
   'auth.sign_in': 'Signed in',
   'auth.sign_out': 'Signed out',
+  'auth.sign_up': 'Account created',
+  'auth.email_verify': 'Email verified',
+  'auth.email_change': 'Email changed',
+  'auth.password_change': 'Password changed',
+  'auth.password_reset': 'Password reset',
   'account.delete': 'Account deleted',
   'workspace.create': 'Drive created',
   'workspace.duplicate': 'Drive duplicated',

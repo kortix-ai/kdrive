@@ -102,7 +102,8 @@ export interface ReadOptions {
 export interface ReadResult {
   status: 200 | 206;
   body: ReadableStream<Uint8Array>;
-  contentLength: number;
+  /** Bytes in `body`, or null when the store did not say (e.g. a chunked or compressed upstream response). */
+  contentLength: number | null;
   contentRange: string | null;
   /** `"<version>"` */
   etag: string | null;

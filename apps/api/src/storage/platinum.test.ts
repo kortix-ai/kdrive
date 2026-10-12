@@ -34,6 +34,20 @@ const busy: Reply = { status: 429, body: { error: 'org write ceiling', code: 'ra
 const V = 'vol_01J8ZQ3ABCDEFGHJKMNPQRSTVW';
 
 describe('PlatinumStore', () => {
+  test('a read without a usable Content-Length reports an unknown length, never 0', async () => {
+    const stream = (bytes: number[]) => new ReadableStream({ start: (c) => (c.enqueue(new Uint8Array(bytes)), c.close()) });
+    const replies = [
+      new Response(stream([1, 2, 3]), { status: 200, headers: { 'content-type': 'image/png' } }),
+      new Response(stream([1, 2, 3]), { status: 200, headers: { 'content-type': 'image/png', 'content-length': '2', 'content-encoding': 'gzip' } }),
+      new Response('abc', { status: 200, headers: { 'content-type': 'text/plain', 'content-length': '3' } }),
+    ];
+    const fetchFn = (async () => replies.shift()!) as unknown as typeof fetch;
+    const store = new PlatinumStore({ url: 'http://pt.test', token: 't', fetch: fetchFn, slots: new UploadSlots() });
+    expect((await store.read(V, '/chunked.png')).contentLength).toBeNull();
+    expect((await store.read(V, '/compressed.png')).contentLength).toBeNull();
+    expect((await store.read(V, '/plain.txt')).contentLength).toBe(3);
+  });
+
   test('mutations retry the org write ceiling (429) and then succeed', async () => {
     const { fetchFn, calls } = scripted([busy, busy, { status: 200, body: commitResult('vc_01J8ZQ3ABCDEFGHJKMNPQRSTV1') }]);
     const store = new PlatinumStore({ url: 'http://pt.test', token: 't', fetch: fetchFn, slots: new UploadSlots(), writeRetryMs: 5_000 });

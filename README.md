@@ -98,7 +98,41 @@ OAuth callback URLs: `http://localhost:4100/api/auth/callback/google` and
 `http://localhost:4100/api/auth/callback/github`. For local testing without OAuth
 apps, `VOLUMES_DEV_LOGIN=1` shows "Continue with dev account". It works only with
 `NODE_ENV=development` (the dev script's default), a localhost `BETTER_AUTH_URL`
-and a caller on this machine. Emails in `VOLUMES_ADMIN_EMAILS` get the admin page.
+and a caller on this machine. Verified emails in `VOLUMES_ADMIN_EMAILS` get the admin page.
+
+### Accounts and email
+
+Email + password accounts are on by default (`VOLUMES_EMAIL_PASSWORD=0` turns them
+off). Passwords are hashed with argon2id; older scrypt hashes keep working and are
+replaced on the next change or reset. The flows are written not to reveal which
+addresses have accounts: sign-up answers the same for a new and a taken address
+(the owner of a taken one gets an email instead), sign-in says "wrong email or
+password" for both, and forgot-password and resend-verification always succeed.
+Sign-in, sign-up, forgot-password, resend-verification, reset and change-password
+are rate limited per address and per client.
+
+| Variable | Default | What it does |
+| --- | --- | --- |
+| `RESEND_API_KEY` | – | Sends account mail through Resend (tried first). |
+| `MAILTRAP_API_TOKEN` | – | Sends through Mailtrap (fallback, or the only provider). |
+| `EMAIL_FROM` / `EMAIL_FROM_NAME` | `noreply@<host>` / `KDRIVE` | Sender; verify its domain with each provider. |
+| `VOLUMES_SIGNUP_MODE` | `open` | `invite-only` admits `VOLUMES_SIGNUP_ALLOWLIST` and admins; `closed` admits admins only. |
+| `VOLUMES_SIGNUP_ALLOWLIST` | – | Addresses or `@domain` entries, comma-separated. |
+| `VOLUMES_REQUIRE_EMAIL_VERIFICATION` | `0` | `1` holds unverified users at a "check your inbox" screen. Needs a provider outside development. |
+
+Mail: a verification link on sign-up (resend from the in-app banner or Settings,
+60 s cooldown; links live 24 h and never sign anyone in), password reset (one use,
+1 h, signs out every session and every agent credential, and counts as verifying
+the address), a notice after any password change or reset, a welcome once the
+address is confirmed, and a two-step email change for verified accounts (the
+current inbox approves, the new inbox confirms while signed in). Every emailed
+link opens a page on the app that acts only when the user presses its button, so
+mail scanners that prefetch links change nothing. With no provider, a local run prints each
+message's links to the API log; production sends nothing and hides "Forgot
+password". `GET /api/config` tells the web app what is on (`email.enabled`,
+`passwordReset`, `emailVerification`, `signupMode`, …), never which provider or key.
+The sign-up page links its legal line when `NEXT_PUBLIC_TERMS_URL` and
+`NEXT_PUBLIC_PRIVACY_URL` are set for the web build.
 
 ### Running it for real
 

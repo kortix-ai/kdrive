@@ -93,6 +93,6 @@ describe('admin', () => {
     expect(rest.body.events).toHaveLength(1);
     expect(rest.body.nextCursor).toBeNull();
     const byUser = await admin.client.get(`/api/admin/audit?userId=${u.me.user.id}`);
-    expect(byUser.body.events.map((e: any) => e.kind).sort()).toEqual(['auth.sign_in', 'workspace.create', 'workspace.create', 'workspace.create']);
+    expect(byUser.body.events.map((e: any) => e.kind).sort()).toEqual(['auth.sign_in', 'auth.sign_up', 'workspace.create', 'workspace.create', 'workspace.create']);
   });
 });

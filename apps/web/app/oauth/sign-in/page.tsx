@@ -5,23 +5,15 @@
 // continues (to /oauth/consent) once the session exists.
 import { Suspense, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { CircleAlert, KeyRound } from 'lucide-react';
+import { KeyRound } from 'lucide-react';
+import { ErrorRow, OrRule, authErrorCopy, providerLabel } from '@/components/auth/auth-bits';
 import { OAuthShell, START_AGAIN, signedQueryUsable } from '@/components/agents/consent-card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useConfig } from '@/lib/api/hooks';
 import { oauthAuthClient } from '@/lib/oauth-auth-client';
 
-const label = (id: string) => (id ? id.charAt(0).toUpperCase() + id.slice(1) : id);
-
-function ErrorRow({ children }: { children: React.ReactNode }) {
-  return (
-    <p role="alert" className="mt-4 flex items-start gap-2 rounded-vx-sm bg-vx-danger-wash px-3 py-2 text-[13px] leading-5 text-vx-danger">
-      <CircleAlert size={16} strokeWidth={1.75} className="mt-0.5 shrink-0" aria-hidden />
-      <span className="min-w-0">{children}</span>
-    </p>
-  );
-}
+const label = providerLabel;
 
 function follow(data: unknown): boolean {
   const d = data as { url?: unknown; redirect?: unknown } | null;
@@ -37,6 +29,8 @@ function SignIn() {
   const usable = signedQueryUsable(params);
   const { data: config, error: configError } = useConfig();
   const [email, setEmail] = useState('dev@volumes.local');
+  const [account, setAccount] = useState('');
+  const [password, setPassword] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,6 +43,20 @@ function SignIn() {
       follow(res?.data);
     } catch (e) {
       setError(e instanceof Error && e.message ? e.message : 'Could not start sign-in.');
+      setBusy(null);
+    }
+  };
+
+  const withPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy('email');
+    setError(null);
+    try {
+      const res = await oauthAuthClient().signIn.email({ email: account.trim(), password });
+      if (res.error) throw res.error;
+      if (!follow(res.data)) window.location.assign(`/oauth/consent${window.location.search}`);
+    } catch (err) {
+      setError(authErrorCopy(err, 'Sign-in failed.'));
       setBusy(null);
     }
   };
@@ -93,6 +101,27 @@ function SignIn() {
               </Button>
             ))}
           </div>
+          {config?.emailPassword ? (
+            <>
+              {providers.length ? <OrRule /> : null}
+              <form onSubmit={withPassword} className="flex flex-col gap-4" aria-label="Sign in with email">
+                <Input size="lg" id="email" label="Email" type="email" required value={account} onChange={(e) => setAccount(e.target.value)} autoComplete="username" />
+                <Input
+                  size="lg"
+                  id="password"
+                  label="Password"
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
+                />
+                <Button variant="primary" size="lg" block type="submit" loading={busy === 'email'} disabled={!!busy && busy !== 'email'}>
+                  Sign in
+                </Button>
+              </form>
+            </>
+          ) : null}
           {config?.devLogin ? (
             <form onSubmit={dev} className="mt-4 rounded-vx-md border border-dashed border-vx-hair-dash p-4">
               <div className="vx-eyebrow mb-3">Dev only</div>
@@ -102,7 +131,7 @@ function SignIn() {
               </Button>
             </form>
           ) : null}
-          {config && !providers.length && !config.devLogin ? <ErrorRow>No sign-in method is configured on this server.</ErrorRow> : null}
+          {config && !providers.length && !config.devLogin && !config.emailPassword ? <ErrorRow>No sign-in method is configured on this server.</ErrorRow> : null}
           {configError ? <ErrorRow>Can&apos;t reach the server right now. Reload the page in a moment.</ErrorRow> : null}
           {error ? <ErrorRow>{error}</ErrorRow> : null}
         </>

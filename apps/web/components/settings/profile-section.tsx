@@ -2,19 +2,20 @@
 
 import { useState } from 'react';
 import useSWR from 'swr';
-import { KeyRound, Plus } from 'lucide-react';
+import { KeyRound, Plus, X } from 'lucide-react';
 import type { MeResponse } from '@volumes/shared';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useConfig } from '@/lib/api/hooks';
 import { authClient } from '@/lib/auth-client';
 import { formatDate } from '@/lib/format';
 import { Section, SectionError } from './section';
 
-type Account = { id: string; providerId: string; createdAt: string | Date };
+export type Account = { id: string; providerId: string; accountId: string; createdAt: string | Date };
 
-const PROVIDER_LABEL: Record<string, string> = { credential: 'Password', 'dev-login': 'Dev account', dev: 'Dev account' };
+const PROVIDER_LABEL: Record<string, string> = { credential: 'Password', 'dev-login': 'Dev account', dev: 'Dev account', github: 'GitHub' };
 
 /** A sign-in method's label, derived from its configured id (`acme` → `Acme`, `single-sign-on` → `Single sign on`). */
 export function providerLabel(id: string): string {
@@ -23,7 +24,7 @@ export function providerLabel(id: string): string {
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
-async function loadAccounts(): Promise<Account[]> {
+export async function loadAccounts(): Promise<Account[]> {
   const res = await authClient().listAccounts();
   if (res.error) throw new Error(res.error.message || 'Could not load connected accounts.');
   return (res.data ?? []) as Account[];
@@ -38,6 +39,16 @@ export function ProfileSection({ me }: { me: MeResponse }) {
   const name = me.user.name || me.user.email;
   const linked = new Set((accounts.data ?? []).map((a) => a.providerId));
   const connectable = (config?.providers ?? []).filter((p) => !linked.has(p));
+
+  // The last sign-in method can never be removed (the server refuses it too).
+  const canUnlink = (a: Account) => a.providerId !== 'credential' && (accounts.data?.length ?? 0) > 1;
+  const [unlinking, setUnlinking] = useState<Account | null>(null);
+  // Errors surface inside the dialog (ConfirmDialog shows a thrown message).
+  const unlink = async (a: Account) => {
+    const res = await authClient().unlinkAccount({ providerId: a.providerId, accountId: a.accountId });
+    if (res?.error) throw new Error(res.error.message || 'Could not disconnect the account.');
+    await accounts.mutate();
+  };
 
   const link = async (provider: NonNullable<typeof config>['providers'][number]) => {
     setLinking(provider);
@@ -73,9 +84,21 @@ export function ProfileSection({ me }: { me: MeResponse }) {
           <span className="text-[13px] leading-5 text-vx-text-3">No connected accounts</span>
         ) : (
           accounts.data.map((a) => (
-            <Badge key={a.id} title={`Connected ${formatDate(a.createdAt)}`} icon={<KeyRound strokeWidth={2} aria-hidden />}>
-              {providerLabel(a.providerId)}
-            </Badge>
+            <span key={a.id} className="inline-flex items-center gap-0.5">
+              <Badge title={`Connected ${formatDate(a.createdAt)}`} icon={<KeyRound strokeWidth={2} aria-hidden />}>
+                {providerLabel(a.providerId)}
+              </Badge>
+              {canUnlink(a) ? (
+                <Button
+                  size="xs"
+                  variant="text"
+                  aria-label={`Disconnect ${providerLabel(a.providerId)}`}
+                  icon={<X size={14} strokeWidth={1.75} aria-hidden />}
+                  disabled={!!linking}
+                  onClick={() => setUnlinking(a)}
+                />
+              ) : null}
+            </span>
           ))
         )}
         {accounts.data
@@ -86,6 +109,14 @@ export function ProfileSection({ me }: { me: MeResponse }) {
             ))
           : null}
       </div>
+      <ConfirmDialog
+        open={!!unlinking}
+        title={`Disconnect ${unlinking ? providerLabel(unlinking.providerId) : ''}?`}
+        body="You will no longer be able to sign in with it. You can connect it again any time."
+        confirmLabel="Disconnect"
+        onConfirm={() => (unlinking ? unlink(unlinking) : Promise.resolve())}
+        onClose={() => setUnlinking(null)}
+      />
       {error ? (
         <div className="mt-3">
           <SectionError>{error}</SectionError>

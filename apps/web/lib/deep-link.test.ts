@@ -15,7 +15,7 @@ mock.module('next/navigation', () => ({
 }));
 
 const me: MeResponse = {
-  user: { id: 'u1', email: 'a@b.c', name: 'A', image: null },
+  user: { id: 'u1', email: 'a@b.c', name: 'A', image: null, emailVerified: true },
   isAdmin: false,
   defaultWorkspaceId: 'ws-home',
   workspaces: [

@@ -21,6 +21,19 @@ const Raw = z.object({
   VOLUMES_STORAGE: z.preprocess(emptyToUndefined, z.enum(['emulated', 'platinum']).optional()),
   VOLUMES_DATA_DIR: z.preprocess(emptyToUndefined, z.string().default('.data')),
   VOLUMES_DEV_LOGIN: opt(),
+  /** Email + password sign-up and sign-in. '0' turns it off (providers only). */
+  VOLUMES_EMAIL_PASSWORD: z.preprocess(emptyToUndefined, z.enum(['0', '1']).default('1')),
+  /** Who may create an account: everyone, the allowlist (+ admins), or admins only. */
+  VOLUMES_SIGNUP_MODE: z.preprocess(emptyToUndefined, z.enum(['open', 'invite-only', 'closed']).default('open')),
+  /** invite-only: addresses (ada@x.com) or whole domains (@x.com), comma-separated. */
+  VOLUMES_SIGNUP_ALLOWLIST: opt(),
+  /** '1' holds signed-in users with an unverified email at the verify screen. */
+  VOLUMES_REQUIRE_EMAIL_VERIFICATION: z.preprocess(emptyToUndefined, z.enum(['0', '1']).default('0')),
+  /** Transactional email: Resend first, Mailtrap as the fallback. Neither set = no delivery. */
+  RESEND_API_KEY: opt(),
+  MAILTRAP_API_TOKEN: opt(),
+  EMAIL_FROM: opt(),
+  EMAIL_FROM_NAME: opt(),
   GOOGLE_CLIENT_ID: opt(),
   GOOGLE_CLIENT_SECRET: opt(),
   GITHUB_CLIENT_ID: opt(),
@@ -74,6 +87,24 @@ export interface Env {
   storageDriver: StorageDriverName | null;
   VOLUMES_DATA_DIR: string;
   devLoginEnabled: boolean;
+  /** Email + password accounts (VOLUMES_EMAIL_PASSWORD, default on). */
+  emailPassword: boolean;
+  /**
+   * Account emails (verify, reset) can reach the user: a provider is configured, or this
+   * is a local run, where the links are printed to the API log instead.
+   */
+  emailLinks: boolean;
+  /** True on development and test runs (local-only conveniences such as printed email links). */
+  isLocalMode: boolean;
+  /** Mutable so tests can switch policies at runtime; read at request time, never cached. */
+  signupMode: 'open' | 'invite-only' | 'closed';
+  /** Lower-cased addresses and `@domain` entries allowed to sign up in invite-only mode. */
+  signupAllowlist: string[];
+  requireEmailVerification: boolean;
+  RESEND_API_KEY: string | undefined;
+  MAILTRAP_API_TOKEN: string | undefined;
+  /** Sender identity; its domain must be verified with each configured provider. */
+  emailFrom: { email: string; name: string };
   GOOGLE_CLIENT_ID: string | undefined;
   GOOGLE_CLIENT_SECRET: string | undefined;
   GITHUB_CLIENT_ID: string | undefined;
@@ -124,6 +155,12 @@ export function loadEnv(source: Record<string, string | undefined> = process.env
   if (r.GITHUB_CLIENT_ID && r.GITHUB_CLIENT_SECRET) providers.push('github');
 
   const authOrigin = new URL(r.BETTER_AUTH_URL).origin;
+  const emailProvider = !!(r.RESEND_API_KEY || r.MAILTRAP_API_TOKEN);
+  const requireEmailVerification = r.VOLUMES_REQUIRE_EMAIL_VERIFICATION === '1';
+  // Holding users at a verify screen they can never leave is an outage, not a policy.
+  if (requireEmailVerification && !emailProvider && !isLocalMode) {
+    throw new Error('VOLUMES_REQUIRE_EMAIL_VERIFICATION=1 needs RESEND_API_KEY or MAILTRAP_API_TOKEN outside development.');
+  }
   const trusted = new Set<string>([authOrigin]);
   if (isLocalMode) trusted.add('http://localhost:4100');
   for (const o of (r.VOLUMES_TRUSTED_ORIGINS ?? '').split(',')) {
@@ -146,6 +183,21 @@ export function loadEnv(source: Record<string, string | undefined> = process.env
     // Dev login needs all three: an explicit opt-in, a development/test run and a
     // public origin on this machine. The endpoint also refuses non-loopback peers.
     devLoginEnabled: r.VOLUMES_DEV_LOGIN === '1' && isLocalMode && isLocalUrl(r.BETTER_AUTH_URL),
+    emailPassword: r.VOLUMES_EMAIL_PASSWORD === '1',
+    emailLinks: emailProvider || isLocalMode,
+    isLocalMode,
+    signupMode: r.VOLUMES_SIGNUP_MODE,
+    signupAllowlist: (r.VOLUMES_SIGNUP_ALLOWLIST ?? '')
+      .split(',')
+      .map((e) => e.trim().toLowerCase())
+      .filter(Boolean),
+    requireEmailVerification,
+    RESEND_API_KEY: r.RESEND_API_KEY,
+    MAILTRAP_API_TOKEN: r.MAILTRAP_API_TOKEN,
+    emailFrom: {
+      email: r.EMAIL_FROM || `noreply@${new URL(r.BETTER_AUTH_URL).hostname}`,
+      name: r.EMAIL_FROM_NAME || 'KDRIVE',
+    },
     GOOGLE_CLIENT_ID: r.GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET: r.GOOGLE_CLIENT_SECRET,
     GITHUB_CLIENT_ID: r.GITHUB_CLIENT_ID,
@@ -175,4 +227,13 @@ export const env: Env = loadEnv();
 
 export function isAdminEmail(email: string | null | undefined): boolean {
   return !!email && env.adminEmails.has(email.toLowerCase());
+}
+
+/**
+ * Admin rights need a listed address the user has proven they own. Anyone can
+ * sign up with a password for an unclaimed address, so the address alone never
+ * makes an account privileged.
+ */
+export function isAdminUser(u: { email: string | null | undefined; emailVerified?: boolean | null }): boolean {
+  return u.emailVerified === true && isAdminEmail(u.email);
 }

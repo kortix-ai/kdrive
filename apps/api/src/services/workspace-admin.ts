@@ -3,7 +3,7 @@ import type { Context } from 'hono';
 import { MAX_QUOTA_BYTES, type AdminUser, type WorkspaceSummary } from '@volumes/shared';
 import { db } from '../db/client';
 import { bauthUser, checkpoints, uploads, userSettings, workspaces, type WorkspaceRow } from '../db/schema';
-import { env, isAdminEmail } from '../env';
+import { env, isAdminUser } from '../env';
 import { audit } from '../lib/audit';
 import { ApiError } from '../lib/http';
 import { newId } from '../lib/ids';
@@ -210,6 +210,7 @@ export async function adminListUsers(q?: string): Promise<AdminUser[]> {
     .select({
       id: bauthUser.id,
       email: bauthUser.email,
+      emailVerified: bauthUser.emailVerified,
       name: bauthUser.name,
       createdAt: bauthUser.createdAt,
       quotaBytes: userSettings.quotaBytes,
@@ -237,7 +238,7 @@ export async function adminListUsers(q?: string): Promise<AdminUser[]> {
 }
 
 function toAdminUser(
-  u: { id: string; email: string; name: string | null; createdAt: Date; quotaBytes: number | null; lastSignInAt: Date | null },
+  u: { id: string; email: string; emailVerified: boolean; name: string | null; createdAt: Date; quotaBytes: number | null; lastSignInAt: Date | null },
   agg: { count: number; bytes: number },
 ): AdminUser {
   return {
@@ -249,7 +250,7 @@ function toAdminUser(
     quotaBytes: u.quotaBytes ?? env.defaultQuotaBytes,
     usedBytes: agg.bytes,
     workspaceCount: agg.count,
-    isAdmin: isAdminEmail(u.email),
+    isAdmin: isAdminUser(u),
   };
 }
 
@@ -258,6 +259,7 @@ export async function adminGetUser(userId: string): Promise<AdminUser> {
     .select({
       id: bauthUser.id,
       email: bauthUser.email,
+      emailVerified: bauthUser.emailVerified,
       name: bauthUser.name,
       createdAt: bauthUser.createdAt,
       quotaBytes: userSettings.quotaBytes,

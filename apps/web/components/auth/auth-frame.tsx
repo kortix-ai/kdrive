@@ -21,7 +21,7 @@ export function AuthCard({ children, className, style }: { children: React.React
       style={style}
       className={cx(
         'relative z-[1] w-full overflow-hidden rounded-vx-lg border border-vx-hair bg-vx-surface shadow-vx-mock',
-        'max-[720px]:flex-1 max-[720px]:rounded-none max-[720px]:border-0 max-[720px]:shadow-none',
+        'max-[720px]:flex-[1_0_auto] max-[720px]:rounded-none max-[720px]:border-0 max-[720px]:shadow-none',
         className,
       )}
     >

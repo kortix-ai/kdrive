@@ -173,7 +173,8 @@ export const useVx = create<VxState>()((set, get) => ({
     const cur = held ?? lsGet(LS_WS);
     const valid = cur && me.workspaces.some((w) => w.id === cur) ? cur : me.defaultWorkspaceId;
     const view = lsGet(LS_VIEW) === 'grid' ? 'grid' : get().view;
-    if (valid !== cur) lsSet(LS_WS, valid);
+    // No default only while the user is held for email verification (no drive yet).
+    if (valid && valid !== cur) lsSet(LS_WS, valid);
     if (held && held !== valid) {
       // The workspace in use is gone (deleted in another tab or by an admin): switch to the
       // default like setWorkspace does, and close anything aimed at the old one's paths, so a

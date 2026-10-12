@@ -29,7 +29,7 @@ import {
   updateGrant,
   upsertGrant,
 } from '../services/agent-grants';
-import { listWorkspaces } from '../services/workspaces';
+import { ensureUserBootstrap, listWorkspaces } from '../services/workspaces';
 import type { AppEnv } from '../types';
 import { ownWorkspaceName } from './agent-tokens';
 
@@ -159,6 +159,8 @@ agentsOauthRoutes.get('/oauth/consent-info', async (c) => {
   const q = parseOAuthQuery(oauth_query);
   if (!q.signed || q.expired) throw badRequest(EXPIRED_REQUEST);
   const client = await liveClient(q.clientId);
+  // A brand-new account can reach consent before anything opened its drive (sign-up no longer provisions one).
+  await ensureUserBootstrap(user);
   const [rows, existing] = await Promise.all([listWorkspaces(user.id), getConnectedApp(user.id, { clientId: client.clientId })]);
   return ok(c, OAuthConsentInfo, {
     client: {
