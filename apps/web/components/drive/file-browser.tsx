@@ -701,6 +701,7 @@ export default function FileBrowser({ path }: { path: string }) {
     share: () => vx().openShare(path),
     history: () => vx().toggleTimeline(true),
     downloadZip: () => ws && downloadEntries(ws, [{ path, name: path === '/' ? rootName : basename(path), type: 'dir', size: 0, mtime: 0 }], at),
+    renameDrive: path === '/' ? () => vx().openRenameDrive() : undefined,
   });
   const detailsOpen = panel?.kind === 'preview' && panel.path === path;
   const allSelected = selectedEntries.length > 0 && selectedEntries.length === entries.length;

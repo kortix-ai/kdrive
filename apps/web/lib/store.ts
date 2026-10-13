@@ -62,6 +62,8 @@ export interface VxState {
   restore: RestoreTarget;
   checkpoint: { at: string | null } | null;
   duplicate: { at: string | null } | null;
+  /** The Rename drive dialog (for the current drive) is open. */
+  renamingDrive: boolean;
   refreshKey: number;
 
   setMe(me: MeResponse | null): void;
@@ -98,6 +100,8 @@ export interface VxState {
   closeCheckpoint(): void;
   openDuplicate(at?: string | null): void;
   closeDuplicate(): void;
+  openRenameDrive(): void;
+  closeRenameDrive(): void;
   setView(v: 'list' | 'grid'): void;
   addUploadJob(job: UploadJob): void;
   updateUploadJob(id: string, patch: Partial<UploadJob>): void;
@@ -144,6 +148,7 @@ export const useVx = create<VxState>()((set, get) => ({
   restore: null,
   checkpoint: null,
   duplicate: null,
+  renamingDrive: false,
   refreshKey: 0,
 
   setMe(me) {
@@ -166,6 +171,7 @@ export const useVx = create<VxState>()((set, get) => ({
         restore: null,
         checkpoint: null,
         duplicate: null,
+        renamingDrive: false,
       });
       return;
     }
@@ -192,6 +198,7 @@ export const useVx = create<VxState>()((set, get) => ({
         restore: null,
         checkpoint: null,
         duplicate: null,
+        renamingDrive: false,
         refreshKey: s.refreshKey + 1,
       }));
       get().toast({ kind: 'info', message: 'That drive is no longer available. Showing your default drive.' });
@@ -371,6 +378,12 @@ export const useVx = create<VxState>()((set, get) => ({
   },
   closeDuplicate() {
     set({ duplicate: null });
+  },
+  openRenameDrive() {
+    set({ renamingDrive: true });
+  },
+  closeRenameDrive() {
+    set({ renamingDrive: false });
   },
 
   setView(v) {
