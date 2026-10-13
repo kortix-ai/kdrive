@@ -20,12 +20,14 @@ import {
   Share2,
   Trash,
   Upload,
+  Users,
   Clock,
   ArrowRight,
 } from 'lucide-react';
 import type { FileEntry } from '@volumes/shared';
 import { ContextMenu, type MenuItem } from '@/components/ui/menu';
 import type { Drift } from '@/lib/drive/drift';
+import { VIEW_ONLY_REASON } from '@/lib/store';
 import { READ_ONLY_REASON } from './drive-context';
 
 export interface DriveCommands {
@@ -51,12 +53,26 @@ export interface DriveCommands {
 const I = 16;
 const W = 1.75;
 
+/** Items that change the drive (or share it): a viewer sees them disabled, with the reason. */
+const WRITE_ITEMS = new Set(['up', 'upd', 'nf', 'rename', 'mv', 'cp', 'share', 'cpt', 'del', 'restore']);
+
+function lockForViewer(items: MenuItem[], viewOnly: boolean | undefined): MenuItem[] {
+  if (!viewOnly) return items;
+  return items.map((i) => ('onSelect' in i && WRITE_ITEMS.has(i.id) ? { ...i, disabled: true, reason: VIEW_ONLY_REASON } : i));
+}
+
 export function buildDriveMenu(o: {
   targets: FileEntry[];
   past: boolean;
   drift: ReadonlyMap<string, Drift> | null;
   cmd: DriveCommands;
+  /** A viewer of someone else's drive: write items stay visible but disabled. */
+  viewOnly?: boolean;
 }): MenuItem[] {
+  return lockForViewer(driveMenuItems(o), o.viewOnly);
+}
+
+function driveMenuItems(o: { targets: FileEntry[]; past: boolean; drift: ReadonlyMap<string, Drift> | null; cmd: DriveCommands }): MenuItem[] {
   const { targets, past, cmd } = o;
   if (!targets.length) {
     return [
@@ -145,11 +161,15 @@ export function buildFolderMenu(o: {
   share: () => void;
   history: () => void;
   downloadZip: () => void;
-  /** Set at the drive's top level: opens Rename drive. */
+  /** Set at the drive's top level for its owner: opens Rename drive. */
   renameDrive?: () => void;
+  /** Set at the drive's top level: opens People (Share drive… for the owner). */
+  people?: { open: () => void; owner: boolean };
+  /** A viewer of someone else's drive: write items stay visible but disabled. */
+  viewOnly?: boolean;
 }): MenuItem[] {
   const { past, cmd } = o;
-  return [
+  return lockForViewer([
     { id: 'nf', label: 'New folder', icon: <FolderPlus size={I} strokeWidth={W} />, kbd: 'N', onSelect: cmd.newFolder, disabled: past, reason: READ_ONLY_REASON },
     { id: 'up', label: 'Upload files', icon: <Upload size={I} strokeWidth={W} />, kbd: 'U', onSelect: cmd.uploadFiles, disabled: past, reason: READ_ONLY_REASON },
     { id: 'upd', label: 'Upload folder', icon: <FolderUp size={I} strokeWidth={W} />, kbd: '⇧U', onSelect: cmd.uploadFolder, disabled: past, reason: READ_ONLY_REASON },
@@ -157,10 +177,10 @@ export function buildFolderMenu(o: {
     { id: 'share', label: past ? 'Share pinned link…' : 'Share…', icon: <Share2 size={I} strokeWidth={W} />, onSelect: o.share },
     { id: 'history', label: 'Versions', icon: <Clock size={I} strokeWidth={W} />, kbd: 'H', onSelect: o.history },
     { id: 'zip', label: 'Download .zip', icon: <Download size={I} strokeWidth={W} />, onSelect: o.downloadZip },
-    ...(o.renameDrive
-      ? [{ id: 's2', type: 'separator' } as const, { id: 'rename-drive', label: 'Rename drive…', icon: <Pencil size={I} strokeWidth={W} />, onSelect: o.renameDrive }]
-      : []),
-  ];
+    ...(o.renameDrive || o.people ? [{ id: 's2', type: 'separator' } as const] : []),
+    ...(o.people ? [{ id: 'people', label: o.people.owner ? 'Share drive…' : 'People…', icon: <Users size={I} strokeWidth={W} />, onSelect: o.people.open }] : []),
+    ...(o.renameDrive ? [{ id: 'rename-drive', label: 'Rename drive…', icon: <Pencil size={I} strokeWidth={W} />, onSelect: o.renameDrive }] : []),
+  ], o.viewOnly);
 }
 
 export default function DriveContextMenu({

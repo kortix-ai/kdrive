@@ -55,6 +55,16 @@ export function useWorkspaces() {
   return useSWR('workspaces', () => api.workspaces.list(), noRetryOn4xx);
 }
 
+/** People of drive `id` (null: not loaded). */
+export function useDrivePeople(id: string | null) {
+  return useSWR(id ? ['people', id] : null, () => api.workspaces.people(id!), noRetryOn4xx);
+}
+
+/** Invitations to other people's drives (refreshed when the window regains focus). */
+export function useInvitations(enabled = true) {
+  return useSWR(enabled ? 'invitations' : null, () => api.invitations.list(), { ...noRetryOn4xx, refreshInterval: 60_000 });
+}
+
 type LsKey = [string, string, string, string | null];
 
 /**

@@ -13,8 +13,8 @@ const me: MeResponse = {
   isAdmin: false,
   defaultWorkspaceId: 'ws-default',
   workspaces: [
-    { id: 'ws-default', name: 'My Drive', isDefault: true, createdAt: '2026-01-01T00:00:00.000Z', usageBytes: 0, forkedFrom: null },
-    { id: 'ws-2', name: 'Copy', isDefault: false, createdAt: '2026-01-02T00:00:00.000Z', usageBytes: 0, forkedFrom: null },
+    { id: 'ws-default', name: 'My Drive', isDefault: true, createdAt: '2026-01-01T00:00:00.000Z', usageBytes: 0, forkedFrom: null, role: 'owner' as const, owner: null },
+    { id: 'ws-2', name: 'Copy', isDefault: false, createdAt: '2026-01-02T00:00:00.000Z', usageBytes: 0, forkedFrom: null, role: 'owner' as const, owner: null },
   ],
   usage: { quotaBytes: 10, usedBytes: 0, level: 'ok', byWorkspace: [] },
 };

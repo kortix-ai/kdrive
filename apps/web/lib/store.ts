@@ -4,7 +4,7 @@
 // these actions and never add state here. Local component state stays local.
 
 import { create } from 'zustand';
-import { UNDO_WINDOW_MS, type MeResponse } from '@volumes/shared';
+import { UNDO_WINDOW_MS, type DriveRole, type MeResponse } from '@volumes/shared';
 import { api } from './api/endpoints';
 import { revalidateAll } from './api/swr';
 
@@ -64,6 +64,8 @@ export interface VxState {
   duplicate: { at: string | null } | null;
   /** The Rename drive dialog (for the current drive) is open. */
   renamingDrive: boolean;
+  /** The People dialog (members and invitations of the current drive) is open. */
+  peopleOpen: boolean;
   refreshKey: number;
 
   setMe(me: MeResponse | null): void;
@@ -101,6 +103,8 @@ export interface VxState {
   openDuplicate(at?: string | null): void;
   closeDuplicate(): void;
   openRenameDrive(): void;
+  openPeople(): void;
+  closePeople(): void;
   closeRenameDrive(): void;
   setView(v: 'list' | 'grid'): void;
   addUploadJob(job: UploadJob): void;
@@ -149,6 +153,7 @@ export const useVx = create<VxState>()((set, get) => ({
   checkpoint: null,
   duplicate: null,
   renamingDrive: false,
+  peopleOpen: false,
   refreshKey: 0,
 
   setMe(me) {
@@ -172,6 +177,7 @@ export const useVx = create<VxState>()((set, get) => ({
         checkpoint: null,
         duplicate: null,
         renamingDrive: false,
+        peopleOpen: false,
       });
       return;
     }
@@ -199,6 +205,7 @@ export const useVx = create<VxState>()((set, get) => ({
         checkpoint: null,
         duplicate: null,
         renamingDrive: false,
+        peopleOpen: false,
         refreshKey: s.refreshKey + 1,
       }));
       get().toast({ kind: 'info', message: 'That drive is no longer available. Showing your default drive.' });
@@ -382,6 +389,12 @@ export const useVx = create<VxState>()((set, get) => ({
   openRenameDrive() {
     set({ renamingDrive: true });
   },
+  openPeople() {
+    set({ peopleOpen: true });
+  },
+  closePeople() {
+    set({ peopleOpen: false });
+  },
   closeRenameDrive() {
     set({ renamingDrive: false });
   },
@@ -411,3 +424,11 @@ export const useVx = create<VxState>()((set, get) => ({
 
 /** Non-hook access for event handlers and modules. */
 export const vx = () => useVx.getState();
+
+/** The signed-in user's role in the current drive (owner while unknown). */
+export function currentRole(s: Pick<VxState, 'me' | 'workspaceId'>): DriveRole {
+  return s.me?.workspaces.find((w) => w.id === s.workspaceId)?.role ?? 'owner';
+}
+
+/** Why a viewer cannot change anything here (shown where write actions are disabled). */
+export const VIEW_ONLY_REASON = 'View only. Ask the owner for edit access.';

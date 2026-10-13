@@ -19,8 +19,8 @@ const me: MeResponse = {
   isAdmin: false,
   defaultWorkspaceId: 'ws-home',
   workspaces: [
-    { id: 'ws-home', name: 'My Drive', isDefault: true, createdAt: '2026-01-01T00:00:00.000Z', usageBytes: 0, forkedFrom: null },
-    { id: 'ws-work', name: 'Work', isDefault: false, createdAt: '2026-01-01T00:00:00.000Z', usageBytes: 0, forkedFrom: null },
+    { id: 'ws-home', name: 'My Drive', isDefault: true, createdAt: '2026-01-01T00:00:00.000Z', usageBytes: 0, forkedFrom: null, role: 'owner' as const, owner: null },
+    { id: 'ws-work', name: 'Work', isDefault: false, createdAt: '2026-01-01T00:00:00.000Z', usageBytes: 0, forkedFrom: null, role: 'owner' as const, owner: null },
   ],
   usage: { quotaBytes: 10, usedBytes: 0, level: 'ok', byWorkspace: [] },
 };

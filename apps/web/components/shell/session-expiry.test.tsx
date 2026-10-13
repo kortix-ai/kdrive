@@ -18,7 +18,7 @@ const me: MeResponse = {
   user: { id: 'u1', email: 'alice@b.c', name: 'Alice', image: null, emailVerified: true },
   isAdmin: false,
   defaultWorkspaceId: 'ws-default',
-  workspaces: [{ id: 'ws-default', name: 'My Drive', isDefault: true, createdAt: '2026-01-01T00:00:00.000Z', usageBytes: 0, forkedFrom: null }],
+  workspaces: [{ id: 'ws-default', name: 'My Drive', isDefault: true, createdAt: '2026-01-01T00:00:00.000Z', usageBytes: 0, forkedFrom: null, role: 'owner' as const, owner: null }],
   usage: { quotaBytes: 10, usedBytes: 0, level: 'ok', byWorkspace: [] },
 };
 

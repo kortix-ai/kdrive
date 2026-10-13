@@ -35,7 +35,7 @@ import { DEFAULT_SORT, loadSort, nextSort, saveSort, sortEntries, type SortKey, 
 import { formatMoment } from '@/lib/format';
 import { isTypingTarget, useHotkeys } from '@/lib/keys';
 import { useShellIntents } from '@/lib/shell-intents';
-import { useVx } from '@/lib/store';
+import { currentRole, useVx, VIEW_ONLY_REASON } from '@/lib/store';
 import { compareHref, driveHref } from '@/lib/urls';
 import { useUploadPrompts } from '@/lib/upload/prompts';
 import { startUpload } from '@/lib/upload/uploads';
@@ -111,6 +111,7 @@ export default function FileBrowser({ path }: { path: string }) {
   const ws = useVx((st) => st.workspaceId);
   const me = useVx((st) => st.me);
   const tt = useVx((st) => st.timeTravel);
+  const role = useVx(currentRole);
   const view = useVx((st) => st.view);
   const selectionArr = useVx((st) => st.selection);
   const anchor = useVx((st) => st.anchor);
@@ -122,6 +123,9 @@ export default function FileBrowser({ path }: { path: string }) {
 
   const at = tt?.commitId ?? null;
   const past = !!tt;
+  // A viewer of someone else's drive changes nothing: the same lock as the past, with its own reason.
+  const viewOnly = role === 'viewer';
+  const locked = past || viewOnly;
   const pastLabel = tt ? formatMoment(tt.createdAt) : '';
   const rootName = me?.workspaces.find((w) => w.id === ws)?.name ?? 'My Drive';
 
@@ -262,7 +266,7 @@ export default function FileBrowser({ path }: { path: string }) {
 
   // ── commands ──────────────────────────────────────────────────────────────
   const vx = useVx.getState;
-  const readOnly = () => vx().toast({ kind: 'info', message: READ_ONLY_REASON });
+  const readOnly = () => vx().toast({ kind: 'info', message: viewOnly ? VIEW_ONLY_REASON : READ_ONLY_REASON });
 
   const targets = useCallback((): FileEntry[] => {
     const sel = useVx.getState().selection.map((p) => byPath.get(p)).filter((e): e is FileEntry => !!e);
@@ -277,14 +281,14 @@ export default function FileBrowser({ path }: { path: string }) {
   };
 
   const uploadFiles = (folder: boolean) => {
-    if (past) return readOnly();
+    if (locked) return readOnly();
     void pickUploadSources(folder).then((sources) => {
       if (sources) startUpload({ basePath: path, sources });
     });
   };
 
   const newFolder = () => {
-    if (past) return readOnly();
+    if (locked) return readOnly();
     setRenaming(null);
     setCreating(true);
     scrollRef.current?.scrollTo({ top: 0 });
@@ -300,23 +304,23 @@ export default function FileBrowser({ path }: { path: string }) {
     preview: (e) => vx().openPreview(e.path),
     download: (es) => ws && downloadEntries(ws, es, at),
     rename: (e) => {
-      if (past) return readOnly();
+      if (locked) return readOnly();
       setCreating(false);
       setRenaming(e.path);
       setFocus(e.path);
     },
-    moveTo: (es) => (past ? readOnly() : ws && setMoveReq({ ws, mode: 'move', entries: es, startDir: path })),
-    copyTo: (es) => (past ? readOnly() : ws && setMoveReq({ ws, mode: 'copy', entries: es, startDir: path })),
+    moveTo: (es) => (locked ? readOnly() : ws && setMoveReq({ ws, mode: 'move', entries: es, startDir: path })),
+    copyTo: (es) => (locked ? readOnly() : ws && setMoveReq({ ws, mode: 'copy', entries: es, startDir: path })),
     versions: (e) => vx().openVersions(e.path),
     comparePrevious: (e) => ws && void compareWithPrevious(ws, e.path, (href) => router.push(href)),
     compareWithNow: (e) => at && router.push(compareHref(e.path, at, nowListing.data?.commitId ?? 'head')),
-    share: (e) => vx().openShare(e.path),
-    checkpoint: () => vx().openCheckpoint(null),
+    share: (e) => (viewOnly ? readOnly() : vx().openShare(e.path)),
+    checkpoint: () => (viewOnly ? readOnly() : vx().openCheckpoint(null)),
     remove: (es) => {
-      if (past) return readOnly();
+      if (locked) return readOnly();
       if (ws && es.length) void deleteItems(ws, es);
     },
-    restore: (e) => at && vx().openRestore({ scope: e.type === 'dir' ? 'folder' : 'file', path: e.path, at }),
+    restore: (e) => (viewOnly ? readOnly() : at && vx().openRestore({ scope: e.type === 'dir' ? 'folder' : 'file', path: e.path, at })),
     showInPresent: (e) => {
       vx().exitTimeTravel();
       requestReveal(e.path);
@@ -336,7 +340,7 @@ export default function FileBrowser({ path }: { path: string }) {
     const d = useDriveRows.getState().dragging;
     setDragging([]);
     setDropDir(null);
-    if (!ws || past) return;
+    if (!ws || locked) return;
     const paths = copy ? d.filter((p) => !(dest === p || dest.startsWith(p + '/'))) : movablePaths(d, dest, dirname);
     if (!paths.length) return;
     const r = await moveItems(ws, paths, dest, { copy });
@@ -559,6 +563,7 @@ export default function FileBrowser({ path }: { path: string }) {
     ws: ws ?? '',
     at,
     past,
+    viewOnly,
     pastLabel,
     path,
     selection,
@@ -617,7 +622,7 @@ export default function FileBrowser({ path }: { path: string }) {
     },
     onCheck: (entry) => vx().select([entry.path], 'toggle'),
     onDragStart: (e, entry) => {
-      if (past) {
+      if (locked) {
         e.preventDefault();
         return;
       }
@@ -637,7 +642,7 @@ export default function FileBrowser({ path }: { path: string }) {
       setDropDir(null);
     },
     onFolderDragOver: (e, entry) => {
-      if (past || !isInternalDrag(e.dataTransfer) || !canDropInto(entry.path)) return;
+      if (locked || !isInternalDrag(e.dataTransfer) || !canDropInto(entry.path)) return;
       e.preventDefault();
       e.stopPropagation();
       e.dataTransfer.dropEffect = e.altKey ? 'copy' : 'move';
@@ -694,14 +699,16 @@ export default function FileBrowser({ path }: { path: string }) {
   const loadingFirst = !data && !err;
   const fetching = !!data && (listing.isValidating || stale);
   const countLabel = data && !hardError ? `${entries.length.toLocaleString()} ${entries.length === 1 ? 'item' : 'items'}` : '';
-  const menuItems = menu ? buildDriveMenu({ targets: menu.targets, past, drift: drift?.byPath ?? null, cmd }) : [];
+  const menuItems = menu ? buildDriveMenu({ targets: menu.targets, past, drift: drift?.byPath ?? null, cmd, viewOnly }) : [];
   const folderMenu = buildFolderMenu({
     past,
     cmd,
     share: () => vx().openShare(path),
     history: () => vx().toggleTimeline(true),
     downloadZip: () => ws && downloadEntries(ws, [{ path, name: path === '/' ? rootName : basename(path), type: 'dir', size: 0, mtime: 0 }], at),
-    renameDrive: path === '/' ? () => vx().openRenameDrive() : undefined,
+    renameDrive: path === '/' && role === 'owner' ? () => vx().openRenameDrive() : undefined,
+    people: path === '/' ? { open: () => vx().openPeople(), owner: role === 'owner' } : undefined,
+    viewOnly,
   });
   const detailsOpen = panel?.kind === 'preview' && panel.path === path;
   const allSelected = selectedEntries.length > 0 && selectedEntries.length === entries.length;

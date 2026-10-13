@@ -1,6 +1,11 @@
 // One typed function per API route (architecture §6.3). FROZEN names:
 // builders call these and never hand-roll fetches to our API.
 import {
+  DrivePeopleResponse,
+  InvitationListResponse,
+  InviteResponse,
+  type InviteRequest,
+  type MemberRole,
   AcceptProposalResponse,
   AdminUserResponse,
   AdminUsersResponse,
@@ -150,6 +155,24 @@ export const api = {
     remove: (id: string) => apiFetch<void>(`/api/workspaces/${encodeURIComponent(id)}`, { method: 'DELETE' }),
     duplicate: (id: string, req: DuplicateWorkspaceRequest) =>
       apiFetch(`/api/workspaces/${encodeURIComponent(id)}/duplicate`, { method: 'POST', json: req }, WorkspaceResponse),
+    /** Everyone with access to the drive, and (for its owner) the open invitations. */
+    people: (id: string) => apiFetch(`/api/workspaces/${encodeURIComponent(id)}/people`, {}, DrivePeopleResponse),
+    invite: (id: string, req: InviteRequest) =>
+      apiFetch(`/api/workspaces/${encodeURIComponent(id)}/invites`, { method: 'POST', json: req }, InviteResponse),
+    revokeInvite: (id: string, inviteId: string) =>
+      apiFetch<void>(`/api/workspaces/${encodeURIComponent(id)}/invites/${encodeURIComponent(inviteId)}`, { method: 'DELETE' }),
+    setRole: (id: string, userId: string, role: MemberRole) =>
+      apiFetch(`/api/workspaces/${encodeURIComponent(id)}/members/${encodeURIComponent(userId)}`, { method: 'PATCH', json: { role } }, DrivePeopleResponse),
+    /** Removes a member (owner), or leaves the drive when `userId` is yourself. */
+    removeMember: (id: string, userId: string) =>
+      apiFetch<void>(`/api/workspaces/${encodeURIComponent(id)}/members/${encodeURIComponent(userId)}`, { method: 'DELETE' }),
+  },
+
+  /** Invitations to other people's drives, addressed to you. */
+  invitations: {
+    list: () => apiFetch('/api/invitations', {}, InvitationListResponse),
+    accept: (id: string) => apiFetch(`/api/invitations/${encodeURIComponent(id)}/accept`, { method: 'POST', json: {} }, WorkspaceResponse),
+    decline: (id: string) => apiFetch<void>(`/api/invitations/${encodeURIComponent(id)}/decline`, { method: 'POST', json: {} }),
   },
 
   /** AI agents: tokens, connected apps (OAuth grants) and the consent page. */

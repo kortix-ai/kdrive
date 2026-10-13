@@ -3,7 +3,7 @@
 // The app's single upload engine, wired to the real API, the hashing worker
 // pool, the app store and the prompt dialogs.
 import { api } from '../api/endpoints';
-import { useVx } from '../store';
+import { currentRole, useVx, VIEW_ONLY_REASON } from '../store';
 import { createUploadEngine, sleep, type StartOptions, type UploadEngine } from './engine';
 import { createHasher, type Hasher } from './hasher';
 import { askConflict, showQuota } from './prompts';
@@ -40,6 +40,10 @@ export function startUpload(opts: Omit<StartOptions, 'workspaceId'> & { workspac
   if (!ws) return null;
   if (s.timeTravel) {
     s.toast({ kind: 'info', message: 'Go back to now to upload.' });
+    return null;
+  }
+  if (ws === s.workspaceId && currentRole(s) === 'viewer') {
+    s.toast({ kind: 'info', message: VIEW_ONLY_REASON });
     return null;
   }
   return getUploadEngine().start({ workspaceId: ws, basePath: opts.basePath, sources: opts.sources });

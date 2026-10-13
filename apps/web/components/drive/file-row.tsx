@@ -130,11 +130,13 @@ export function RowActions({ entry, className }: { entry: FileEntry; className?:
           <Download size={16} strokeWidth={1.75} aria-hidden />
         </IconButton>
       </Tooltip>
-      <Tooltip label={ctx.past ? 'Share pinned link' : 'Share'} kbd="S">
-        <IconButton size="sm" label={`Share ${entry.name}`} nativeTitle={false} tabIndex={-1} className={btn} {...stop} onClick={(e) => { e.stopPropagation(); ctx.cmd.share(entry); }}>
-          <Share2 size={16} strokeWidth={1.75} aria-hidden />
-        </IconButton>
-      </Tooltip>
+      {ctx.viewOnly ? null : (
+        <Tooltip label={ctx.past ? 'Share pinned link' : 'Share'} kbd="S">
+          <IconButton size="sm" label={`Share ${entry.name}`} nativeTitle={false} tabIndex={-1} className={btn} {...stop} onClick={(e) => { e.stopPropagation(); ctx.cmd.share(entry); }}>
+            <Share2 size={16} strokeWidth={1.75} aria-hidden />
+          </IconButton>
+        </Tooltip>
+      )}
       {isFile ? (
         <Tooltip label="Versions" kbd="⇧H">
           <IconButton size="sm" label={`Versions of ${entry.name}`} nativeTitle={false} tabIndex={-1} className={btn} {...stop} onClick={(e) => { e.stopPropagation(); ctx.cmd.versions(entry); }}>
