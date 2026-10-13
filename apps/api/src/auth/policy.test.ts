@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import { env } from '../env';
 import { hashPassword, verifyPassword } from './password';
-import { emailActionLink, signupAllowed } from './policy';
+import { assertSignupAllowed, emailActionLink, isOAuthCallbackPath, SIGNUP_RESTRICTED, signupAllowed } from './policy';
 
 const saved = { mode: env.signupMode, allow: env.signupAllowlist };
 afterEach(() => Object.assign(env, { signupMode: saved.mode, signupAllowlist: saved.allow }));
@@ -34,6 +34,30 @@ describe('signupAllowed', () => {
     Object.assign(env, { signupMode: 'closed', signupAllowlist: ['ok@x.test'] });
     expect(signupAllowed('ok@x.test')).toBe(false);
     expect(signupAllowed('admin@test.local')).toBe(true);
+  });
+});
+
+describe('assertSignupAllowed', () => {
+  const refusal = (ctx?: { path?: string } | null) => {
+    try {
+      assertSignupAllowed('no@x.test', ctx);
+    } catch (e) {
+      return e as { statusCode: number; body: { code: string; message: string } };
+    }
+    throw new Error('expected a refusal');
+  };
+  test('one code everywhere; the readable sentence in JSON answers, the code in OAuth callback redirects', () => {
+    Object.assign(env, { signupMode: 'closed', signupAllowlist: [] });
+    expect(refusal().body).toMatchObject({ code: 'SIGNUP_RESTRICTED', message: SIGNUP_RESTRICTED });
+    expect(refusal({ path: '/sign-up/email' }).body.message).toBe(SIGNUP_RESTRICTED);
+    expect(refusal({ path: '/callback/:id' }).body.message).toBe('SIGNUP_RESTRICTED');
+    expect(refusal({ path: '/callback/:id' }).statusCode).toBe(403);
+    env.signupMode = 'open';
+    expect(() => assertSignupAllowed('no@x.test', { path: '/callback/:id' })).not.toThrow();
+  });
+  test('callback paths', () => {
+    for (const p of ['/callback/:id', '/callback/google', '/oauth2/callback/:providerId']) expect(isOAuthCallbackPath(p)).toBe(true);
+    for (const p of [undefined, '', '/sign-in/social', '/sign-up/email', '/oauth2/authorize', '/x/callback/google']) expect(isOAuthCallbackPath(p)).toBe(false);
   });
 });
 

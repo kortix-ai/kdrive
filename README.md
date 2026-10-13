@@ -95,7 +95,9 @@ values win).
 
 Google and GitHub buttons appear only when their client id and secret are set.
 OAuth callback URLs: `http://localhost:4100/api/auth/callback/google` and
-`http://localhost:4100/api/auth/callback/github`. For local testing without OAuth
+`http://localhost:4100/api/auth/callback/github`. Setting up Google (Cloud Console
+client, consent screen, local and server env) is in
+[docs/google-sign-in.md](docs/google-sign-in.md). For local testing without OAuth
 apps, `VOLUMES_DEV_LOGIN=1` shows "Continue with dev account". It works only with
 `NODE_ENV=development` (the dev script's default), a localhost `BETTER_AUTH_URL`
 and a caller on this machine. Verified emails in `VOLUMES_ADMIN_EMAILS` get the admin page.

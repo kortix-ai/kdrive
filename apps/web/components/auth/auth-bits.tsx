@@ -49,6 +49,14 @@ export function providerLabel(id: string): string {
   return PROVIDER_NAMES[id] ?? (id ? id.charAt(0).toUpperCase() + id.slice(1) : id);
 }
 
+/**
+ * The provider button's label. On /signup it says what the page is for ("Sign up with Google");
+ * on /signin "Continue with", since a first provider sign-in there opens a new account too.
+ */
+export function providerButtonLabel(id: string, mode: 'signin' | 'signup'): string {
+  return `${mode === 'signup' ? 'Sign up with' : 'Continue with'} ${providerLabel(id)}`;
+}
+
 /** Inline error row (no toasts on auth pages). */
 export function ErrorRow({ children }: { children: React.ReactNode }) {
   return (

@@ -11,7 +11,7 @@ import { mutate } from 'swr';
 import { KeyRound } from 'lucide-react';
 import { PASSWORD_MAX, PASSWORD_MIN, RETENTION_COPY } from '@volumes/shared';
 import { AuthCard, AuthFrame } from '@/components/auth/auth-frame';
-import { ErrorRow, NoticeRow, OrRule, StrengthMeter, authErrorCopy, oauthErrorCopy, providerLabel, safeNext } from '@/components/auth/auth-bits';
+import { ErrorRow, NoticeRow, OrRule, StrengthMeter, authErrorCopy, oauthErrorCopy, providerButtonLabel, safeNext } from '@/components/auth/auth-bits';
 import { SignInArt } from '@/components/auth/sign-in-art';
 import { BrandMetal } from '@/components/shell/brand';
 import { ThemeToggle } from '@/components/shell/theme-toggle';
@@ -196,7 +196,7 @@ export function SignInScreen({ mode }: { mode: AuthMode }) {
                   loading={busy === p}
                   disabled={!!busy}
                 >
-                  Continue with {providerLabel(p)}
+                  {providerButtonLabel(p, mode)}
                 </Button>
               ))}
             </div>
@@ -250,13 +250,16 @@ export function SignInScreen({ mode }: { mode: AuthMode }) {
                     </p>
                   ) : null}
                 </form>
-                <p className="vx-body mt-5 text-center text-vx-text-3">
-                  {signup ? 'Already have an account? ' : 'New to KDRIVE? '}
-                  <Link href={withNext(signup ? '/signin' : '/signup', next)} className="font-medium text-vx-text-1 underline-offset-4 hover:underline">
-                    {signup ? 'Sign in' : 'Create an account'}
-                  </Link>
-                </p>
               </>
+            ) : null}
+
+            {emailPassword || providers.length ? (
+              <p className="vx-body mt-5 text-center text-vx-text-3">
+                {signup ? 'Already have an account? ' : 'New to KDRIVE? '}
+                <Link href={withNext(signup ? '/signin' : '/signup', next)} className="font-medium text-vx-text-1 underline-offset-4 hover:underline">
+                  {signup ? 'Sign in' : 'Create an account'}
+                </Link>
+              </p>
             ) : null}
 
             {config?.devLogin ? (
