@@ -28,6 +28,9 @@ export const ERROR_CODES = [
   'insufficient_scope',
   'stale_base',
   'proposal_closed',
+  'read_only',
+  'already_member',
+  'too_many_people',
   'internal',
 ] as const;
 

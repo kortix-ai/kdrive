@@ -46,6 +46,46 @@ export const workspaces = pgTable(
   ],
 );
 
+/**
+ * People other than the owner who can open a drive. The owner is `workspaces.user_id`
+ * and never has a row here. An editor changes files; a viewer only reads.
+ */
+export const workspaceMembers = pgTable(
+  'workspace_members',
+  {
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => bauthUser.id, { onDelete: 'cascade' }),
+    role: text('role').$type<'editor' | 'viewer'>().notNull(),
+    addedBy: text('added_by').references(() => bauthUser.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', tz).defaultNow().notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.workspaceId, t.userId] }), index('workspace_members_user_idx').on(t.userId)],
+);
+
+/**
+ * An open invitation to a drive, by address. Nobody joins until the person signed in
+ * with that (verified) address accepts, so inviting never reveals whether an account exists.
+ */
+export const workspaceInvites = pgTable(
+  'workspace_invites',
+  {
+    id: text('id').primaryKey(), // ulid
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    email: text('email').notNull(), // lower-cased
+    role: text('role').$type<'editor' | 'viewer'>().notNull(),
+    invitedBy: text('invited_by').references(() => bauthUser.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', tz).defaultNow().notNull(),
+    expiresAt: timestamp('expires_at', tz).notNull(),
+  },
+  (t) => [uniqueIndex('workspace_invites_ws_email_idx').on(t.workspaceId, t.email), index('workspace_invites_email_idx').on(t.email)],
+);
+
 export const userSettings = pgTable('user_settings', {
   userId: text('user_id')
     .primaryKey()
@@ -401,6 +441,8 @@ export const proposalBlocks = pgTable(
 
 export type WorkspaceRow = typeof workspaces.$inferSelect;
 export type UserSettingsRow = typeof userSettings.$inferSelect;
+export type WorkspaceMemberRow = typeof workspaceMembers.$inferSelect;
+export type WorkspaceInviteRow = typeof workspaceInvites.$inferSelect;
 export type ActionRow = typeof actions.$inferSelect;
 export type ActionPathRow = typeof actionPaths.$inferSelect;
 export type CheckpointRow = typeof checkpoints.$inferSelect;

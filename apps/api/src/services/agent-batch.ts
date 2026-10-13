@@ -510,7 +510,7 @@ export async function applyAgentBatch(ctx: ActionCtx, input: BatchInput): Promis
   if (!input.ops.length) throw new ApiError(400, 'bad_request', 'Nothing to change.');
   const { hashed, blockBytes } = hashWrites(input.ops);
   const landed = { any: false, actionId: '' };
-  await using hold = new Hold(ctx.userId, input.kind);
+  await using hold = new Hold(ctx.ws.userId, input.kind);
   try {
     const { data, action } = await withPreparedAction(
       ctx,

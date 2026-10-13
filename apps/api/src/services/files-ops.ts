@@ -70,7 +70,7 @@ export async function knownBlocks(ws: WorkspaceCtx, st: FileStat): Promise<strin
 export async function createFolder(ctx: ActionCtx, path: string): Promise<ActionSummary> {
   if (path === '/') throw new ApiError(400, 'invalid_path', 'The root folder already exists.');
   const parent = dirname(path);
-  await using hold = new Hold(ctx.userId, 'folder.create');
+  await using hold = new Hold(ctx.ws.userId, 'folder.create');
   const { action } = await withPreparedAction(
     ctx,
     async () => {
@@ -192,7 +192,7 @@ export function transferSummary(verb: 'Moved' | 'Copied', items: TransferItem[],
  * destination) are reserved against the quota first, like a copy's bytes.
  */
 export async function movePaths(ctx: ActionCtx, items: TransferItem[], overwrite = false): Promise<ActionSummary> {
-  await using hold = new Hold(ctx.userId, 'move');
+  await using hold = new Hold(ctx.ws.userId, 'move');
   const { action } = await withPreparedAction(
     ctx,
     async () => {
@@ -244,7 +244,7 @@ export async function copyPaths(ctx: ActionCtx, items: TransferItem[], overwrite
   for (const it of items) {
     if (it.from === it.to) throw new ApiError(409, 'path_exists', `"${basename(it.to)}" already exists there.`, { paths: [it.to] });
   }
-  await using hold = new Hold(ctx.userId, 'copy');
+  await using hold = new Hold(ctx.ws.userId, 'copy');
   const { action } = await withPreparedAction(
     ctx,
     async () => {

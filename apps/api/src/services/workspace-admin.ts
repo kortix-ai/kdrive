@@ -2,7 +2,7 @@ import { and, desc, eq, ilike, inArray, isNull, or } from 'drizzle-orm';
 import type { Context } from 'hono';
 import { MAX_QUOTA_BYTES, type AdminUser, type WorkspaceSummary } from '@volumes/shared';
 import { db } from '../db/client';
-import { bauthUser, checkpoints, uploads, userSettings, workspaces, type WorkspaceRow } from '../db/schema';
+import { bauthUser, checkpoints, uploads, userSettings, workspaceInvites, workspaceMembers, workspaces, type WorkspaceRow } from '../db/schema';
 import { env, isAdminUser } from '../env';
 import { audit } from '../lib/audit';
 import { ApiError } from '../lib/http';
@@ -158,6 +158,9 @@ export async function deleteWorkspace(c: Context | null, userId: string, id: str
   await withWorkspaceLock(row.id, async () => {
     await purgeWorkspace(row);
     await db.update(workspaces).set({ deletedAt: new Date() }).where(eq(workspaces.id, row.id));
+    // Nobody keeps access to (or an invitation into) a deleted drive.
+    await db.delete(workspaceMembers).where(eq(workspaceMembers.workspaceId, row.id));
+    await db.delete(workspaceInvites).where(eq(workspaceInvites.workspaceId, row.id));
     const links = await deleteWorkspaceLinks(row.id);
     const cps = await db.delete(checkpoints).where(eq(checkpoints.workspaceId, row.id)).returning({ id: checkpoints.id });
     await audit(c, {

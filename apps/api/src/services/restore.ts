@@ -356,7 +356,7 @@ export async function restorePaths(
     async (rec) => {
       if (opts.verify) await opts.verify(rec.baseCommitId);
       const work = await planRestore(ctx.ws, roots, target, rec.baseCommitId);
-      await using _quota = await reserveQuota(ctx.userId, work.addBytes, 'restore.paths'); // held until the restore lands
+      await using _quota = await reserveQuota(ctx.ws.userId, work.addBytes, 'restore.paths'); // held until the restore lands
       // Ledger intent before any storage call.
       await rec.addPaths(work.changes);
       for (const r of work.remove) {
@@ -393,7 +393,7 @@ export async function restoreFileFrom(
       const [planned] = await resolveBlocks(ctx.ws, [src], target);
       const file: PlannedFile = { ...planned, path: to, sourcePath: from };
       const parents = (await new Projection(ctx.ws, rec.baseCommitId).createDirs(to)).length * DIR_BYTES; // folders deleted since
-      await using _quota = await reserveQuota(ctx.userId, logicalSize(file.size) - (now ? logicalSize(now.size) : 0) + parents, 'restore.file'); // held until the restore lands
+      await using _quota = await reserveQuota(ctx.ws.userId, logicalSize(file.size) - (now ? logicalSize(now.size) : 0) + parents, 'restore.file'); // held until the restore lands
       await rec.addPaths([
         { op: 'restored', path: to, entryType: 'file', size: file.size, prevSize: now?.size, blockHashes: file.blocks, mtime: file.mtime },
       ]);
@@ -462,7 +462,7 @@ export async function restoreDrive(
       if (opts?.verify) await opts.verify(rec.baseCommitId);
       if (target.id === rec.baseCommitId) return; // already there: noop
       const head = await store.getCommit(ctx.ws.volumeId, rec.baseCommitId);
-      await using _quota = await reserveQuota(ctx.userId, target.logicalBytes - head.logicalBytes, 'restore.drive'); // held until the restore lands
+      await using _quota = await reserveQuota(ctx.ws.userId, target.logicalBytes - head.logicalBytes, 'restore.drive'); // held until the restore lands
       if (opts?.autoCheckpoint !== false) {
         try {
           const cp = await createCheckpoint(ctx, {

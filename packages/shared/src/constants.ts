@@ -55,3 +55,8 @@ export const PROPOSAL_STAGED_MAX = 256 * MiB;
 /** Email + password accounts: length bounds the server and the forms both enforce. */
 export const PASSWORD_MIN = 8;
 export const PASSWORD_MAX = 128;
+
+/** People on one drive, the owner and open invitations included. */
+export const MAX_DRIVE_PEOPLE = 50;
+/** An invitation nobody answered stops working after this many days. */
+export const INVITE_TTL_DAYS = 30;

@@ -50,6 +50,13 @@
       "when": 1790770423657,
       "tag": "0006_proposals",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791867926516,
+      "tag": "0007_drive_members",
+      "breakpoints": true
     }
   ]
 }
