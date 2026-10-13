@@ -1,4 +1,4 @@
-// API-admin: users + usage, quota edits (≤ 1 TiB), audit log; gated by VOLUMES_ADMIN_EMAILS.
+// API-admin: users + usage, quota edits (≤ 1 TiB), audit log; gated by the admins table.
 import { afterAll, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';

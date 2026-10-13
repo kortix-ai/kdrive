@@ -15,7 +15,6 @@ Object.assign(process.env, {
   VOLUMES_DEV_LOGIN: '1',
   BETTER_AUTH_URL: 'http://localhost:4100',
   BETTER_AUTH_SECRET: 'volumes-test-secret-0000000000000000000000000000',
-  VOLUMES_ADMIN_EMAILS: 'admin@test.local',
   VOLUMES_DEFAULT_QUOTA_BYTES: String(10 * 1024 ** 3),
   // A fake Google client, so the provider is wired as in production. Nothing reaches Google:
   // test/e2e/google-auth.test.ts answers its token endpoint in-process.

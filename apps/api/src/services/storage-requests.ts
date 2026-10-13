@@ -18,15 +18,16 @@ import { bauthUser, storageRequests, type StorageRequestRow } from '../db/schema
 import { sendInBackground } from '../email/client';
 import { renderStorageGranted } from '../email/templates/storage-granted';
 import { renderStorageRequest } from '../email/templates/storage-request';
-import { env } from '../env';
 import { audit } from '../lib/audit';
 import { ApiError } from '../lib/http';
 import { newId } from '../lib/ids';
 import { checkRateLimitKey, limits } from '../middleware/rate-limit';
 import type { SessionUser } from '../types';
+import { adminEmails } from './admins';
 import { subscriptionsFor } from './billing';
 import { getQuotaBytes } from './quota';
-import { adminGetUser, adminSetQuota, mapLimit } from './workspace-admin';
+import { adminGetUser, adminSetQuota } from './admin-panel';
+import { mapLimit } from './workspace-admin';
 
 const REQ_ID = /^[0-9a-z]{26}$/;
 
@@ -74,16 +75,14 @@ export async function requestStorage(c: Context | null, user: SessionUser, input
     })
     .returning();
   const created = !before;
-  if (!before || before.plan !== input.plan) notifyAdmins(user, row, quota);
+  if (!before || before.plan !== input.plan) await notifyAdmins(user, row, quota);
   await audit(c, { kind: 'storage.request', userId: user.id, target: plan.name, meta: { plan: input.plan, requestId: row.id } });
   return { request: toStorageRequest(row), created };
 }
 
-function notifyAdmins(user: SessionUser, row: StorageRequestRow, quotaBytes: number): void {
+async function notifyAdmins(user: SessionUser, row: StorageRequestRow, quotaBytes: number): Promise<void> {
   const url = appUrl('/admin?tab=requests');
-  for (const to of env.adminEmails) {
-    // `@domain` entries in the admin list are not mailboxes.
-    if (to.startsWith('@')) continue;
+  for (const to of await adminEmails()) {
     const mail = renderStorageRequest({
       email: to,
       requester: { email: user.email, name: user.name },

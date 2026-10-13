@@ -1,7 +1,8 @@
 import type { MiddlewareHandler } from 'hono';
 import { auth } from '../auth';
-import { env, isAdminUser } from '../env';
+import { env } from '../env';
 import { ApiError } from '../lib/http';
+import { isAdminUser } from '../services/admins';
 import type { AppEnv } from '../types';
 
 /** Loads the better-auth session (if any) into c.var.user / c.var.session. Never rejects. */
@@ -32,11 +33,11 @@ export const requireUser: MiddlewareHandler<AppEnv> = async (c, next) => {
   await next();
 };
 
-/** 403 `forbidden` unless the user's email is in VOLUMES_ADMIN_EMAILS and verified (see isAdminUser). */
+/** 403 `forbidden` unless the user's verified email is in the `admins` table (see isAdminUser). */
 export const requireAdmin: MiddlewareHandler<AppEnv> = async (c, next) => {
   const u = c.get('user');
   if (!u) throw new ApiError(401, 'unauthorized', 'Sign in to continue.');
-  if (!isAdminUser(u)) throw new ApiError(403, 'forbidden', 'Admins only.');
+  if (!(await isAdminUser(u))) throw new ApiError(403, 'forbidden', 'Admins only.');
   await next();
 };
 

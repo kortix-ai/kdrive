@@ -98,6 +98,8 @@ export const AUDIT_KINDS = [
   'link.update',
   'link.revoke',
   'quota.change',
+  'admin.add',
+  'admin.remove',
   'storage.request',
   'storage.grant',
   'storage.dismiss',

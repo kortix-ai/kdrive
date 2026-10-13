@@ -12,7 +12,9 @@ The API suite needs PostgreSQL with a `volumes_test` database (`createdb volumes
 It forces its own database, storage (the emulator in a fresh temporary directory),
 auth and quota settings, and migrates `volumes_test`. Bun still loads `.env`, so
 other keys (for example `PT_API_URL`) pass through, but tests never use Platinum
-unless the conformance suite below is enabled.
+unless the conformance suite below is enabled. Each reset (`resetDb` in
+`test/helpers.ts`) re-runs the migration's admin seed and adds `admin@test.local`,
+the admin the suites sign in as.
 
 ### What the API suites cover
 
@@ -24,6 +26,7 @@ unless the conformance suite below is enabled.
 | `apps/api/test/e2e/sharing.test.ts` | Live vs pinned links, public access without a session, revoke, expiry, traversal on public paths |
 | `apps/api/test/e2e/account.test.ts` | Duplicate a workspace at a past version, admin quota changes, account deletion |
 | `apps/api/test/e2e/security.test.ts` | Cross-user workspace access, path traversal, active content served as attachment, CSRF origin and content-type checks, dev sign-in only from this machine, client address rules |
+| `apps/api/test/e2e/admin-panel.test.ts` | Admins in the database (seeded first admin, add and remove, last-admin refusal, verified address only, closed sign-ups, request mail), 403 for everyone else, overview totals, users with usage (sort, search, pages), one user's drives and shared drives, usage by domain, the audit log's filters, paging and CSV export |
 | `apps/api/test/e2e/storage-requests.test.ts` | Requesting a paid plan (one open request, updates, refusals, rate limit, admin mail), admin grant and dismiss |
 | `apps/api/test/e2e/billing.test.ts` | Stripe (a fake client, real webhook signatures): Checkout and portal sessions, signature rejection, subscription → quota up, upgrade, cancel → back to 10 GB, past due, idempotent and retried events, cancel on account deletion |
 | `apps/api/test/e2e/integrity.test.ts` | Restores that never write the wrong bytes, undo guards, logical-byte quota and upload reservations, commit-time conflicts, retries and lost responses, upload slots, share links that follow their item, batch restore, dedup that never reveals other users' files |
@@ -43,6 +46,9 @@ bun run db:migrate
 bun run seed          # dev@volumes.local; --email you@x.com for another account
 bun run dev           # http://localhost:4100/signin → "Continue with dev account"
 ```
+
+The dev account is not an admin. For the admin panel, sign in with the seeded
+admin address (`allen@kortix.ai`), or seed it with `--email allen@kortix.ai`.
 
 The seed script uses the running API when it finds one on port 4101. Otherwise
 it runs the app in-process, so you can seed before or after `bun run dev`. It
@@ -72,4 +78,4 @@ http://localhost:4100:
 9. **Workspaces:** duplicate the drive at a past version, then switch between workspaces in the left rail.
 10. **Themes:** KDRIVE opens in Dark for a new browser. Switch with the sun/moon button in the top bar (or the landing nav), or pick Dark, Light or System under Settings → Appearance. The choice applies before paint on reload, to the landing too, and to other open tabs.
 11. **Pricing:** "Get more storage" under the sidebar meter opens `/pricing`. Request Plus, then as an admin grant it under Admin → Requests; the sidebar shows 100 GB.
-12. **Settings and admin:** check the activity log and drives in Settings. The admin page lists users and quotas; admins are the emails in `VOLUMES_ADMIN_EMAILS`.
+12. **Settings and admin:** check the activity log and drives in Settings. Sign in as an admin (the seeded `allen@kortix.ai`, or an address added under Admin → Admins) and walk the admin tabs: Overview totals, Users (sort, search, open a user, change a quota), Domains, Requests, Audit (filter by person, events, window and drive, expand a row, Export CSV) and Admins (add, remove; the last one stays).

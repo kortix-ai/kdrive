@@ -1,10 +1,11 @@
 import { Hono } from 'hono';
 import { ConfigResponse, MeResponse, RETENTION_COPY, UsageResponse } from '@volumes/shared';
 import { MCP_RESOURCE } from '../agents/urls';
-import { env, isAdminUser } from '../env';
+import { env } from '../env';
 import { emailEnabled } from '../email/client';
 import { ok } from '../lib/http';
 import { requireUser } from '../middleware/session';
+import { isAdminUser } from '../services/admins';
 import { billingEnabled } from '../services/billing';
 import { getUsage } from '../services/quota';
 import { listSharedWorkspaceSummaries } from '../services/members';
@@ -40,16 +41,17 @@ meRoutes.get('/me', requireUser, async (c) => {
   // for verification gets no drive until the address is confirmed.
   const held = env.requireEmailVerification && user.emailVerified === false;
   const def = held ? null : await ensureUserBootstrap(user);
-  const [rows, shared, usage] = await Promise.all([
+  const [rows, shared, usage, isAdmin] = await Promise.all([
     held ? [] : listWorkspaces(user.id),
     held ? [] : listSharedWorkspaceSummaries(user.id),
     getUsage(user.id),
+    isAdminUser(user),
   ]);
   // Own drives first, then drives other people shared (their bytes count against their owners, not here).
   const workspaces = [...(await toWorkspaceSummaries(rows)), ...shared];
   return ok(c, MeResponse, {
     user: { id: user.id, email: user.email, name: user.name, image: user.image, emailVerified: user.emailVerified !== false },
-    isAdmin: isAdminUser(user),
+    isAdmin,
     defaultWorkspaceId: def?.id ?? null,
     workspaces,
     usage,

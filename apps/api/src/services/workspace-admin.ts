@@ -1,20 +1,17 @@
-import { and, desc, eq, ilike, inArray, isNull, or } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 import type { Context } from 'hono';
-import { formatBytes, MAX_QUOTA_BYTES, type AdminUser, type Subscription, type WorkspaceSummary } from '@volumes/shared';
+import type { WorkspaceSummary } from '@volumes/shared';
 import { db } from '../db/client';
-import { bauthUser, checkpoints, uploads, userSettings, workspaceInvites, workspaceMembers, workspaces, type WorkspaceRow } from '../db/schema';
-import { env, isAdminUser } from '../env';
+import { checkpoints, uploads, workspaceInvites, workspaceMembers, workspaces, type WorkspaceRow } from '../db/schema';
 import { audit } from '../lib/audit';
 import { ApiError } from '../lib/http';
 import { newId } from '../lib/ids';
 import { withWorkspaceLock } from '../lib/lock';
 import { getStore } from '../storage';
 import { isStoreError, type Ref } from '../storage/types';
-import { subscriptionsFor } from './billing';
 import { deleteWorkspaceLinks } from './links';
-import { writeQuota } from './quota';
 import { Hold } from './reservations';
-import { getWorkspaceForUser, listWorkspaces, toWorkspaceSummaries, volumeNameFor, workspaceUsage } from './workspaces';
+import { getWorkspaceForUser, listWorkspaces, toWorkspaceSummaries, volumeNameFor } from './workspaces';
 
 const WS_ID = /^[0-9a-z]{26}$/;
 
@@ -186,7 +183,7 @@ export async function deleteAllWorkspaceVolumes(userId: string): Promise<number>
   return n;
 }
 
-// ── admin ────────────────────────────────────────────────────────────────────
+// ── helpers ──────────────────────────────────────────────────────────────────
 
 /** Runs `fn` over `items` with at most `limit` in flight; results keep input order. */
 export async function mapLimit<T, R>(items: T[], limit: number, fn: (t: T) => Promise<R>): Promise<R[]> {
@@ -201,99 +198,4 @@ export async function mapLimit<T, R>(items: T[], limit: number, fn: (t: T) => Pr
   };
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
   return out;
-}
-
-export const ADMIN_USERS_MAX = 500;
-
-/**
- * Users with settings, live workspace count and usage (Σ volume logicalBytes,
- * at most 8 storage calls in flight). `q` matches email or name.
- */
-export async function adminListUsers(q?: string): Promise<AdminUser[]> {
-  const pattern = q ? `%${q.replace(/[\\%_]/g, (m) => `\\${m}`)}%` : null;
-  const users = await db
-    .select({
-      id: bauthUser.id,
-      email: bauthUser.email,
-      emailVerified: bauthUser.emailVerified,
-      name: bauthUser.name,
-      createdAt: bauthUser.createdAt,
-      quotaBytes: userSettings.quotaBytes,
-      lastSignInAt: userSettings.lastSignInAt,
-    })
-    .from(bauthUser)
-    .leftJoin(userSettings, eq(userSettings.userId, bauthUser.id))
-    .where(pattern ? or(ilike(bauthUser.email, pattern), ilike(bauthUser.name, pattern)) : undefined)
-    .orderBy(desc(bauthUser.createdAt))
-    .limit(ADMIN_USERS_MAX);
-  if (!users.length) return [];
-  const wsRows = await db
-    .select({ id: workspaces.id, userId: workspaces.userId, volumeId: workspaces.volumeId })
-    .from(workspaces)
-    .where(and(inArray(workspaces.userId, users.map((u) => u.id)), isNull(workspaces.deletedAt)));
-  const [usage, subs] = await Promise.all([mapLimit(wsRows, 8, (w) => workspaceUsage(w)), subscriptionsFor(users.map((u) => u.id))]);
-  const byUser = new Map<string, { count: number; bytes: number }>();
-  wsRows.forEach((w, i) => {
-    const agg = byUser.get(w.userId) ?? { count: 0, bytes: 0 };
-    agg.count++;
-    agg.bytes += usage[i];
-    byUser.set(w.userId, agg);
-  });
-  return users.map((u) => toAdminUser(u, byUser.get(u.id) ?? { count: 0, bytes: 0 }, subs.get(u.id) ?? null));
-}
-
-function toAdminUser(
-  u: { id: string; email: string; emailVerified: boolean; name: string | null; createdAt: Date; quotaBytes: number | null; lastSignInAt: Date | null },
-  agg: { count: number; bytes: number },
-  subscription: Subscription | null,
-): AdminUser {
-  return {
-    id: u.id,
-    email: u.email,
-    name: u.name,
-    createdAt: u.createdAt.toISOString(),
-    lastSignInAt: u.lastSignInAt ? u.lastSignInAt.toISOString() : null,
-    quotaBytes: u.quotaBytes ?? env.defaultQuotaBytes,
-    usedBytes: agg.bytes,
-    workspaceCount: agg.count,
-    isAdmin: isAdminUser(u),
-    subscription,
-  };
-}
-
-export async function adminGetUser(userId: string): Promise<AdminUser> {
-  const [u] = await db
-    .select({
-      id: bauthUser.id,
-      email: bauthUser.email,
-      emailVerified: bauthUser.emailVerified,
-      name: bauthUser.name,
-      createdAt: bauthUser.createdAt,
-      quotaBytes: userSettings.quotaBytes,
-      lastSignInAt: userSettings.lastSignInAt,
-    })
-    .from(bauthUser)
-    .leftJoin(userSettings, eq(userSettings.userId, bauthUser.id))
-    .where(eq(bauthUser.id, userId))
-    .limit(1);
-  if (!u) throw new ApiError(404, 'not_found', 'User not found.');
-  const rows = await listWorkspaces(userId);
-  const [bytes, subs] = await Promise.all([mapLimit(rows, 8, (w) => workspaceUsage(w)), subscriptionsFor([userId])]);
-  return toAdminUser(u, { count: rows.length, bytes: bytes.reduce((a, b) => a + b, 0) }, subs.get(userId) ?? null);
-}
-
-/** Sets a user's quota (0 < q ≤ MAX_QUOTA_BYTES; the schema enforces it) and audits {from, to}. */
-export async function adminSetQuota(c: Context | null, admin: { id: string }, userId: string, quotaBytes: number): Promise<AdminUser> {
-  if (!Number.isInteger(quotaBytes) || quotaBytes <= 0 || quotaBytes > MAX_QUOTA_BYTES) {
-    throw new ApiError(400, 'bad_request', `Quota must be between 1 byte and ${formatBytes(MAX_QUOTA_BYTES)}.`);
-  }
-  const before = await adminGetUser(userId); // 404 for an unknown user
-  await writeQuota(userId, quotaBytes);
-  await audit(c, {
-    kind: 'quota.change',
-    userId: admin.id,
-    target: before.email,
-    meta: { targetUserId: userId, from: before.quotaBytes, to: quotaBytes },
-  });
-  return { ...before, quotaBytes };
 }

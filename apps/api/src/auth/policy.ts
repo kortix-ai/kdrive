@@ -1,5 +1,6 @@
 import { APIError } from 'better-auth/api';
-import { env, isAdminEmail } from '../env';
+import { env } from '../env';
+import { isAdminEmail } from '../services/admins';
 
 /** The one refusal for every gated sign-up, whatever the reason and whether or not the address exists. */
 export const SIGNUP_RESTRICTED = 'Sign-ups are invite-only right now. Ask the KDRIVE team for access.';
@@ -8,12 +9,12 @@ export const SIGNUP_RESTRICTED = 'Sign-ups are invite-only right now. Ask the KD
  * May this address create an account? Read at call time (tests and operators
  * can change the mode without rebuilding the auth instance).
  *  - open: anyone.
- *  - invite-only: admins plus VOLUMES_SIGNUP_ALLOWLIST (exact addresses or `@domain`).
+ *  - invite-only: admins (the `admins` table) plus VOLUMES_SIGNUP_ALLOWLIST (exact addresses or `@domain`).
  *  - closed: admins only (how the first admin of a closed install gets in).
  */
-export function signupAllowed(email: string): boolean {
+export async function signupAllowed(email: string): Promise<boolean> {
   const e = email.trim().toLowerCase();
-  if (env.signupMode === 'open' || isAdminEmail(e)) return true;
+  if (env.signupMode === 'open' || (await isAdminEmail(e))) return true;
   if (env.signupMode === 'closed') return false;
   const domain = `@${e.split('@')[1] ?? ''}`;
   return env.signupAllowlist.includes(e) || env.signupAllowlist.includes(domain);
@@ -30,8 +31,8 @@ export function isOAuthCallbackPath(path: string | undefined): boolean {
   return !!path && /^\/(?:oauth2\/)?callback\//.test(path);
 }
 
-export function assertSignupAllowed(email: string, ctx?: { path?: string } | null): void {
-  if (signupAllowed(email)) return;
+export async function assertSignupAllowed(email: string, ctx?: { path?: string } | null): Promise<void> {
+  if (await signupAllowed(email)) return;
   const message = isOAuthCallbackPath(ctx?.path) ? 'SIGNUP_RESTRICTED' : SIGNUP_RESTRICTED;
   throw new APIError('FORBIDDEN', { message, code: 'SIGNUP_RESTRICTED' });
 }
