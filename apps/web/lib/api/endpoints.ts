@@ -7,10 +7,17 @@ import {
   type InviteRequest,
   type MemberRole,
   AcceptProposalResponse,
+  AdminAuditListResponse,
+  AdminDomainsResponse,
+  AdminEntryResponse,
+  AdminListResponse,
+  AdminOverviewResponse,
   AdminStorageRequestResponse,
   AdminStorageRequestsResponse,
+  AdminUserDetailResponse,
   AdminUserResponse,
   AdminUsersResponse,
+  type AdminUserSort,
   AuditListResponse,
   BillingResponse,
   CheckpointListResponse,
@@ -233,11 +240,20 @@ export const api = {
   },
 
   admin: {
-    users: (q: { q?: string } = {}) => apiFetch(`/api/admin/users${qs({ q: q.q })}`, {}, AdminUsersResponse),
+    overview: () => apiFetch('/api/admin/overview', {}, AdminOverviewResponse),
+    users: (q: { q?: string; sort?: AdminUserSort; dir?: 'asc' | 'desc'; page?: number; limit?: number } = {}) =>
+      apiFetch(`/api/admin/users${qs({ q: q.q, sort: q.sort, dir: q.dir, page: q.page, limit: q.limit })}`, {}, AdminUsersResponse),
+    user: (userId: string) => apiFetch(`/api/admin/users/${encodeURIComponent(userId)}`, {}, AdminUserDetailResponse),
     setQuota: (userId: string, quotaBytes: number) =>
       apiFetch(`/api/admin/users/${encodeURIComponent(userId)}/quota`, { method: 'PUT', json: { quotaBytes } }, AdminUserResponse),
-    audit: (q: { userId?: string; kind?: string; before?: number | null; limit?: number } = {}) =>
-      apiFetch(`/api/admin/audit${qs({ userId: q.userId, kind: q.kind, before: q.before, limit: q.limit })}`, {}, AuditListResponse),
+    domains: () => apiFetch('/api/admin/domains', {}, AdminDomainsResponse),
+    audit: (q: AdminAuditParams & { before?: number | null; limit?: number } = {}) =>
+      apiFetch(`/api/admin/audit${qs({ ...auditParams(q), before: q.before, limit: q.limit })}`, {}, AdminAuditListResponse),
+    /** Same-origin URL of the CSV export for these filters (a download link, not a fetch). */
+    auditCsvUrl: (q: AdminAuditParams = {}) => `/api/admin/audit.csv${qs(auditParams(q))}`,
+    admins: () => apiFetch('/api/admin/admins', {}, AdminListResponse),
+    addAdmin: (email: string) => apiFetch('/api/admin/admins', { method: 'POST', json: { email } }, AdminEntryResponse),
+    removeAdmin: (email: string) => apiFetch<void>(`/api/admin/admins/${encodeURIComponent(email)}`, { method: 'DELETE' }),
     storageRequests: (q: { status?: 'open' | 'all' } = {}) =>
       apiFetch(`/api/admin/storage-requests${qs({ status: q.status })}`, {}, AdminStorageRequestsResponse),
     grantStorageRequest: (id: string) =>
@@ -248,3 +264,17 @@ export const api = {
 };
 
 export type Api = typeof api;
+
+/** Admin audit filters (see AdminAuditFilter in @volumes/shared). */
+export interface AdminAuditParams {
+  q?: string;
+  userId?: string;
+  kind?: string[];
+  workspaceId?: string;
+  from?: string;
+  to?: string;
+}
+
+function auditParams(q: AdminAuditParams) {
+  return { q: q.q, userId: q.userId, kind: q.kind, workspaceId: q.workspaceId, from: q.from, to: q.to };
+}
