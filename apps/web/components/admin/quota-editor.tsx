@@ -8,16 +8,17 @@ import { Chip } from '@/components/ui/chip';
 import { api } from '@/lib/api/endpoints';
 
 export const MAX_QUOTA_GIB = MAX_QUOTA_BYTES / GiB;
-const PRESETS = ['10', '20', '50'] as const;
+/** The plans' sizes in GiB: Free, Plus, Pro. */
+const PRESETS = ['10', '100', '1024'] as const;
 
-/** Parses a GiB amount ("12.5") into bytes; error text when empty, not a number, ≤ 0 or over the 50 GiB cap. */
+/** Parses a GiB amount ("12.5") into bytes; error text when empty, not a number, ≤ 0 or over the 1 TiB cap. */
 export function parseGiB(input: string): { bytes: number | null; error: string | null } {
   const s = input.trim();
   if (!s) return { bytes: null, error: 'Enter a size in GB.' };
   const n = Number(s);
   if (!Number.isFinite(n)) return { bytes: null, error: 'Enter a number.' };
   if (n <= 0) return { bytes: null, error: 'Must be more than 0 GB.' };
-  if (n > MAX_QUOTA_GIB) return { bytes: null, error: `Max ${MAX_QUOTA_GIB} GB` };
+  if (n > MAX_QUOTA_GIB) return { bytes: null, error: `Max ${formatBytes(MAX_QUOTA_BYTES)}` };
   return { bytes: Math.round(n * GiB), error: null };
 }
 
@@ -28,7 +29,7 @@ export function toGiBInput(bytes: number): string {
 }
 
 /**
- * Inline quota editor: a GiB field + 10 · 20 · 50 preset chips; ↵ saves, Esc cancels; over 50 GiB is refused.
+ * Inline quota editor: a GiB field + 10 GB · 100 GB · 1 TB preset chips (the plans); ↵ saves, Esc cancels; over 1 TiB is refused.
  * `capBytes`: storage's size cap for ONE workspace; a quota above it is allowed but flagged.
  */
 export function QuotaEditor({ user, capBytes, onDone }: { user: AdminUser; capBytes?: number; onDone: (updated?: AdminUser, warning?: string) => void }) {
@@ -85,7 +86,7 @@ export function QuotaEditor({ user, capBytes, onDone }: { user: AdminUser; capBy
       <div className="flex items-center gap-1.5" role="group" aria-label="Quota presets">
         {PRESETS.map((p) => (
           <Chip key={p} size="sm" on={preset === p} onClick={() => setValue(p)}>
-            {p} GB
+            {formatBytes(Number(p) * GiB)}
           </Chip>
         ))}
       </div>

@@ -2,8 +2,8 @@
 
 // Sidebar (UNIFY-SPEC §11): on the page ground with a 1px hair right rule. Top to bottom:
 // + New (primary), the DRIVES eyebrow + workspace switcher, 32 px nav items (chord hints
-// on hover, Mono counts), a flexible gap, then storage and the emulated-storage badge on a
-// hair rule. 64 px icon column at 720–1023 px; a drawer on phones (AppShell opens it).
+// on hover, Mono counts), a flexible gap, then storage, "Get more storage" and (emulated
+// storage only) a small badge on a hair rule. 64 px icon column at 720–1023 px; a drawer on phones (AppShell opens it).
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
@@ -15,6 +15,7 @@ import { cx } from '@/components/ui/cx';
 import { useVx } from '@/lib/store';
 import { useCheckpoints } from '@/lib/versioning/hooks';
 import { EmulatedBadge } from './emulated-badge';
+import { GetMoreStorage } from './get-more-storage';
 import { NewButton } from './new-button';
 
 type NavItem = { href: string; label: string; short: string; icon: typeof Files; chord: string };
@@ -103,7 +104,8 @@ export function LeftRail({ open, onNavigate }: { open?: boolean; onNavigate?: ()
       <div className="min-h-6 flex-1" />
       <div className={cx('vx-side-full -mx-3 border-t border-vx-hair px-4 pt-3')}>
         <StorageMeter />
-        <EmulatedBadge className="mt-3" />
+        <GetMoreStorage className="mt-3" onNavigate={onNavigate} />
+        <EmulatedBadge className="mt-2" />
       </div>
     </nav>
   );

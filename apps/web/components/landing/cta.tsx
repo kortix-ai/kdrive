@@ -5,6 +5,11 @@ export const DRIVE_HREF = '/drive';
 export const SIGNIN_HREF = '/signin?next=/drive';
 export const SIGNUP_HREF = '/signup?next=/drive';
 
+/** A section anchor on the landing; from another public page (pricing) it leads back to that section. */
+export function sectionHref(href: string, home: boolean): string {
+  return href.startsWith('#') && !home ? `/${href}` : href;
+}
+
 export function primaryCtaLabel(signedIn: boolean): string {
   return signedIn ? 'Open your drive' : 'Get started';
 }

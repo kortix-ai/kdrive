@@ -30,7 +30,7 @@ const QA = [
   },
   {
     q: 'How much space do I get?',
-    a: "10 GB to start. It counts what your drives hold now: past versions and checkpoints don't use it. A duplicate counts as a drive of its own.",
+    a: "10 GB to start, and 100 GB with Plus or 1 TB with Pro (see Pricing). It counts what your drives hold now: past versions and checkpoints don't use it. A duplicate counts as a drive of its own.",
   },
   {
     q: 'What are Platinum volumes?',

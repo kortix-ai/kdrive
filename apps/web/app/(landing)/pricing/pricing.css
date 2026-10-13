@@ -1,0 +1,91 @@
+/* ════════════════════════════════════════════════════════════════════════
+ * KDRIVE /pricing: three plan columns on the landing's hairline grid.
+ * Tokens and primitives (kd-container, kd-head, kd-btn) come from ../landing.css
+ * and ../landing-sections.css; this file only adds the plan cards.
+ * ════════════════════════════════════════════════════════════════════════ */
+
+.kd-pricing {
+  position: relative;
+  padding-top: calc(var(--kd-nav-h) + clamp(48px, 7vw, 96px));
+  padding-bottom: var(--kd-section-pad);
+}
+/* the hero's violet atmosphere, faint, behind the head only */
+.kd-pricing__atmos {
+  position: absolute; inset: 0 0 auto; height: 520px; pointer-events: none;
+  background: radial-gradient(60% 60% at 30% 0%, color-mix(in srgb, var(--kd-violet) 16%, transparent), transparent 70%);
+  opacity: .7;
+}
+.kd-pricing .kd-container { position: relative; }
+.kd-pricing__head { margin-bottom: 40px; }
+
+.kd-pricing__status {
+  margin-bottom: 24px; padding: 14px 18px;
+  border: 1px solid var(--kd-hair-strong); border-radius: var(--kd-r-2);
+  background: var(--kd-surface);
+  color: var(--kd-text-1); font-size: 15px; line-height: 1.5;
+}
+.kd-pricing__status-sub { margin-top: 4px; font-size: 13.5px; color: var(--kd-text-2); }
+.kd-pricing__error {
+  margin-bottom: 24px; padding: 12px 16px; border-radius: var(--kd-r-2);
+  background: var(--vx-danger-wash); color: var(--vx-danger); font-size: 14px;
+}
+
+/* ── plans ────────────────────────────────────────────────────────────── */
+.kd-plans {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: 1fr;
+  border-top: 1px solid var(--kd-hair); border-left: 1px solid var(--kd-hair);
+}
+@media (min-width: 880px) { .kd-plans { grid-template-columns: repeat(3, 1fr); } }
+.kd-plan {
+  position: relative; display: flex; flex-direction: column;
+  padding: 28px 24px 28px;
+  border-right: 1px solid var(--kd-hair); border-bottom: 1px solid var(--kd-hair);
+  background: var(--kd-bg);
+  min-width: 0;
+}
+@media (min-width: 960px) { .kd-plan { padding: 32px 32px 32px; } }
+.kd-plan--lead { background: var(--kd-bg-2); }
+/* the signed-in person's plan: a 2px rule on top, inside the hairline grid */
+.kd-plan--current { box-shadow: inset 0 2px 0 var(--kd-text-1); }
+.kd-plan__top { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 24px; }
+.kd-plan__name { font: 600 18px/1.3 var(--kd-font-sans); letter-spacing: -.01em; color: var(--kd-text-1); }
+.kd-plan__badge {
+  font: 500 11px/1 var(--kd-font-mono); letter-spacing: .1em; text-transform: uppercase;
+  padding: 5px 8px; border-radius: var(--kd-r-1);
+  color: var(--kd-text-1); box-shadow: inset 0 0 0 1px var(--kd-hair-strong);
+}
+.kd-plan__size {
+  margin-top: 20px;
+  font: 600 clamp(40px, 4.4vw, 56px)/1 var(--kd-font-sans); letter-spacing: -.035em;
+  font-variant-numeric: tabular-nums; color: var(--kd-text-1);
+}
+.kd-plan__price { margin-top: 12px; font: 500 14px/1.4 var(--kd-font-mono); color: var(--kd-text-2); }
+.kd-plan__price--tbd { color: var(--kd-text-3); }
+.kd-plan__tagline { margin-top: 16px; min-height: 3.1em; font-size: 15px; line-height: 1.55; color: var(--kd-text-2); text-wrap: pretty; }
+.kd-plan__features {
+  list-style: none; margin: 20px 0 0; padding: 20px 0 0;
+  border-top: 1px solid var(--kd-hair);
+  display: flex; flex-direction: column; gap: 10px;
+  font-size: 14px; line-height: 1.45; color: var(--kd-text-2);
+}
+.kd-plan__features li { display: flex; align-items: flex-start; gap: 10px; }
+.kd-plan__features svg { flex: none; margin-top: 2px; color: var(--kd-text-3); }
+.kd-plan__cta { margin-top: auto; padding-top: 28px; }
+.kd-plan__btn { width: 100%; }
+button.kd-plan__btn { border: 0; cursor: pointer; }
+button.kd-plan__btn:disabled { cursor: progress; opacity: .7; }
+.kd-plan__note {
+  display: flex; align-items: center; justify-content: center; height: 44px;
+  font: 500 13px/1 var(--kd-font-mono); letter-spacing: .04em; color: var(--kd-text-3);
+  border-radius: var(--kd-r-2); box-shadow: inset 0 0 0 1px var(--kd-hair);
+}
+
+/* ── notes ────────────────────────────────────────────────────────────── */
+.kd-pricing__notes {
+  display: grid; grid-template-columns: 1fr; gap: 28px;
+  margin-top: 56px;
+}
+@media (min-width: 880px) { .kd-pricing__notes { grid-template-columns: repeat(3, 1fr); gap: 32px; } }
+.kd-pricing__notes .kd-h3 { font-size: 16px; }
+.kd-pricing__notes dd { margin: 8px 0 0; max-width: 40ch; font-size: 14.5px; line-height: 1.6; color: var(--kd-text-2); }
