@@ -15,4 +15,5 @@ export * from './schemas/workspaces';
 export * from './schemas/admin';
 export * from './schemas/agents';
 export * from './schemas/proposals';
+export * from './schemas/storage';
 export * from './agents-copy';

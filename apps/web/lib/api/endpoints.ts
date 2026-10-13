@@ -37,6 +37,8 @@ import {
   RestoreResponse,
   SearchResponse,
   StatResponse,
+  StorageOverviewResponse,
+  StoragePeopleResponse,
   TimelineResponse,
   UndoResponse,
   UploadCommitResponse,
@@ -173,6 +175,12 @@ export const api = {
     list: () => apiFetch('/api/invitations', {}, InvitationListResponse),
     accept: (id: string) => apiFetch(`/api/invitations/${encodeURIComponent(id)}/accept`, { method: 'POST', json: {} }, WorkspaceResponse),
     decline: (id: string) => apiFetch<void>(`/api/invitations/${encodeURIComponent(id)}/decline`, { method: 'POST', json: {} }),
+  },
+
+  /** Settings → Storage: the own drives' breakdown, and who wrote what in one drive (any member may read it). */
+  storage: {
+    overview: () => apiFetch('/api/me/storage', {}, StorageOverviewResponse),
+    people: (ws: string) => apiFetch(`${w(ws)}/storage/people`, {}, StoragePeopleResponse),
   },
 
   /** AI agents: tokens, connected apps (OAuth grants) and the consent page. */

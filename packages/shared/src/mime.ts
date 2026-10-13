@@ -176,3 +176,48 @@ export function isTextLike(name: string): boolean {
   const k = previewKind(name);
   return k === 'text' || k === 'code' || k === 'markdown' || k === 'json' || k === 'csv';
 }
+
+/** The groups Settings → Storage splits a drive into. */
+export const STORAGE_CATEGORIES = ['images', 'videos', 'audio', 'documents', 'code', 'archives', 'other'] as const;
+export type StorageCategory = (typeof STORAGE_CATEGORIES)[number];
+
+const DOCUMENT = new Set([
+  '.pdf',
+  '.doc',
+  '.docx',
+  '.odt',
+  '.rtf',
+  '.pages',
+  '.xls',
+  '.xlsx',
+  '.ods',
+  '.numbers',
+  '.ppt',
+  '.pptx',
+  '.odp',
+  '.key',
+  '.epub',
+  '.md',
+  '.markdown',
+  '.csv',
+  '.tsv',
+]);
+const ARCHIVE = new Set(['.zip', '.gz', '.tgz', '.tar', '.bz2', '.xz', '.zst', '.7z', '.rar', '.dmg', '.iso']);
+// Images that preview as source (svg) or not at all (raw camera formats) are still photos and images.
+const IMAGE_EXTRA = new Set(['.svg', '.heic', '.heif', '.tif', '.tiff', '.psd', '.raw', '.cr2', '.nef', '.dng']);
+
+/** Which storage group a file belongs to, by its name. Plain text sits with documents; JSON and config with code. */
+export function storageCategory(name: string): StorageCategory {
+  const base = nameOf(name);
+  const ext = extname(base);
+  if (IMAGE.has(ext) || IMAGE_EXTRA.has(ext)) return 'images';
+  if (VIDEO.has(ext) || ext === '.mkv' || ext === '.avi') return 'videos';
+  if (AUDIO.has(ext) || ext === '.aiff' || ext === '.mid') return 'audio';
+  if (ARCHIVE.has(ext)) return 'archives';
+  if (DOCUMENT.has(ext) || TEXT.has(ext)) return 'documents';
+  if (CODE_LANG[ext]) return 'code';
+  const lower = base.toLowerCase();
+  if (lower === 'dockerfile' || lower === 'makefile') return 'code';
+  if (BARE_TEXT_NAMES.has(lower)) return 'documents';
+  return 'other';
+}

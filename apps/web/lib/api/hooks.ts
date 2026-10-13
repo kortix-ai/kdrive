@@ -51,6 +51,16 @@ export function useUsage() {
   return useSWR('usage', () => api.me.usage(), noRetryOn4xx);
 }
 
+/** Settings → Storage: own drives by kind of file, largest files, recent history. */
+export function useStorageOverview() {
+  return useSWR('storage', () => api.storage.overview(), noRetryOn4xx);
+}
+
+/** Each person's share of one drive's current files. */
+export function useStoragePeople(ws: string | null) {
+  return useSWR(ws ? (['storage-people', ws] as const) : null, ([, w]) => api.storage.people(w), noRetryOn4xx);
+}
+
 export function useWorkspaces() {
   return useSWR('workspaces', () => api.workspaces.list(), noRetryOn4xx);
 }
