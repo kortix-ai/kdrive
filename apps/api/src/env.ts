@@ -53,6 +53,12 @@ const Raw = z.object({
   VOLUMES_MCP_ENABLED: z.preprocess(emptyToUndefined, z.enum(['0', '1']).default('1')),
   /** Extra browser origins allowed to call /mcp, comma-separated. */
   VOLUMES_MCP_ORIGINS: opt(),
+  /** Paid plans through Stripe: all four or none (none: people request more storage instead). */
+  STRIPE_SECRET_KEY: opt(),
+  STRIPE_WEBHOOK_SECRET: opt(),
+  /** Stripe Price ids (price_…) of the monthly Plus and Pro prices. */
+  STRIPE_PRICE_PLUS: opt(),
+  STRIPE_PRICE_PRO: opt(),
 });
 
 export const DEV_SECRET = 'volumes-dev-secret-not-for-production-0000000000000000';
@@ -122,7 +128,18 @@ export interface Env {
   mcpEnabled: boolean;
   /** Extra browser origins allowed to call /mcp (besides trustedOrigins). */
   mcpOrigins: string[];
+  /** Stripe billing, or null when it is not configured. Mutable so tests can switch it on. */
+  stripe: StripeConfig | null;
 }
+
+export interface StripeConfig {
+  secretKey: string;
+  webhookSecret: string;
+  /** Monthly Price id per paid plan. */
+  prices: { plus: string; pro: string };
+}
+
+const STRIPE_KEYS = ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'STRIPE_PRICE_PLUS', 'STRIPE_PRICE_PRO'] as const;
 
 export function loadEnv(source: Record<string, string | undefined> = process.env): Env {
   const parsed = Raw.safeParse(source);
@@ -160,6 +177,11 @@ export function loadEnv(source: Record<string, string | undefined> = process.env
   // Holding users at a verify screen they can never leave is an outage, not a policy.
   if (requireEmailVerification && !emailProvider && !isLocalMode) {
     throw new Error('VOLUMES_REQUIRE_EMAIL_VERIFICATION=1 needs RESEND_API_KEY or MAILTRAP_API_TOKEN outside development.');
+  }
+  // Half a Stripe setup takes money without granting storage (or the reverse): refuse to start.
+  const stripeSet = STRIPE_KEYS.filter((k) => r[k]);
+  if (stripeSet.length && stripeSet.length < STRIPE_KEYS.length) {
+    throw new Error(`Stripe billing needs all of ${STRIPE_KEYS.join(', ')} (missing: ${STRIPE_KEYS.filter((k) => !r[k]).join(', ')}).`);
   }
   const trusted = new Set<string>([authOrigin]);
   if (isLocalMode) trusted.add('http://localhost:4100');
@@ -220,6 +242,14 @@ export function loadEnv(source: Record<string, string | undefined> = process.env
       .split(',')
       .map((o) => o.trim().replace(/\/$/, ''))
       .filter(Boolean),
+    stripe:
+      r.STRIPE_SECRET_KEY && r.STRIPE_WEBHOOK_SECRET && r.STRIPE_PRICE_PLUS && r.STRIPE_PRICE_PRO
+        ? {
+            secretKey: r.STRIPE_SECRET_KEY,
+            webhookSecret: r.STRIPE_WEBHOOK_SECRET,
+            prices: { plus: r.STRIPE_PRICE_PLUS, pro: r.STRIPE_PRICE_PRO },
+          }
+        : null,
   };
 }
 

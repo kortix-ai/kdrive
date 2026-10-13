@@ -5,6 +5,7 @@ import { env, isAdminUser } from '../env';
 import { emailEnabled } from '../email/client';
 import { ok } from '../lib/http';
 import { requireUser } from '../middleware/session';
+import { billingEnabled } from '../services/billing';
 import { getUsage } from '../services/quota';
 import { listSharedWorkspaceSummaries } from '../services/members';
 import { ensureUserBootstrap, listWorkspaces, toWorkspaceSummaries } from '../services/workspaces';
@@ -27,6 +28,7 @@ meRoutes.get('/config', (c) =>
     storageMode: storageMode(),
     retentionCopy: RETENTION_COPY,
     mcp: { enabled: env.mcpEnabled, url: MCP_RESOURCE },
+    billing: { enabled: billingEnabled() },
   }),
 );
 

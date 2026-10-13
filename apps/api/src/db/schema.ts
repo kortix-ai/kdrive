@@ -14,7 +14,7 @@ import {
   timestamp,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
-import type { ActionKind, ActionStatus, PathOp } from '@volumes/shared';
+import type { ActionKind, ActionStatus, PaidPlanId, PathOp, StorageRequestStatus } from '@volumes/shared';
 import { bauthOAuthClient, bauthUser } from '../auth/schema';
 
 export * from '../auth/schema';
@@ -94,6 +94,56 @@ export const userSettings = pgTable('user_settings', {
   lastSignInAt: timestamp('last_sign_in_at', tz),
   createdAt: timestamp('created_at', tz).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', tz).defaultNow().notNull(),
+});
+
+/**
+ * A person asking for a paid plan's storage while billing is not set up (or instead of paying).
+ * At most one open request per user: asking again updates it. An admin grants (the quota
+ * becomes the plan's size) or dismisses it.
+ */
+export const storageRequests = pgTable(
+  'storage_requests',
+  {
+    id: text('id').primaryKey(), // ulid
+    userId: text('user_id')
+      .notNull()
+      .references(() => bauthUser.id, { onDelete: 'cascade' }),
+    plan: text('plan').$type<PaidPlanId>().notNull(),
+    note: text('note'),
+    status: text('status').$type<StorageRequestStatus>().notNull().default('open'),
+    createdAt: timestamp('created_at', tz).defaultNow().notNull(),
+    resolvedAt: timestamp('resolved_at', tz),
+    resolvedBy: text('resolved_by').references(() => bauthUser.id, { onDelete: 'set null' }),
+  },
+  (t) => [
+    uniqueIndex('storage_requests_one_open_idx').on(t.userId).where(sql`status = 'open'`),
+    index('storage_requests_user_idx').on(t.userId, t.createdAt.desc()),
+  ],
+);
+
+/**
+ * A user's Stripe customer and their (one) subscription, as the last webhook left it.
+ * `plan` and `status` are null until a subscription exists.
+ */
+export const billingAccounts = pgTable('billing_accounts', {
+  userId: text('user_id')
+    .primaryKey()
+    .references(() => bauthUser.id, { onDelete: 'cascade' }),
+  stripeCustomerId: text('stripe_customer_id').notNull().unique(),
+  subscriptionId: text('subscription_id'),
+  plan: text('plan').$type<PaidPlanId>(),
+  status: text('status'),
+  currentPeriodEnd: timestamp('current_period_end', tz),
+  cancelAtPeriodEnd: boolean('cancel_at_period_end').notNull().default(false),
+  createdAt: timestamp('created_at', tz).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', tz).defaultNow().notNull(),
+});
+
+/** Stripe webhook events already handled (Stripe delivers at least once). */
+export const billingEvents = pgTable('billing_events', {
+  id: text('id').primaryKey(), // evt_…
+  type: text('type').notNull(),
+  createdAt: timestamp('created_at', tz).defaultNow().notNull(),
 });
 
 /** One row per user action = one timeline entry. */
@@ -453,3 +503,5 @@ export type AgentTokenRow = typeof agentTokens.$inferSelect;
 export type AgentGrantRow = typeof agentGrants.$inferSelect;
 export type ProposalRow = typeof proposals.$inferSelect;
 export type ProposalFileRow = typeof proposalFiles.$inferSelect;
+export type StorageRequestRow = typeof storageRequests.$inferSelect;
+export type BillingAccountRow = typeof billingAccounts.$inferSelect;

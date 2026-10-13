@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import { MAX_QUOTA_BYTES } from '../constants';
+import { formatBytes } from '../format';
+import { SubscriptionSchema } from './billing';
 import { IsoDateSchema } from './common';
 
 export const AdminUserSchema = z.object({
@@ -12,6 +14,8 @@ export const AdminUserSchema = z.object({
   usedBytes: z.number(),
   workspaceCount: z.number(),
   isAdmin: z.boolean(),
+  /** Their Stripe subscription, when they have (or had) one. */
+  subscription: SubscriptionSchema.nullable().default(null),
 });
 export type AdminUser = z.infer<typeof AdminUserSchema>;
 
@@ -26,7 +30,7 @@ export const AdminUsersResponse = z.object({
 export type AdminUsersResponse = z.infer<typeof AdminUsersResponse>;
 
 export const SetQuotaRequest = z.object({
-  quotaBytes: z.number().int().positive().max(MAX_QUOTA_BYTES, `Quota can be at most ${MAX_QUOTA_BYTES} bytes (50 GiB).`),
+  quotaBytes: z.number().int().positive().max(MAX_QUOTA_BYTES, `Quota can be at most ${MAX_QUOTA_BYTES} bytes (${formatBytes(MAX_QUOTA_BYTES)}).`),
 });
 export type SetQuotaRequest = z.input<typeof SetQuotaRequest>;
 

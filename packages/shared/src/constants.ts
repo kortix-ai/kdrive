@@ -1,6 +1,7 @@
 export const KiB = 1024;
 export const MiB = 1024 * KiB;
 export const GiB = 1024 * MiB;
+export const TiB = 1024 * GiB;
 
 /** Platinum block size: every upload plan splits files into 1 MiB blocks. */
 export const BLOCK_SIZE = 1_048_576;
@@ -11,7 +12,8 @@ export const MAX_PLAN_BLOCKS = 1_000_000;
 export const MAX_WRITE_BYTES = 64 * MiB;
 
 export const DEFAULT_QUOTA_BYTES = 10 * GiB;
-export const MAX_QUOTA_BYTES = 50 * GiB;
+/** The largest quota an admin (or a paid plan) can set: the Pro plan's 1 TiB. */
+export const MAX_QUOTA_BYTES = 1 * TiB;
 
 /** Tags per volume, shared by checkpoints and pinned links. */
 export const TAG_BUDGET = 100;

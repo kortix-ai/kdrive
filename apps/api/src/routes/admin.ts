@@ -1,8 +1,20 @@
 import { Hono } from 'hono';
-import { AdminAuditQuery, AdminUserResponse, AdminUsersQuery, AdminUsersResponse, AuditListResponse, formatBytes, SetQuotaRequest } from '@volumes/shared';
+import {
+  AdminAuditQuery,
+  AdminStorageRequestResponse,
+  AdminStorageRequestsQuery,
+  AdminStorageRequestsResponse,
+  AdminUserResponse,
+  AdminUsersQuery,
+  AdminUsersResponse,
+  AuditListResponse,
+  formatBytes,
+  SetQuotaRequest,
+} from '@volumes/shared';
 import { getStore } from '../storage';
 import { ok, parseJson, parseQuery } from '../lib/http';
 import { listAuditEvents } from '../services/account';
+import { adminDismissStorageRequest, adminGrantStorageRequest, adminListStorageRequests } from '../services/storage-requests';
 import { adminListUsers, adminSetQuota } from '../services/workspace-admin';
 import type { AppEnv } from '../types';
 
@@ -39,3 +51,16 @@ adminRoutes.get('/audit', async (c) => {
   const q = parseQuery(c, AdminAuditQuery);
   return ok(c, AuditListResponse, await listAuditEvents({ userId: q.userId, kind: q.kind, before: q.before, limit: q.limit }));
 });
+
+adminRoutes.get('/storage-requests', async (c) => {
+  const q = parseQuery(c, AdminStorageRequestsQuery);
+  return ok(c, AdminStorageRequestsResponse, { requests: await adminListStorageRequests(q.status) });
+});
+
+adminRoutes.post('/storage-requests/:id/grant', async (c) =>
+  ok(c, AdminStorageRequestResponse, { request: await adminGrantStorageRequest(c, c.get('user'), c.req.param('id')) }),
+);
+
+adminRoutes.post('/storage-requests/:id/dismiss', async (c) =>
+  ok(c, AdminStorageRequestResponse, { request: await adminDismissStorageRequest(c, c.get('user'), c.req.param('id')) }),
+);
