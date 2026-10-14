@@ -4,6 +4,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import CheckpointDialog from '@/components/versioning/checkpoint-dialog';
 import DuplicateDialog from '@/components/workspaces/duplicate-dialog';
+import RenameWorkspaceDialog from '@/components/workspaces/rename-dialog';
 import GlobalDropZone from '@/components/drive/global-drop-zone';
 import RestoreDialog from '@/components/versioning/restore-dialog';
 import ShareDialog from '@/components/share/share-dialog';
@@ -196,6 +197,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <RestoreDialog />
       <CheckpointDialog />
       <DuplicateDialog />
+      <RenameWorkspaceDialog />
       <ShortcutSheet open={sheet} onClose={() => setSheet(false)} />
     </div>
   );

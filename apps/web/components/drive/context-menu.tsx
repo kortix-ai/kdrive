@@ -137,7 +137,7 @@ export function buildDriveMenu(o: {
 /**
  * The current folder's menu (the ▾ on the last crumb, DESIGN-v2 §6.2): New folder, Upload
  * files, Upload folder · Share…, Versions (the History rail), Download .zip. Write items stay
- * visible but disabled in the past.
+ * visible but disabled in the past. At the drive's top level it ends with Rename drive….
  */
 export function buildFolderMenu(o: {
   past: boolean;
@@ -145,6 +145,8 @@ export function buildFolderMenu(o: {
   share: () => void;
   history: () => void;
   downloadZip: () => void;
+  /** Set at the drive's top level: opens Rename drive. */
+  renameDrive?: () => void;
 }): MenuItem[] {
   const { past, cmd } = o;
   return [
@@ -155,6 +157,9 @@ export function buildFolderMenu(o: {
     { id: 'share', label: past ? 'Share pinned link…' : 'Share…', icon: <Share2 size={I} strokeWidth={W} />, onSelect: o.share },
     { id: 'history', label: 'Versions', icon: <Clock size={I} strokeWidth={W} />, kbd: 'H', onSelect: o.history },
     { id: 'zip', label: 'Download .zip', icon: <Download size={I} strokeWidth={W} />, onSelect: o.downloadZip },
+    ...(o.renameDrive
+      ? [{ id: 's2', type: 'separator' } as const, { id: 'rename-drive', label: 'Rename drive…', icon: <Pencil size={I} strokeWidth={W} />, onSelect: o.renameDrive }]
+      : []),
   ];
 }
 

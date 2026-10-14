@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, Copy, Layers, Plus } from 'lucide-react';
+import { ChevronDown, Copy, Layers, Pencil, Plus } from 'lucide-react';
 import { formatBytes, shortId, type WorkspaceSummary } from '@volumes/shared';
 import { Menu, type MenuItem } from '@/components/ui/menu';
 import { cx } from '@/components/ui/cx';
@@ -19,7 +19,7 @@ export function provenance(ws: Pick<WorkspaceSummary, 'forkedFrom'>): string | n
 /**
  * Sidebar workspace switcher (UNIFY-SPEC §11): a 32 px r4 row (Layers 16 · name 14/500 · chevron);
  * a 40 × 32 icon cell in the collapsed 64 px sidebar. Menu: workspaces (✓ current, usage), provenance,
- * New workspace, Duplicate current…
+ * Rename current…, New workspace, Duplicate current…
  */
 export default function WorkspaceSwitcher() {
   const router = useRouter();
@@ -28,6 +28,7 @@ export default function WorkspaceSwitcher() {
   const setWorkspace = useVx((s) => s.setWorkspace);
   const openDuplicate = useVx((s) => s.openDuplicate);
   const [creating, setCreating] = useState(false);
+  const openRenameDrive = useVx((s) => s.openRenameDrive);
 
   const workspaces = me?.workspaces ?? [];
   const current = workspaces.find((w) => w.id === wsId);
@@ -48,6 +49,7 @@ export default function WorkspaceSwitcher() {
     })),
     ...(origin ? [{ id: 'origin', type: 'label' as const, label: <span className="vx-micro text-vx-text-3">{origin}</span> }] : []),
     { id: 'sep', type: 'separator' },
+    ...(current ? [{ id: 'rename', label: 'Rename this drive…', icon: <Pencil size={16} strokeWidth={1.75} />, onSelect: () => openRenameDrive() }] : []),
     { id: 'new', label: 'New drive', icon: <Plus size={16} strokeWidth={1.75} />, onSelect: () => setCreating(true) },
     { id: 'dup', label: 'Duplicate this drive…', icon: <Copy size={16} strokeWidth={1.75} />, onSelect: () => openDuplicate() },
   ];
