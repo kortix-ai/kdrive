@@ -78,6 +78,7 @@ export default function WorkspaceSwitcher() {
             className={cx(
               'flex h-8 w-full items-center gap-2.5 rounded-vx-sm px-2.5 text-left text-vx-text-2 transition-colors duration-[120ms] ease-vx hover:bg-vx-raise hover:text-vx-text-1 aria-expanded:bg-vx-raise',
               'max-[1023px]:mx-auto max-[1023px]:h-8 max-[1023px]:w-10 max-[1023px]:justify-center max-[1023px]:px-0',
+              'side-collapsed:mx-auto side-collapsed:h-8 side-collapsed:w-10 side-collapsed:justify-center side-collapsed:px-0',
               'max-[720px]:mx-0 max-[720px]:h-8 max-[720px]:w-full max-[720px]:justify-start max-[720px]:px-2.5',
             )}
           >
