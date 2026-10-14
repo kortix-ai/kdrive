@@ -55,7 +55,7 @@ describe('foundation', () => {
     expect(list.entries.map((e) => e.path)).toEqual(['/hello.txt']);
   });
 
-  test('admin flag comes from VOLUMES_ADMIN_EMAILS', async () => {
+  test('admin flag comes from the admins table (any case)', async () => {
     const { me } = await signInWithWorkspace('Admin@Test.local');
     expect(me.isAdmin).toBe(true);
   });

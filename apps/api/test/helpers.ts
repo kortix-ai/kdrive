@@ -1,12 +1,17 @@
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import nodePath from 'node:path';
 import { sql as rawSql } from 'drizzle-orm';
 import { BLOCK_SIZE } from '@volumes/shared';
 import { generateAgentToken } from '../src/agents/tokens';
 import { createApp } from '../src/app';
 import { db } from '../src/db/client';
+import { MIGRATIONS_DIR } from '../src/db/migrate';
 import { agentTokens, type AgentMode, type AgentScope } from '../src/db/schema';
 import { newId } from '../src/lib/ids';
 import { resetRateLimits } from '../src/middleware/rate-limit';
+import { clearAdminUsageCache } from '../src/services/admin-panel';
+import { clearAdminCache } from '../src/services/admins';
 import { clearTreeCache } from '../src/services/tree';
 
 export const ORIGIN = 'http://localhost:4100';
@@ -23,6 +28,7 @@ const TABLES = [
   'bauth_oauth_client',
   'bauth_jwks',
   'audit_events',
+  'admins',
   'storage_requests',
   'billing_accounts',
   'billing_events',
@@ -40,11 +46,21 @@ const TABLES = [
   'bauth_user',
 ];
 
-/** TRUNCATE every table (CASCADE) and clear in-memory limiters and caches. */
+/** The admins the migrations seed (re-run after every reset, so tests see what a new server has). */
+const ADMIN_SEED = readFileSync(nodePath.join(MIGRATIONS_DIR, '0009_admins.sql'), 'utf8').match(/INSERT INTO "admins"[^;]*;/g) ?? [];
+
+/** The admin every suite signs in as (besides the seeded one). */
+export const TEST_ADMIN = 'admin@test.local';
+
+/** TRUNCATE every table (CASCADE), re-seed the admins and clear in-memory limiters and caches. */
 export async function resetDb(): Promise<void> {
   await db.execute(rawSql.raw(`TRUNCATE ${TABLES.join(', ')} RESTART IDENTITY CASCADE`));
+  for (const stmt of ADMIN_SEED) await db.execute(rawSql.raw(stmt));
+  await db.execute(rawSql`INSERT INTO admins (email) VALUES (${TEST_ADMIN})`);
   resetRateLimits();
   clearTreeCache();
+  clearAdminCache();
+  clearAdminUsageCache();
 }
 
 let app: ReturnType<typeof createApp> | null = null;

@@ -38,7 +38,6 @@ const Raw = z.object({
   GOOGLE_CLIENT_SECRET: opt(),
   GITHUB_CLIENT_ID: opt(),
   GITHUB_CLIENT_SECRET: opt(),
-  VOLUMES_ADMIN_EMAILS: opt(),
   VOLUMES_DEFAULT_QUOTA_BYTES: z.preprocess(
     emptyToUndefined,
     z.coerce.number().int().positive().max(MAX_QUOTA_BYTES).default(DEFAULT_QUOTA_BYTES),
@@ -116,7 +115,6 @@ export interface Env {
   GITHUB_CLIENT_ID: string | undefined;
   GITHUB_CLIENT_SECRET: string | undefined;
   providers: ('google' | 'github')[];
-  adminEmails: Set<string>;
   defaultQuotaBytes: number;
   trustedOrigins: string[];
   /** Session cookies carry `Secure` whenever the public origin is https (not tied to NODE_ENV). */
@@ -225,12 +223,6 @@ export function loadEnv(source: Record<string, string | undefined> = process.env
     GITHUB_CLIENT_ID: r.GITHUB_CLIENT_ID,
     GITHUB_CLIENT_SECRET: r.GITHUB_CLIENT_SECRET,
     providers,
-    adminEmails: new Set(
-      (r.VOLUMES_ADMIN_EMAILS ?? '')
-        .split(',')
-        .map((e) => e.trim().toLowerCase())
-        .filter(Boolean),
-    ),
     defaultQuotaBytes: r.VOLUMES_DEFAULT_QUOTA_BYTES,
     trustedOrigins: [...trusted],
     secureCookies: new URL(r.BETTER_AUTH_URL).protocol === 'https:',
@@ -254,16 +246,3 @@ export function loadEnv(source: Record<string, string | undefined> = process.env
 }
 
 export const env: Env = loadEnv();
-
-export function isAdminEmail(email: string | null | undefined): boolean {
-  return !!email && env.adminEmails.has(email.toLowerCase());
-}
-
-/**
- * Admin rights need a listed address the user has proven they own. Anyone can
- * sign up with a password for an unclaimed address, so the address alone never
- * makes an account privileged.
- */
-export function isAdminUser(u: { email: string | null | undefined; emailVerified?: boolean | null }): boolean {
-  return u.emailVerified === true && isAdminEmail(u.email);
-}

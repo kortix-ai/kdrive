@@ -187,7 +187,7 @@ export const auth = betterAuth({
     before: createAuthMiddleware(async (ctx) => {
       // The sign-up gate runs before better-auth looks the address up, so a refused address
       // gets the same answer whether or not it has an account.
-      if (ctx.path === '/sign-up/email') assertSignupAllowed(String(ctx.body?.email ?? ''));
+      if (ctx.path === '/sign-up/email') await assertSignupAllowed(String(ctx.body?.email ?? ''));
       if (ctx.path === '/change-email') {
         // An unverified account never moves: the address it holds was never proven, so a
         // change would turn an unowned sign-up into a verified account at any address. It can
@@ -196,7 +196,7 @@ export const auth = betterAuth({
         if (s && !s.user.emailVerified) {
           throw new APIError('FORBIDDEN', { code: 'EMAIL_NOT_VERIFIED', message: 'Verify your current email before changing it.' });
         }
-        assertSignupAllowed(String(ctx.body?.newEmail ?? ''));
+        await assertSignupAllowed(String(ctx.body?.newEmail ?? ''));
       }
       // The last step of an email change signs the browser in when it has no session.
       // Require one: the link must finish a change the account holder started, never open it.
@@ -221,7 +221,7 @@ export const auth = betterAuth({
         // A refused provider sign-up creates nothing and lands back on the page with
         // ?error=SIGNUP_RESTRICTED (see assertSignupAllowed).
         before: async (user, ctx) => {
-          assertSignupAllowed(user.email, ctx);
+          await assertSignupAllowed(user.email, ctx);
           return { data: user };
         },
         // No drive here: GET /api/me provisions it on first use, after verification when that
@@ -236,7 +236,7 @@ export const auth = betterAuth({
         // Every path that moves an address (the change-email steps, any future admin edit)
         // passes the same sign-up gate as a new account.
         before: async (data) => {
-          if (typeof data.email === 'string') assertSignupAllowed(data.email);
+          if (typeof data.email === 'string') await assertSignupAllowed(data.email);
           return { data };
         },
       },

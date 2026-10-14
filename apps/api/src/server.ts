@@ -14,6 +14,9 @@ function main() {
     }
     throw e;
   }
+  if (process.env.VOLUMES_ADMIN_EMAILS?.trim()) {
+    console.warn('[volumes-api] VOLUMES_ADMIN_EMAILS is ignored: admins are kept in the database. Add or remove them under Admin → Admins.');
+  }
   const app = createApp();
   // node:http (not Bun.serve): Bun.serve drops an explicit Content-Length on
   // streamed bodies, so downloads would lose their size and progress.

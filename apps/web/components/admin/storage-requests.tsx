@@ -53,8 +53,8 @@ export function StorageRequests() {
     try {
       const { request } = how === 'grant' ? await api.admin.grantStorageRequest(r.id) : await api.admin.dismissStorageRequest(r.id);
       void mutate((cur) => (cur ? { requests: cur.requests.filter((x) => x.id !== r.id) } : cur), { revalidate: false });
-      // Quotas changed: the Users tab reloads when it opens next.
-      void globalMutate((k) => Array.isArray(k) && k[0] === 'admin-users');
+      // Quotas changed: the Users and Overview tabs reload when they open next.
+      void globalMutate((k) => Array.isArray(k) && (k[0] === 'admin-users' || k[0] === 'admin-overview' || k[0] === 'admin-user'));
       useVx.getState().toast({
         kind: 'success',
         message:

@@ -100,7 +100,18 @@ client, consent screen, local and server env) is in
 [docs/google-sign-in.md](docs/google-sign-in.md). For local testing without OAuth
 apps, `VOLUMES_DEV_LOGIN=1` shows "Continue with dev account". It works only with
 `NODE_ENV=development` (the dev script's default), a localhost `BETTER_AUTH_URL`
-and a caller on this machine. Verified emails in `VOLUMES_ADMIN_EMAILS` get the admin page.
+and a caller on this machine.
+
+### Admins
+
+Admins are addresses in the `admins` table; an account with that address gets
+the admin panel at `/admin` once the address is verified. The migrations seed
+the first admin (`allen@kortix.ai`), and admins add or remove others under
+Admin → Admins (the last admin cannot be removed). `VOLUMES_ADMIN_EMAILS` is no
+longer read; the API logs a warning when it is still set. The panel has an
+overview of the server, users with usage (each opens their drives, shared drives,
+quota and admin rights), usage by email domain, storage requests, the full audit
+log with filters and CSV export, and the admin list.
 
 ### Accounts and email
 

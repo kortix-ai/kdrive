@@ -1,4 +1,4 @@
-import { formatBytes, shortId } from '@volumes/shared';
+import { AUDIT_KINDS, formatBytes, shortId } from '@volumes/shared';
 
 const LABELS: Record<string, string> = {
   'auth.sign_in': 'Signed in',
@@ -33,6 +33,20 @@ const LABELS: Record<string, string> = {
   'storage.grant': 'Storage request granted',
   'storage.dismiss': 'Storage request dismissed',
   'billing.plan_change': 'Plan changed',
+  'admin.add': 'Admin added',
+  'admin.remove': 'Admin removed',
+  'agent.token.create': 'Agent token created',
+  'agent.token.revoke': 'Agent token revoked',
+  'agent.grant.create': 'Agent connected',
+  'agent.grant.update': 'Agent access changed',
+  'agent.grant.revoke': 'Agent disconnected',
+  'agent.write': 'Agent changed files',
+  'agent.restore': 'Agent restored',
+  'agent.undo': 'Agent undid a change',
+  'agent.checkpoint': 'Agent made a checkpoint',
+  'proposal.create': 'Changes proposed',
+  'proposal.accept': 'Proposal accepted',
+  'proposal.discard': 'Proposal discarded',
 };
 
 /** "Signed in", "Link revoked" … (falls back to the raw kind). */
@@ -40,9 +54,27 @@ export function auditLabel(kind: string): string {
   return LABELS[kind] ?? kind;
 }
 
+/** Audit kinds in families, for the admin log's event filter (every kind is in exactly one). */
+export const AUDIT_GROUPS: { id: string; label: string; kinds: string[] }[] = (() => {
+  const groups = [
+    { id: 'account', label: 'Sign-in and account', test: (k: string) => k.startsWith('auth.') || k.startsWith('account.') },
+    { id: 'drives', label: 'Drives and sharing', test: (k: string) => k.startsWith('workspace.') },
+    { id: 'restore', label: 'Restores and undo', test: (k: string) => k.startsWith('restore.') || k === 'undo' },
+    { id: 'links', label: 'Links and checkpoints', test: (k: string) => k.startsWith('link.') || k.startsWith('checkpoint.') },
+    { id: 'storage', label: 'Storage and plans', test: (k: string) => k.startsWith('storage.') || k.startsWith('billing.') || k === 'quota.change' },
+    { id: 'admin', label: 'Admins', test: (k: string) => k.startsWith('admin.') },
+    { id: 'agents', label: 'AI agents', test: (k: string) => k.startsWith('agent.') || k.startsWith('proposal.') },
+  ];
+  const out = groups.map((g) => ({ id: g.id, label: g.label, kinds: AUDIT_KINDS.filter(g.test) as string[] }));
+  const rest = AUDIT_KINDS.filter((k) => !groups.some((g) => g.test(k)));
+  if (rest.length) out.push({ id: 'other', label: 'Other', kinds: [...rest] });
+  return out;
+})();
+
 /** Badge tone: destructive kinds read red, checkpoints and links blue, sign-ins dashed, the rest neutral (never amber). */
 export function auditTone(kind: string): 'neutral' | 'dashed' | 'danger' | 'accent' {
-  if (kind === 'account.delete' || kind === 'workspace.delete' || kind === 'link.revoke' || kind === 'checkpoint.delete') return 'danger';
+  if (kind === 'account.delete' || kind === 'workspace.delete' || kind === 'link.revoke' || kind === 'checkpoint.delete' || kind === 'admin.remove') return 'danger';
+  if (kind === 'admin.add') return 'accent';
   if (kind.startsWith('checkpoint.') || kind.startsWith('link.')) return 'accent';
   if (kind.startsWith('auth.')) return 'dashed';
   return 'neutral';

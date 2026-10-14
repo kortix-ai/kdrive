@@ -322,8 +322,24 @@ export const auditEvents = pgTable(
   (t) => [
     index('audit_user_created_idx').on(t.userId, t.createdAt.desc()),
     index('audit_kind_created_idx').on(t.kind, t.createdAt.desc()),
+    // The admin log reads every user's events by date range and by drive.
+    index('audit_created_idx').on(t.createdAt.desc()),
+    index('audit_workspace_idx').on(t.workspaceId, t.id.desc()),
   ],
 );
+
+/**
+ * Who administers this server, by address (lower-cased). An admin still needs that
+ * address verified on their account (services/admins.ts). Seeded by the migration
+ * with the first admin; admins add and remove each other in the admin panel, and the
+ * last one cannot be removed.
+ */
+export const admins = pgTable('admins', {
+  email: text('email').primaryKey(),
+  /** The admin who added this one (an address, kept after their account is gone); null when seeded. */
+  addedBy: text('added_by'),
+  createdAt: timestamp('created_at', tz).defaultNow().notNull(),
+});
 
 /**
  * Capacity promised to a mutation that is running now (a copy, a restore, a new
@@ -505,3 +521,4 @@ export type ProposalRow = typeof proposals.$inferSelect;
 export type ProposalFileRow = typeof proposalFiles.$inferSelect;
 export type StorageRequestRow = typeof storageRequests.$inferSelect;
 export type BillingAccountRow = typeof billingAccounts.$inferSelect;
+export type AdminRow = typeof admins.$inferSelect;
