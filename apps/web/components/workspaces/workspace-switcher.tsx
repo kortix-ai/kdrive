@@ -2,11 +2,12 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, Copy, Layers, Pencil, Plus } from 'lucide-react';
+import { ChevronDown, Copy, Layers, Pencil, Plus, Users } from 'lucide-react';
 import { formatBytes, shortId, type WorkspaceSummary } from '@volumes/shared';
 import { Menu, type MenuItem } from '@/components/ui/menu';
 import { cx } from '@/components/ui/cx';
 import { useVx } from '@/lib/store';
+import { Invitations } from './invitations';
 import { NewWorkspaceDialog } from './new-workspace-dialog';
 
 /** "Duplicated from Personal @a41f9c2" (or null for an original workspace). */
@@ -19,7 +20,8 @@ export function provenance(ws: Pick<WorkspaceSummary, 'forkedFrom'>): string | n
 /**
  * Sidebar workspace switcher (UNIFY-SPEC §11): a 32 px r4 row (Layers 16 · name 14/500 · chevron);
  * a 40 × 32 icon cell in the collapsed 64 px sidebar. Menu: workspaces (✓ current, usage), provenance,
- * Rename current…, New workspace, Duplicate current…
+ * People…, Rename current…, New workspace, Duplicate current…. Drives shared with you are listed
+ * under their own label with the owner's name; only the owner renames or duplicates a drive.
  */
 export default function WorkspaceSwitcher() {
   const router = useRouter();
@@ -29,29 +31,37 @@ export default function WorkspaceSwitcher() {
   const openDuplicate = useVx((s) => s.openDuplicate);
   const [creating, setCreating] = useState(false);
   const openRenameDrive = useVx((s) => s.openRenameDrive);
+  const openPeople = useVx((s) => s.openPeople);
 
   const workspaces = me?.workspaces ?? [];
   const current = workspaces.find((w) => w.id === wsId);
   const origin = current ? provenance(current) : null;
 
+  const own = workspaces.filter((w) => w.role === 'owner');
+  const shared = workspaces.filter((w) => w.role !== 'owner');
+  const owner = current?.role === 'owner';
+  const row = (w: WorkspaceSummary): MenuItem => ({
+    id: `ws-${w.id}`,
+    checked: w.id === wsId,
+    icon: w.role === 'owner' ? <Layers size={16} strokeWidth={1.75} /> : <Users size={16} strokeWidth={1.75} />,
+    label: w.name,
+    hint: w.owner ? `${w.owner.name || w.owner.email} · ${w.role === 'editor' ? 'Editor' : 'Viewer'}` : formatBytes(w.usageBytes),
+    onSelect: () => {
+      if (w.id !== wsId) setWorkspace(w.id);
+      router.push('/drive');
+    },
+  });
+
   const items: MenuItem[] = [
     { id: 'h', type: 'label', label: 'Drives' },
-    ...workspaces.map<MenuItem>((w) => ({
-      id: `ws-${w.id}`,
-      checked: w.id === wsId,
-      icon: <Layers size={16} strokeWidth={1.75} />,
-      label: w.name,
-      hint: formatBytes(w.usageBytes),
-      onSelect: () => {
-        if (w.id !== wsId) setWorkspace(w.id);
-        router.push('/drive');
-      },
-    })),
-    ...(origin ? [{ id: 'origin', type: 'label' as const, label: <span className="vx-micro text-vx-text-3">{origin}</span> }] : []),
+    ...own.map(row),
+    ...(shared.length ? [{ id: 'hs', type: 'label' as const, label: 'Shared with me' }, ...shared.map(row)] : []),
+    ...(origin && owner ? [{ id: 'origin', type: 'label' as const, label: <span className="vx-micro text-vx-text-3">{origin}</span> }] : []),
     { id: 'sep', type: 'separator' },
-    ...(current ? [{ id: 'rename', label: 'Rename this drive…', icon: <Pencil size={16} strokeWidth={1.75} />, onSelect: () => openRenameDrive() }] : []),
+    ...(current ? [{ id: 'people', label: owner ? 'Share this drive…' : 'People…', icon: <Users size={16} strokeWidth={1.75} />, onSelect: () => openPeople() }] : []),
+    ...(current && owner ? [{ id: 'rename', label: 'Rename this drive…', icon: <Pencil size={16} strokeWidth={1.75} />, onSelect: () => openRenameDrive() }] : []),
     { id: 'new', label: 'New drive', icon: <Plus size={16} strokeWidth={1.75} />, onSelect: () => setCreating(true) },
-    { id: 'dup', label: 'Duplicate this drive…', icon: <Copy size={16} strokeWidth={1.75} />, onSelect: () => openDuplicate() },
+    ...(owner ? [{ id: 'dup', label: 'Duplicate this drive…', icon: <Copy size={16} strokeWidth={1.75} />, onSelect: () => openDuplicate() }] : []),
   ];
 
   return (
@@ -77,6 +87,7 @@ export default function WorkspaceSwitcher() {
           </button>
         )}
       />
+      <Invitations />
       <NewWorkspaceDialog open={creating} onClose={() => setCreating(false)} />
     </div>
   );

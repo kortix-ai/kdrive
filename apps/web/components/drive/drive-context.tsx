@@ -33,6 +33,8 @@ export interface DriveCtxValue extends DriveItemHandlers {
   /** Commit being viewed (null = now). */
   at: string | null;
   past: boolean;
+  /** A viewer of someone else's drive: nothing can be changed or shared. */
+  viewOnly: boolean;
   /** "14 Sep, 16:40" when in the past */
   pastLabel: string;
   path: string;

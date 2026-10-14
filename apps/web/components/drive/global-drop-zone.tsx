@@ -12,7 +12,7 @@ import { CircleAlert, Clock, Upload } from 'lucide-react';
 import { basename, formatBytes } from '@volumes/shared';
 import { cx } from '@/components/ui/cx';
 import { useUsage } from '@/lib/api/hooks';
-import { useVx } from '@/lib/store';
+import { currentRole, useVx, VIEW_ONLY_REASON } from '@/lib/store';
 import { collectDrop, dragItemCount, hasFiles } from '@/lib/upload/walk';
 import { startUpload } from '@/lib/upload/uploads';
 import s from './drive.module.css';
@@ -40,7 +40,9 @@ function findTarget(el: EventTarget | null, fallbackDir: string): Target | null 
 export default function GlobalDropZone() {
   const pathname = usePathname() ?? '';
   const onDrive = pathname === '/drive' || pathname.startsWith('/drive/');
-  const past = useVx((st) => !!st.timeTravel);
+  const viewOnly = useVx((st) => currentRole(st) === 'viewer');
+  // Uploads are refused in the past and for a viewer of someone else's drive.
+  const past = useVx((st) => !!st.timeTravel) || viewOnly;
   const ws = useVx((st) => st.workspaceId);
   const { data: usage } = useUsage();
   const [target, setTarget] = useState<Target | null>(null);
@@ -91,7 +93,7 @@ export default function GlobalDropZone() {
       reset();
       const store = useVx.getState();
       if (st.past) {
-        store.toast({ kind: 'info', message: 'Go back to now to upload.' });
+        store.toast({ kind: 'info', message: currentRole(store) === 'viewer' ? VIEW_ONLY_REASON : 'Go back to now to upload.' });
         return;
       }
       if (!e.dataTransfer || !t) return;
@@ -127,7 +129,9 @@ export default function GlobalDropZone() {
   const dest = target.dir === '/' ? 'My Drive' : basename(target.dir);
   const what = count > 0 ? `${count} ${count === 1 ? 'item' : 'items'}` : 'files';
   const readout = past
-    ? 'Go back to now to upload'
+    ? viewOnly
+      ? 'View only: you cannot upload here'
+      : 'Go back to now to upload'
     : full && usage
       ? `Your ${formatBytes(usage.quotaBytes)} is full`
       : `Drop ${what} → ${dest} · 1 version`;

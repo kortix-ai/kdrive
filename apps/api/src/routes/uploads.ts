@@ -266,8 +266,9 @@ uploadsRoutes.post('/uploads', async (c) => {
 
   let actionId = '';
   {
-    // Reserved for the user in the database (any API process); once the upload row exists it carries the bytes.
-    await using _quota = await reserveQuota(user.id, resolved.addedBytes, 'upload.plan');
+    // Reserved for the drive's owner in the database (any API process; a member's upload counts against the
+    // owner's quota); once the upload row exists it carries the bytes.
+    await using _quota = await reserveQuota(ws.userId, resolved.addedBytes, 'upload.plan');
     actionId = await recordPlan();
     await db.insert(uploads).values({
       id,
@@ -459,10 +460,10 @@ uploadsRoutes.post('/uploads/:id/commit', async (c) => {
     try {
       if (growth > held) {
         // Reserve the difference atomically, then let the row carry the whole growth (a retried commit keeps it).
-        await using more = new Hold(user.id, 'upload.commit');
+        await using more = new Hold(ws.userId, 'upload.commit');
         await more.reserve({ bytes: growth - held });
         await db.update(uploads).set({ addedBytes: growth }).where(eq(uploads.id, row.id));
-      } else await assertQuota(user.id, growth, { excludeUploadId: row.id });
+      } else await assertQuota(ws.userId, growth, { excludeUploadId: row.id });
     } catch (e) {
       store.releaseUpload(ptUploadId);
       forgetUpload(row.id);

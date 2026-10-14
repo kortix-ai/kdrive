@@ -6,6 +6,7 @@ import { emailEnabled } from '../email/client';
 import { ok } from '../lib/http';
 import { requireUser } from '../middleware/session';
 import { getUsage } from '../services/quota';
+import { listSharedWorkspaceSummaries } from '../services/members';
 import { ensureUserBootstrap, listWorkspaces, toWorkspaceSummaries } from '../services/workspaces';
 import { storageMode } from '../storage';
 import type { AppEnv } from '../types';
@@ -37,8 +38,13 @@ meRoutes.get('/me', requireUser, async (c) => {
   // for verification gets no drive until the address is confirmed.
   const held = env.requireEmailVerification && user.emailVerified === false;
   const def = held ? null : await ensureUserBootstrap(user);
-  const [rows, usage] = await Promise.all([held ? [] : listWorkspaces(user.id), getUsage(user.id)]);
-  const workspaces = await toWorkspaceSummaries(rows);
+  const [rows, shared, usage] = await Promise.all([
+    held ? [] : listWorkspaces(user.id),
+    held ? [] : listSharedWorkspaceSummaries(user.id),
+    getUsage(user.id),
+  ]);
+  // Own drives first, then drives other people shared (their bytes count against their owners, not here).
+  const workspaces = [...(await toWorkspaceSummaries(rows)), ...shared];
   return ok(c, MeResponse, {
     user: { id: user.id, email: user.email, name: user.name, image: user.image, emailVerified: user.emailVerified !== false },
     isAdmin: isAdminUser(user),

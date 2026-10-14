@@ -10,6 +10,7 @@ import { IconButton } from '@/components/ui/icon-button';
 import { Tooltip } from '@/components/ui/tooltip';
 import { cx } from '@/components/ui/cx';
 import type { DriveCommands } from './context-menu';
+import { currentRole, useVx, VIEW_ONLY_REASON } from '@/lib/store';
 import { READ_ONLY_REASON } from './drive-context';
 import s from './drive.module.css';
 
@@ -72,6 +73,10 @@ export default function SelectionBar({
   onMore: (e: React.MouseEvent<HTMLButtonElement>) => void;
   phone?: boolean;
 }) {
+  // Writes are off in the past and for a viewer of someone else's drive.
+  const viewOnly = useVx((st) => currentRole(st) === 'viewer');
+  const locked = past || viewOnly;
+  const reason = viewOnly ? VIEW_ONLY_REASON : READ_ONLY_REASON;
   const n = entries.length;
   const one = n === 1 ? entries[0] : null;
   const size = entries.reduce((sum, e) => sum + (e.type === 'file' ? e.size : 0), 0);
@@ -92,14 +97,14 @@ export default function SelectionBar({
       <Act label={one?.type === 'file' ? 'Download' : 'Download .zip'} kbd="D" onClick={() => cmd.download(entries)}>
         <Download {...I} />
       </Act>
-      <Act label="Move to…" kbd="M" onClick={() => cmd.moveTo(entries)} disabled={past} reason={READ_ONLY_REASON}>
+      <Act label="Move to…" kbd="M" onClick={() => cmd.moveTo(entries)} disabled={locked} reason={reason}>
         <FolderInput {...I} />
       </Act>
-      <Act label="Copy to…" kbd="⇧M" onClick={() => cmd.copyTo(entries)} disabled={past} reason={READ_ONLY_REASON} className="max-[420px]:hidden">
+      <Act label="Copy to…" kbd="⇧M" onClick={() => cmd.copyTo(entries)} disabled={locked} reason={reason} className="max-[420px]:hidden">
         <Copy {...I} />
       </Act>
       {one ? (
-        <Act label={past ? 'Share pinned link…' : 'Share…'} kbd="S" onClick={() => cmd.share(one)}>
+        <Act label={past ? 'Share pinned link…' : 'Share…'} kbd="S" onClick={() => cmd.share(one)} disabled={viewOnly} reason={VIEW_ONLY_REASON}>
           <Share2 {...I} />
         </Act>
       ) : null}
@@ -109,7 +114,7 @@ export default function SelectionBar({
         </Act>
       ) : null}
       {past && one ? (
-        <Act label="Restore this…" kbd="R" onClick={() => cmd.restore(one)} tone="past">
+        <Act label="Restore this…" kbd="R" onClick={() => cmd.restore(one)} tone="past" disabled={viewOnly} reason={VIEW_ONLY_REASON}>
           <RotateCcw {...I} />
         </Act>
       ) : null}
@@ -117,8 +122,8 @@ export default function SelectionBar({
         label={n > 1 ? `Delete ${n} items` : 'Delete'}
         kbd="⌫"
         onClick={() => cmd.remove(entries)}
-        disabled={past}
-        reason={READ_ONLY_REASON}
+        disabled={locked}
+        reason={reason}
         tone="danger"
       >
         <Trash {...I} />

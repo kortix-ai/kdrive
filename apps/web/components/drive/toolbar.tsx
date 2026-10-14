@@ -5,13 +5,38 @@
 // button for the current folder. Search and + New live in the shell.
 // Phones (≤ 720 px, §7): an up button when not at the root, the current folder name
 // 20/600 + ▾, and the list/grid toggle on the right.
-import { ArrowLeft, ChevronDown, Info, LayoutGrid, List } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Info, LayoutGrid, List, Users } from 'lucide-react';
 import { basename, dirname } from '@volumes/shared';
 import { IconButton } from '@/components/ui/icon-button';
 import { Menu, type MenuItem } from '@/components/ui/menu';
 import { Segmented } from '@/components/ui/segmented';
 import { Tooltip } from '@/components/ui/tooltip';
+import { useVx } from '@/lib/store';
 import Breadcrumbs from './breadcrumbs';
+
+/** In someone else's drive: "Ada's · View only" (or Editor). Opens People. */
+function SharedBadge() {
+  const ws = useVx((s) => s.me?.workspaces.find((w) => w.id === s.workspaceId) ?? null);
+  const openPeople = useVx((s) => s.openPeople);
+  if (!ws?.owner) return null;
+  const who = ws.owner.name || ws.owner.email;
+  const role = ws.role === 'viewer' ? 'View only' : 'Editor';
+  return (
+    <Tooltip label={`Shared by ${ws.owner.email}. See who has access.`}>
+      <button
+        type="button"
+        onClick={openPeople}
+        aria-label={`Shared by ${who}, you are ${ws.role === 'viewer' ? 'a viewer' : 'an editor'}. People`}
+        className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-vx-sm border border-vx-hair px-2 text-[12px] font-medium text-vx-text-2 hover:bg-vx-raise hover:text-vx-text-1 max-[720px]:hidden"
+      >
+        <Users size={14} strokeWidth={1.75} aria-hidden />
+        <span className="max-w-[160px] truncate">{who}</span>
+        <span aria-hidden className="text-vx-text-4">·</span>
+        <span className={ws.role === 'viewer' ? 'text-vx-past' : undefined}>{role}</span>
+      </button>
+    </Tooltip>
+  );
+}
 
 export default function Toolbar({
   path,
@@ -107,6 +132,7 @@ export default function Toolbar({
           missing={missing}
         />
       </div>
+      <SharedBadge />
       {missing ? null : (
         <>
           {viewToggle}

@@ -1,3 +1,5 @@
+import type { DriveRole } from '@volumes/shared';
+
 export interface SessionUser {
   id: string;
   email: string;
@@ -15,7 +17,10 @@ export interface SessionInfo {
 /** The workspace a request operates on, always resolved from the session user. */
 export interface WorkspaceCtx {
   id: string;
+  /** The owner: whose quota the drive's bytes count against (not necessarily the session user). */
   userId: string;
+  /** The session user's role here: the owner, or a member invited as editor or viewer. */
+  role: DriveRole;
   name: string;
   /** Platinum `vol_…` id (never accepted from the client). */
   volumeId: string;

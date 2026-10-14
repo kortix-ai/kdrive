@@ -1,7 +1,7 @@
 import { and, eq, gt, inArray, ne, sql } from 'drizzle-orm';
 import { meterLevel, type UsageResponse } from '@volumes/shared';
 import { db } from '../db/client';
-import { quotaReservations, uploads, userSettings } from '../db/schema';
+import { quotaReservations, uploads, userSettings, workspaces } from '../db/schema';
 import { env } from '../env';
 import { ApiError } from '../lib/http';
 import { listWorkspaces, workspaceUsage } from './workspaces';
@@ -23,10 +23,13 @@ export async function getUsage(userId: string): Promise<UsageResponse> {
   return { quotaBytes, usedBytes, level: meterLevel(usedBytes, quotaBytes), byWorkspace };
 }
 
-/** Bytes promised to the user's uploads that are planned but not committed yet (and not expired). */
+/**
+ * Bytes promised to uploads into the user's drives that are planned but not committed yet (and not
+ * expired), whoever is uploading: a member's upload lands in the owner's volume.
+ */
 async function uploadReservedBytes(q: Reader, userId: string, excludeUploadId?: string): Promise<number> {
   const conds = [
-    eq(uploads.userId, userId),
+    inArray(uploads.workspaceId, q.select({ id: workspaces.id }).from(workspaces).where(eq(workspaces.userId, userId))),
     inArray(uploads.status, ['planned', 'uploading']),
     gt(uploads.expiresAt, new Date()),
     gt(uploads.addedBytes, 0),

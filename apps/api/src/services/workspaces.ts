@@ -1,5 +1,5 @@
 import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm';
-import { VOLUME_NAME_PREFIX, type WorkspaceSummary } from '@volumes/shared';
+import { VOLUME_NAME_PREFIX, type DriveRole, type WorkspaceSummary } from '@volumes/shared';
 import { db } from '../db/client';
 import { userSettings, workspaces, type WorkspaceRow } from '../db/schema';
 import { env } from '../env';
@@ -14,10 +14,11 @@ export function volumeNameFor(workspaceId: string): string {
   return `${VOLUME_NAME_PREFIX}${workspaceId}`;
 }
 
-export function toCtx(row: WorkspaceRow & { volumeId: string }): WorkspaceCtx {
+export function toCtx(row: WorkspaceRow & { volumeId: string }, role: DriveRole = 'owner'): WorkspaceCtx {
   return {
     id: row.id,
     userId: row.userId,
+    role,
     name: row.name,
     volumeId: row.volumeId,
     volumeName: row.volumeName,
@@ -110,6 +111,8 @@ export async function toWorkspaceSummaries(rows: WorkspaceRow[]): Promise<Worksp
     id: r.id,
     name: r.name,
     isDefault: r.isDefault,
+    role: 'owner' as const,
+    owner: null,
     createdAt: r.createdAt.toISOString(),
     usageBytes: usage[i],
     forkedFrom: r.forkedAtCommit

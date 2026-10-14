@@ -211,7 +211,7 @@ export async function createProposal(ctx: Ctx, p: AgentPrincipal, input: CreateP
   if (conflicts.length) throw staleBase(head, conflicts);
   const { hashed, blockBytes } = hashWrites(input.ops);
   const sim = await simulate(ws, head, input.ops, hashed);
-  await assertQuota(userId, sim.growth);
+  await assertQuota(ws.userId, sim.growth);
   await expireDue(userId);
 
   const bytesTotal = input.ops.reduce((s, o) => s + (o.op === 'write' ? o.bytes.length : 0), 0);

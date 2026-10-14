@@ -28,6 +28,7 @@ import { restoreRoutes } from './routes/restore';
 import { timelineRoutes } from './routes/timeline';
 import { uploadsRoutes } from './routes/uploads';
 import { versionsRoutes } from './routes/versions';
+import { invitationsRoutes } from './routes/invitations';
 import { workspacesRoutes } from './routes/workspaces';
 import type { AppEnv } from './types';
 
@@ -141,6 +142,7 @@ export function createApp(): Hono<AppEnv> {
   app.route('/api/agents', agentsOauthRoutes);
   app.route('/api/public', publicRoutes);
   app.route('/api/workspaces', workspacesRoutes);
+  app.route('/api/invitations', invitationsRoutes);
   app.route('/api/admin', adminRoutes);
 
   return app;
