@@ -1,5 +1,14 @@
 @import "tailwindcss";
 
+/* Wide screens with the sidebar collapsed to its icon rail (lib/side.ts); 720–1023 px gets the rail by width. */
+@custom-variant side-collapsed {
+  @media (min-width: 1024px) {
+    html[data-vx-side='collapsed'] & {
+      @slot;
+    }
+  }
+}
+
 /* ════════════════════════════════════════════════════════════════════════
  * KDRIVE design tokens (UNIFY-SPEC §2): one graphite language for the app and the landing.
  * Dark is the default and the base block. Light overrides it under html[data-vx-theme='light'].
@@ -658,6 +667,18 @@ html.vx-theme-switching *, html.vx-theme-switching *::before, html.vx-theme-swit
   .vx-side-compact { display: revert; }
 }
 
+/* ≥ 1024 with the sidebar collapsed: the same 64 px icon column, by choice. */
+@media (min-width: 1024px) {
+  html[data-vx-side='collapsed'] { --vx-rail-w: 64px; }
+  html[data-vx-side='collapsed'] .vx-side { padding: 12px 8px; align-items: center; }
+  html[data-vx-side='collapsed'] .vx-side-full { display: none !important; }
+  html[data-vx-side='collapsed'] .vx-side-compact { display: revert; }
+  html[data-vx-side='collapsed'] .vx-nav { flex-direction: column; justify-content: center; gap: 2px; height: auto; width: 48px; padding: 0 0 4px; background: transparent !important; color: var(--vx-text-2); font-size: 11px; line-height: 14px; }
+  html[data-vx-side='collapsed'] .vx-nav .vx-nav-icon { width: 40px; height: 32px; border-radius: var(--vx-r-sm); transition: background-color var(--vx-dur-1) var(--vx-ease); }
+  html[data-vx-side='collapsed'] .vx-nav:hover .vx-nav-icon { background: var(--vx-raise); }
+  html[data-vx-side='collapsed'] .vx-nav[aria-current='page'] { color: var(--vx-text-1); }
+  html[data-vx-side='collapsed'] .vx-nav[aria-current='page'] .vx-nav-icon { background: var(--vx-accent-wash); color: var(--vx-text-1); }
+}
 /* ≤ 720: phone. One glass bar on top, the sidebar becomes a drawer, sheets go full-bleed. */
 @media (max-width: 720px) {
   :root { --vx-topbar-h: 56px; --vx-rail-w: 300px; --vx-strip-h: 56px; }

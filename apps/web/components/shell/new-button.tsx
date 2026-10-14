@@ -62,6 +62,7 @@ export function NewButton() {
         // Unavailable in the past: a quiet surface slab with a hair edge, not a faded fill that looks broken.
         'disabled:cursor-not-allowed disabled:bg-vx-surface-3 disabled:text-vx-text-4 disabled:shadow-[inset_0_0_0_1px_var(--vx-hair)] disabled:hover:bg-vx-surface-3',
         'max-[1023px]:h-10 max-[1023px]:w-10 max-[1023px]:p-0 max-[720px]:h-9 max-[720px]:w-full max-[720px]:px-3.5',
+        'side-collapsed:h-10 side-collapsed:w-10 side-collapsed:p-0',
       )}
     >
       <Plus size={16} strokeWidth={2} aria-hidden />

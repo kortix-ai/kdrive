@@ -5,7 +5,7 @@
 // it is a glass bar holding the menu button, the search field and a 28 px avatar.
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { CircleHelp, Clock, LogOut, Menu as MenuIcon, Monitor, Moon, Search, Settings, Sun } from 'lucide-react';
+import { CircleHelp, Clock, LogOut, Menu as MenuIcon, Monitor, Moon, PanelLeftClose, PanelLeftOpen, Search, Settings, Sun } from 'lucide-react';
 import { KMark } from '@/components/brand/k-mark';
 import { Avatar } from '@/components/ui/avatar';
 import { IconButton } from '@/components/ui/icon-button';
@@ -15,6 +15,7 @@ import { Tooltip } from '@/components/ui/tooltip';
 import { cx } from '@/components/ui/cx';
 import { formatMoment } from '@/lib/format';
 import { signOutAndEnd } from '@/lib/session';
+import { toggleSide, useSideCollapsed } from '@/lib/side';
 import { sendShellIntent } from '@/lib/shell-intents';
 import { useVx } from '@/lib/store';
 import { THEME_LABEL, THEME_PREFS, switchThemePref } from '@/lib/theme';
@@ -133,14 +134,31 @@ export function AccountMenu({ size = 28 }: { size?: number }) {
   );
 }
 
+/** Collapses the sidebar to its icon rail and back (wide screens only; narrower ones decide by width). */
+function SideToggle() {
+  const collapsed = useSideCollapsed();
+  const label = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
+  const Icon = collapsed ? PanelLeftOpen : PanelLeftClose;
+  return (
+    <span className="mr-2 hidden shrink-0 min-[1024px]:inline-flex">
+      <Tooltip label={label} kbd="⌘B" side="bottom">
+        <IconButton label={label} nativeTitle={false} onClick={toggleSide} aria-expanded={!collapsed} aria-controls="vx-side">
+          <Icon size={16} strokeWidth={1.75} aria-hidden />
+        </IconButton>
+      </Tooltip>
+    </span>
+  );
+}
+
 export function TopBar({ onMenu, onHelp }: { onMenu: () => void; onHelp: () => void }) {
   return (
     <header className="vx-topbar">
       {/* ≥ 721 px: brand · pill · tools */}
-      <div className="flex items-center pl-4 max-[1023px]:justify-center max-[1023px]:pl-0 max-[720px]:hidden">
+      <div className="flex items-center pl-4 max-[1023px]:justify-center max-[1023px]:pl-0 side-collapsed:justify-center side-collapsed:pl-0 max-[720px]:hidden">
         <Brand compactBelow />
       </div>
-      <div className="flex min-w-0 justify-start px-3 max-[720px]:hidden">
+      <div className="flex min-w-0 items-center justify-start px-3 max-[720px]:hidden">
+        <SideToggle />
         <SearchPill />
       </div>
       <div className="flex items-center gap-1 pl-2 max-[720px]:hidden">

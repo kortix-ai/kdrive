@@ -53,6 +53,13 @@ const src = function boot() {
     return p;
   }
   apply();
+  // The sidebar's collapsed rail (lib/side.ts), painted with the theme so the shell never jumps.
+  function side() {
+    try {
+      d.setAttribute('data-vx-side', localStorage.getItem('vx-side') === 'collapsed' ? 'collapsed' : 'open');
+    } catch (e) {}
+  }
+  side();
   // The theme-color meta is parsed after this script: correct it once the head is complete.
   document.addEventListener('DOMContentLoaded', function () {
     apply();
@@ -66,6 +73,7 @@ const src = function boot() {
     });
   } catch (e) {}
   window.addEventListener('storage', function (e) {
+    if (e.key === 'vx-side' || e.key === null) side();
     if (e.key !== 'vx-theme' && e.key !== null) return;
     var p = apply(true);
     window.dispatchEvent(new CustomEvent('vx-theme', { detail: p }));

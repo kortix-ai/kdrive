@@ -3,7 +3,7 @@
 // Sidebar (UNIFY-SPEC §11): on the page ground with a 1px hair right rule. Top to bottom:
 // + New (primary), the DRIVES eyebrow + workspace switcher, 32 px nav items (chord hints
 // on hover, Mono counts), a flexible gap, then storage, "Get more storage" and (emulated
-// storage only) a small badge on a hair rule. 64 px icon column at 720–1023 px; a drawer on phones (AppShell opens it).
+// storage only) a small badge on a hair rule. 64 px icon column at 720–1023 px, or wider when collapsed (lib/side.ts); a drawer on phones (AppShell opens it).
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
@@ -71,7 +71,7 @@ export function LeftRail({ open, onNavigate }: { open?: boolean; onNavigate?: ()
   const cpCount = cps?.checkpoints.length ?? 0;
 
   return (
-    <nav data-open={open ? 'true' : 'false'} className="vx-side" aria-label="Main">
+    <nav id="vx-side" data-open={open ? 'true' : 'false'} className="vx-side" aria-label="Main">
       <div className="pb-4">
         <NewButton />
       </div>
@@ -91,7 +91,7 @@ export function LeftRail({ open, onNavigate }: { open?: boolean; onNavigate?: ()
             />
           </li>
         ))}
-        <li role="separator" aria-hidden className="mx-2.5 my-2 h-px bg-vx-hair max-[1023px]:mx-1" />
+        <li role="separator" aria-hidden className="mx-2.5 my-2 h-px bg-vx-hair max-[1023px]:mx-1 side-collapsed:mx-1" />
         <li>
           <NavLink n={NAV_SETTINGS} active={isActive(NAV_SETTINGS.href)} onNavigate={onNavigate} />
         </li>
