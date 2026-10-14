@@ -9,7 +9,6 @@ import { createField, type FieldHandle } from './engine/field';
 const COPY_SELECTOR = [
   '.kd-hero__copy > .kd-eyebrow',
   '.kd-wordmark',
-  '.kd-hero__mark',
   '.kd-tagline',
   '.kd-hero__sub',
   '.kd-hero__ctas > *',

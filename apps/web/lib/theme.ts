@@ -29,6 +29,20 @@ export function getThemePref(): ThemePref {
   }
 }
 
+/** The public landing (/ and /pricing) opens light when nothing is stored; the app stays dark. */
+export function isLandingPath(pathname: string): boolean {
+  return /^\/(pricing\/?)?$/.test(pathname);
+}
+
+/** True when the visitor has stored a choice (any value, including the default). */
+export function hasStoredThemePref(): boolean {
+  try {
+    return localStorage.getItem(THEME_KEY) !== null;
+  } catch {
+    return true;
+  }
+}
+
 /** Alias of getThemePref, for existing callers. */
 export const getTheme = getThemePref;
 

@@ -2,7 +2,9 @@
  * Inline, pre-paint theme resolution (UNIFY-SPEC §1.2), inlined in the root layout's <head> so it runs on every
  * route (landing, app, sign-in, OAuth, share, 404) before anything paints.
  *
- * localStorage['vx-theme'] = 'dark' | 'light' | 'system'. No stored value means DARK, even on a light OS.
+ * localStorage['vx-theme'] = 'dark' | 'light' | 'system'. No stored value means DARK, even on a light OS, except on
+ * the public landing (/ and /pricing), which opens LIGHT; components/landing/landing-theme.tsx keeps that in step
+ * across client navigation.
  * prefers-color-scheme is consulted only when the stored value is 'system', and then tracked live.
  * Every storage access is wrapped; any failure falls back to dark.
  *
@@ -12,10 +14,17 @@
 const src = function boot() {
   var d = document.documentElement;
   var C: Record<string, string> = { dark: '#0a0a0b', light: '#f4f4f6' };
+  function fallback() {
+    try {
+      return /^\/(pricing\/?)?$/.test(window.location.pathname) ? 'light' : 'dark';
+    } catch (e) {
+      return 'dark';
+    }
+  }
   function pref() {
     try {
       var v = localStorage.getItem('vx-theme');
-      return v === 'light' || v === 'system' ? v : 'dark';
+      return v === 'light' || v === 'system' || v === 'dark' ? v : fallback();
     } catch (e) {
       return 'dark';
     }

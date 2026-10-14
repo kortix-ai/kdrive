@@ -1,9 +1,9 @@
 import Link from 'next/link';
-import { CubeMark } from '@/components/brand/cube-mark';
+import { KMark } from '@/components/brand/k-mark';
 import { cx } from '@/components/ui/cx';
 
 /**
- * The KDRIVE lockup (UNIFY-SPEC §8.2): the cube mark + "KDRIVE" in Inter 600, 15px, tracking .08em, text-1
+ * The KDRIVE lockup (UNIFY-SPEC §8.2): the K mark + "KDRIVE" in Inter 600, 15px, tracking .08em, text-1
  * (identical to the landing nav). Links to the drive unless `href` is null. `compactBelow` hides the word in the
  * collapsed sidebar range (720–1023), where the mark alone shows at 20px.
  */
@@ -22,11 +22,11 @@ export function Brand({
     <>
       {compactBelow ? (
         <>
-          <CubeMark size={size} className="shrink-0 vx-side-full" />
-          <CubeMark size={20} className="shrink-0 vx-side-compact" />
+          <KMark size={size} className="shrink-0 vx-side-full" />
+          <KMark size={20} className="shrink-0 vx-side-compact" />
         </>
       ) : (
-        <CubeMark size={size} className="shrink-0" />
+        <KMark size={size} className="shrink-0" />
       )}
       <span className={cx('vx-wordmark', compactBelow && 'vx-side-full')}>KDRIVE</span>
     </>
@@ -45,7 +45,7 @@ export function Brand({
 export function BrandMetal({ className }: { className?: string }) {
   return (
     <span className={cx('inline-flex items-center gap-3', className)}>
-      <CubeMark size={28} variant="metal" className="shrink-0" />
+      <KMark size={28} className="shrink-0" />
       <span className="vx-metal text-[28px] font-bold leading-8 tracking-[-0.02em]">KDRIVE</span>
     </span>
   );

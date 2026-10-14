@@ -3,9 +3,9 @@
 // template dependency, like Platinum's mails); every caller-supplied value is
 // escaped here or by the caller through esc().
 //
-// The lockup is a table cell plus the wordmark, never an image: mail clients
-// block remote images by default, and a coloured cell inverts together with its
-// text in clients that force a light theme.
+// The lockup is the pixel K drawn as a 4×4 table of coloured cells plus the
+// wordmark, never an image: mail clients block remote images by default, and
+// coloured cells invert together with their text in clients that force a light theme.
 
 export const C = {
   bg: '#0a0a0b',
@@ -19,6 +19,18 @@ export const C = {
 } as const;
 const SANS = "Inter, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 const MONO = "ui-monospace, 'SF Mono', Menlo, Consolas, monospace";
+
+// The K mark as cells, one colour: B = stem and arms, P = plug, . = empty (components/brand/k-mark.tsx).
+const MARK_ROWS = ['B..B', 'BPP.', 'BPP.', 'B..B'];
+const MARK = `<table role="presentation" cellpadding="0" cellspacing="1" border="0">${MARK_ROWS.map(
+  (row) =>
+    `<tr>${[...row]
+      .map((k) => {
+        const c = k === '.' ? '' : C.text1;
+        return `<td width="3" height="3" ${c ? `bgcolor="${c}" ` : ''}style="width:3px;height:3px;${c ? `background:${c};` : ''}font-size:1px;line-height:1px;">&nbsp;</td>`;
+      })
+      .join('')}</tr>`,
+).join('')}</table>`;
 
 export function esc(s: string): string {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -76,7 +88,7 @@ ${p('Or paste this link into your browser:', C.text3, 12)}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:520px;background:${C.card};border:1px solid ${C.hair};border-radius:8px;">
 <tr><td class="kd-pad" style="padding:20px 28px;border-bottom:1px solid ${C.hair};">
 <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-<td width="12" height="12" bgcolor="${C.text1}" style="width:12px;height:12px;background:${C.text1};font-size:12px;line-height:12px;border-radius:2px;">&nbsp;</td>
+<td valign="middle">${MARK}</td>
 <td width="10" style="width:10px;font-size:12px;line-height:12px;">&nbsp;</td>
 <td valign="middle" style="font-family:${SANS};font-size:13px;font-weight:600;letter-spacing:0.08em;line-height:12px;color:${C.text1};">KDRIVE</td>
 </tr></table>

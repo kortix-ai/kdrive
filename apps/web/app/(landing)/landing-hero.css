@@ -137,8 +137,7 @@
 }
 .kd-hero__title { margin: 0; font-weight: inherit; }
 .kd-wordmark {
-  /* mark + word as one lockup, centred as a whole over the copy; the mark sits
-   * on the baseline at near cap height, so the line never reads as a bullet */
+  /* the name alone, set large and centred over the copy */
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -147,13 +146,6 @@
   color: var(--kd-text-1);
 }
 .kd-wordmark .kd-metal { padding-right: .02em; }
-.kd-hero__mark {
-  flex: none;
-  /* secondary to the word: the cube spans 86% of the box, about 71% of the cap height */
-  width: .6em;
-  height: .6em;
-  margin: 0 .08em .05em 0;
-}
 .kd-tagline {
   display: block;
   margin-top: 20px;

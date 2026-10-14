@@ -33,7 +33,7 @@ describe('theme preference', () => {
 });
 
 describe('pre-paint boot script', () => {
-  function run(stored: string | null, osLight: boolean, throwing = false) {
+  function run(stored: string | null, osLight: boolean, throwing = false, pathname = '/drive') {
     const attrs: Record<string, string> = {};
     const listeners: Record<string, ((e: unknown) => void)[]> = {};
     const style: Record<string, string> = {};
@@ -46,6 +46,7 @@ describe('pre-paint boot script', () => {
       matchMedia: (q: string) => ({ matches: q.includes('light') ? osLight : !osLight, addEventListener: () => {} }),
       addEventListener: (k: string, f: (e: unknown) => void) => (listeners[k] ??= []).push(f),
       dispatchEvent: () => true,
+      location: { pathname },
     };
     const storage = {
       getItem: () => {
@@ -65,6 +66,12 @@ describe('pre-paint boot script', () => {
 
   test('no stored value paints dark, even on a light device', () => {
     expect(run(null, true).theme).toBe('dark');
+  });
+  test('the landing opens light when nothing is stored', () => {
+    expect(run(null, false, false, '/').theme).toBe('light');
+    expect(run(null, false, false, '/pricing').theme).toBe('light');
+    expect(run(null, false, false, '/drive').theme).toBe('dark');
+    expect(run('dark', false, false, '/').theme).toBe('dark');
   });
   test('a stored choice wins', () => {
     expect(run('light', false).theme).toBe('light');
