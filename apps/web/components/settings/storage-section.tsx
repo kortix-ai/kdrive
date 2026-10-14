@@ -1,6 +1,9 @@
 'use client';
 
+import Link from 'next/link';
+import { ArrowRight, ChevronRight, PieChart } from 'lucide-react';
 import { RETENTION_COPY, formatBytes, meterLevel, type UsageResponse } from '@volumes/shared';
+import { buttonClass } from '@/components/ui/button';
 import { useUsage } from '@/lib/api/hooks';
 import { useVx } from '@/lib/store';
 import { cx } from '@/components/ui/cx';
@@ -12,7 +15,18 @@ export function percent(used: number, quota: number): number {
   return Math.round((used / quota) * 1000) / 10;
 }
 
-/** Storage: a 6 px meter, used of quota, per-workspace bars, retention and history notes. */
+/** Opens Settings → Storage: by kind of file, largest files, history, and who is using shared drives. */
+function DetailsLink() {
+  return (
+    <Link href="/settings/storage" className={buttonClass('outline', 'md', { withIcon: true })}>
+      <PieChart size={16} strokeWidth={1.75} aria-hidden />
+      Details
+      <ChevronRight size={14} strokeWidth={1.75} aria-hidden className="-mr-1 text-vx-text-3" />
+    </Link>
+  );
+}
+
+/** Storage: a 6 px meter, used of quota, per-workspace bars, retention and history notes, and a link to the details. */
 export function StorageSection({ fallback }: { fallback?: UsageResponse }) {
   useVx((s) => s.refreshKey);
   const current = useVx((s) => s.workspaceId);
@@ -20,7 +34,7 @@ export function StorageSection({ fallback }: { fallback?: UsageResponse }) {
   const data = live ?? fallback;
   if (!data) {
     return (
-      <Section id="storage" label="Storage">
+      <Section id="storage" label="Storage" aside={<DetailsLink />}>
         {error ? <SectionError>Couldn&apos;t load storage usage.</SectionError> : <span className="skeleton block h-16 w-full" />}
       </Section>
     );
@@ -29,7 +43,7 @@ export function StorageSection({ fallback }: { fallback?: UsageResponse }) {
   const pct = percent(data.usedBytes, data.quotaBytes);
   const over = data.usedBytes - data.quotaBytes;
   return (
-    <Section id="storage" label="Storage" description={RETENTION_COPY}>
+    <Section id="storage" label="Storage" description={RETENTION_COPY} aside={<DetailsLink />}>
       <div className="flex items-baseline justify-between gap-3">
         <span className="vx-meta-row text-vx-text-3">
           <span className="font-medium text-vx-text-1">{formatBytes(data.usedBytes)}</span> of {formatBytes(data.quotaBytes)} used
@@ -73,7 +87,10 @@ export function StorageSection({ fallback }: { fallback?: UsageResponse }) {
           Your quota counts each drive&apos;s current size. Earlier versions and checkpoints reuse unchanged data and are not counted. The history
           behind a drive can hold up to four times its size; if that fills up, remove a checkpoint or wait for older versions to age out.
         </p>
-        <p className="vx-micro text-vx-text-2">Ask an admin for more space.</p>
+        <Link href="/pricing" className="vx-micro inline-flex w-fit items-center gap-1 text-vx-text-2 underline-offset-4 hover:text-vx-text-1 hover:underline">
+          Need more space? See plans
+          <ArrowRight size={12} strokeWidth={1.75} aria-hidden />
+        </Link>
       </div>
     </Section>
   );

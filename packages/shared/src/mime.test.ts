@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { codeLanguage, isActiveContent, isTextLike, mimeFor, previewKind } from './mime';
+import { codeLanguage, isActiveContent, isTextLike, mimeFor, previewKind, storageCategory } from './mime';
 import { formatBytes, meterLevel, shortId } from './format';
 
 describe('mime', () => {
@@ -23,6 +23,25 @@ describe('mime', () => {
     expect(previewKind('a.html')).toBe('code');
     expect(previewKind('a.txt')).toBe('text');
     expect(previewKind('a.zip')).toBe('none');
+  });
+  test('storageCategory', () => {
+    expect(storageCategory('/Photos/beach.JPG')).toBe('images');
+    expect(storageCategory('logo.svg')).toBe('images');
+    expect(storageCategory('clip.mov')).toBe('videos');
+    expect(storageCategory('take.wav')).toBe('audio');
+    expect(storageCategory('report.pdf')).toBe('documents');
+    expect(storageCategory('budget.xlsx')).toBe('documents');
+    expect(storageCategory('notes.md')).toBe('documents');
+    expect(storageCategory('data.csv')).toBe('documents');
+    expect(storageCategory('todo.txt')).toBe('documents');
+    expect(storageCategory('README')).toBe('documents');
+    expect(storageCategory('main.rs')).toBe('code');
+    expect(storageCategory('package.json')).toBe('code');
+    expect(storageCategory('Dockerfile')).toBe('code');
+    expect(storageCategory('backup.tar')).toBe('archives');
+    expect(storageCategory('site.zip')).toBe('archives');
+    expect(storageCategory('blob.bin')).toBe('other');
+    expect(storageCategory('noext')).toBe('other');
   });
   test('codeLanguage', () => {
     expect(codeLanguage('a.tsx')).toBe('tsx');

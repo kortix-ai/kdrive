@@ -25,6 +25,7 @@ unless the conformance suite below is enabled.
 | `apps/api/test/e2e/account.test.ts` | Duplicate a workspace at a past version, admin quota changes, account deletion |
 | `apps/api/test/e2e/security.test.ts` | Cross-user workspace access, path traversal, active content served as attachment, CSRF origin and content-type checks, dev sign-in only from this machine, client address rules |
 | `apps/api/test/e2e/integrity.test.ts` | Restores that never write the wrong bytes, undo guards, logical-byte quota and upload reservations, commit-time conflicts, retries and lost responses, upload slots, share links that follow their item, batch restore, dedup that never reveals other users' files |
+| `apps/api/test/e2e/storage.test.ts` | Settings → Storage: bytes and files by kind, per drive, largest files, replaced and deleted content in the retention window; who wrote each current file in a shared drive through moves, overwrites, folder copies, deletes, undo, agents, former members and duplicates |
 
 Every e2e test gets an empty database and its own emulator (`test/e2e/kit.ts`),
 so tests never share volumes. The emulator caps live volumes per process like

@@ -25,6 +25,7 @@ import { oauthMetaRoutes } from './routes/oauth-meta';
 import { proposalsRoutes } from './routes/proposals';
 import { publicRoutes } from './routes/public';
 import { restoreRoutes } from './routes/restore';
+import { driveStorageRoutes, meStorageRoutes } from './routes/storage';
 import { timelineRoutes } from './routes/timeline';
 import { uploadsRoutes } from './routes/uploads';
 import { versionsRoutes } from './routes/versions';
@@ -128,6 +129,7 @@ export function createApp(): Hono<AppEnv> {
 
   app.route('/api', healthRoutes);
   app.route('/api', meRoutes);
+  app.route('/api', meStorageRoutes);
   app.route('/api', accountRoutes);
   app.route('/api/w/:ws', filesRoutes);
   app.route('/api/w/:ws', uploadsRoutes);
@@ -138,6 +140,7 @@ export function createApp(): Hono<AppEnv> {
   app.route('/api/w/:ws', deletedRoutes);
   app.route('/api/w/:ws', linksRoutes);
   app.route('/api/w/:ws', proposalsRoutes);
+  app.route('/api/w/:ws', driveStorageRoutes);
   app.route('/api/agents', agentTokensRoutes);
   app.route('/api/agents', agentsOauthRoutes);
   app.route('/api/public', publicRoutes);
