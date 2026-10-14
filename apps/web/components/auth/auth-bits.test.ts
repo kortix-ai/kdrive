@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { authErrorCopy, oauthErrorCopy, passwordStrength, providerLabel, safeNext } from './auth-bits';
+import { authErrorCopy, oauthErrorCopy, passwordStrength, providerButtonLabel, providerLabel, safeNext } from './auth-bits';
 
 describe('safeNext', () => {
   test('keeps same-origin app paths', () => {
@@ -70,6 +70,11 @@ describe('providerLabel and new codes', () => {
   test('provider ids read well', () => {
     expect(providerLabel('github')).toBe('GitHub');
     expect(providerLabel('google')).toBe('Google');
+  });
+  test('the sign-up page offers to sign up with a provider; sign-in continues', () => {
+    expect(providerButtonLabel('google', 'signup')).toBe('Sign up with Google');
+    expect(providerButtonLabel('google', 'signin')).toBe('Continue with Google');
+    expect(providerButtonLabel('github', 'signup')).toBe('Sign up with GitHub');
   });
   test('verify-email is never a ?next= target', () => {
     expect(safeNext('/verify-email?error=x')).toBe('/drive');

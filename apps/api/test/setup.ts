@@ -17,8 +17,10 @@ Object.assign(process.env, {
   BETTER_AUTH_SECRET: 'volumes-test-secret-0000000000000000000000000000',
   VOLUMES_ADMIN_EMAILS: 'admin@test.local',
   VOLUMES_DEFAULT_QUOTA_BYTES: String(10 * 1024 ** 3),
-  GOOGLE_CLIENT_ID: '',
-  GOOGLE_CLIENT_SECRET: '',
+  // A fake Google client, so the provider is wired as in production. Nothing reaches Google:
+  // test/e2e/google-auth.test.ts answers its token endpoint in-process.
+  GOOGLE_CLIENT_ID: 'kdrive-test.apps.googleusercontent.com',
+  GOOGLE_CLIENT_SECRET: 'kdrive-test-google-secret',
   GITHUB_CLIENT_ID: '',
   GITHUB_CLIENT_SECRET: '',
 });

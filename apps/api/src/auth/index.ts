@@ -152,6 +152,21 @@ export const auth = betterAuth({
       ? { github: { clientId: env.GITHUB_CLIENT_ID, clientSecret: env.GITHUB_CLIENT_SECRET } }
       : {}),
   },
+  account: {
+    // Spelled out (these are better-auth's defaults today) so an upgrade cannot loosen them.
+    // A provider sign-in joins an existing account with the same address only when the
+    // provider vouches for the address (Google's email_verified) AND the account here has
+    // proven it too. Otherwise whoever first typed someone's address into the sign-up form,
+    // never verified it and kept the password would share the account with its real owner
+    // once they arrive with Google. That owner gets ?error=account_not_linked instead and
+    // takes the account back with a password reset (which also verifies the address).
+    accountLinking: {
+      enabled: true,
+      trustedProviders: [],
+      requireLocalEmailVerified: true,
+      allowDifferentEmails: false,
+    },
+  },
   session: {
     expiresIn: 60 * 60 * 24 * 30,
     updateAge: 60 * 60 * 24,
@@ -203,8 +218,10 @@ export const auth = betterAuth({
     user: {
       create: {
         // Every new account (email, OAuth first sign-in, dev login) passes the mode gate.
-        before: async (user) => {
-          assertSignupAllowed(user.email);
+        // A refused provider sign-up creates nothing and lands back on the page with
+        // ?error=SIGNUP_RESTRICTED (see assertSignupAllowed).
+        before: async (user, ctx) => {
+          assertSignupAllowed(user.email, ctx);
           return { data: user };
         },
         // No drive here: GET /api/me provisions it on first use, after verification when that

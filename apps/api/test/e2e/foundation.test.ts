@@ -19,7 +19,7 @@ describe('foundation', () => {
     expect(h.headers.get('x-content-type-options')).toBe('nosniff');
     const cfg = await anon.get('/api/config');
     expect(cfg.body.devLogin).toBe(true);
-    expect(cfg.body.providers).toEqual([]);
+    expect(cfg.body.providers).toEqual(['google']); // the fake client from test/setup.ts
     expect(cfg.body.storageMode).toBe('emulated');
   });
 

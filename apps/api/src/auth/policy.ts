@@ -19,8 +19,21 @@ export function signupAllowed(email: string): boolean {
   return env.signupAllowlist.includes(e) || env.signupAllowlist.includes(domain);
 }
 
-export function assertSignupAllowed(email: string): void {
-  if (!signupAllowed(email)) throw new APIError('FORBIDDEN', { message: SIGNUP_RESTRICTED, code: 'SIGNUP_RESTRICTED' });
+/**
+ * A provider sign-in (Google, GitHub) creates its account inside better-auth's OAuth callback,
+ * which catches a refusal and sends the browser back to the page's errorCallbackURL with the
+ * error's message, spaces turned into underscores, as `?error=`. There the message is the code,
+ * so the sign-in page reads `?error=SIGNUP_RESTRICTED` and shows the same refusal as an email
+ * sign-up. Everywhere else (a JSON answer) the message is the readable sentence.
+ */
+export function isOAuthCallbackPath(path: string | undefined): boolean {
+  return !!path && /^\/(?:oauth2\/)?callback\//.test(path);
+}
+
+export function assertSignupAllowed(email: string, ctx?: { path?: string } | null): void {
+  if (signupAllowed(email)) return;
+  const message = isOAuthCallbackPath(ctx?.path) ? 'SIGNUP_RESTRICTED' : SIGNUP_RESTRICTED;
+  throw new APIError('FORBIDDEN', { message, code: 'SIGNUP_RESTRICTED' });
 }
 
 /** What an emailed account link asks the user to confirm on /verify-email. */
