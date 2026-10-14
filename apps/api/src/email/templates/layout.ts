@@ -16,18 +16,17 @@ export const C = {
   text3: '#8b8b96',
   cta: '#ededf0',
   onCta: '#0a0a0b',
-  plug: '#c8ccd4',
 } as const;
 const SANS = "Inter, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 const MONO = "ui-monospace, 'SF Mono', Menlo, Consolas, monospace";
 
-// The K mark as cells: B = body, P = plug, . = empty (components/brand/k-mark.tsx).
+// The K mark as cells, one colour: B = stem and arms, P = plug, . = empty (components/brand/k-mark.tsx).
 const MARK_ROWS = ['B..B', 'BPP.', 'BPP.', 'B..B'];
 const MARK = `<table role="presentation" cellpadding="0" cellspacing="1" border="0">${MARK_ROWS.map(
   (row) =>
     `<tr>${[...row]
       .map((k) => {
-        const c = k === 'B' ? C.text1 : k === 'P' ? C.plug : '';
+        const c = k === '.' ? '' : C.text1;
         return `<td width="3" height="3" ${c ? `bgcolor="${c}" ` : ''}style="width:3px;height:3px;${c ? `background:${c};` : ''}font-size:1px;line-height:1px;">&nbsp;</td>`;
       })
       .join('')}</tr>`,

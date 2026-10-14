@@ -1,5 +1,4 @@
 import { PrimaryCta } from '../cta';
-import { LogoMark } from '../logo-mark';
 import { Poster } from './poster';
 import { HeroSceneLoader } from './scene-loader';
 
@@ -17,7 +16,6 @@ export function Hero({ signedIn }: { signedIn: boolean }) {
         <p className="kd-eyebrow kd-hero__eyebrow">Versioned cloud drive</p>
         <h1 id="kd-hero-title" className="kd-hero__title">
           <span className="kd-wordmark">
-            <LogoMark size={64} className="kd-hero__mark" />
             <span className="kd-metal">KDRIVE</span>
           </span>
           <span className="kd-tagline">

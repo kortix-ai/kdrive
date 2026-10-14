@@ -113,8 +113,8 @@
   --vx-shadow-4: 0 40px 90px -50px rgb(0 0 0 / .9), 0 0 0 1px var(--vx-hair);
   --vx-shadow-mock: 0 40px 90px -50px rgb(0 0 0 / .9);
 
-  /* K mark: body pixels, plug pixels, plug contacts */
-  --vx-mark-body: #ededf0; --vx-mark-plug: #c8ccd4; --vx-mark-contact: #0a0a0b;
+  /* K mark: every pixel, and the plug's contacts */
+  --vx-mark-body: #ededf0; --vx-mark-contact: #0a0a0b;
 
   color: var(--vx-text-2);
   color-scheme: dark;
@@ -211,7 +211,7 @@
   --vx-shadow-4: 0 40px 90px -50px rgb(30 30 45 / .35), 0 0 0 1px var(--vx-hair);
   --vx-shadow-mock: 0 40px 90px -50px rgb(30 30 45 / .35);
 
-  --vx-mark-body: #0a0a0b; --vx-mark-plug: #63636d; --vx-mark-contact: #ffffff;
+  --vx-mark-body: #0a0a0b; --vx-mark-contact: #f4f4f6;
 
   color: var(--vx-text-2);
   color-scheme: light;

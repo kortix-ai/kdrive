@@ -29,7 +29,7 @@ const MARK_SVG = (() => {
   const cell = (x: number, y: number, fill: string) =>
     `<rect x="${x * 10 + 0.6}" y="${y * 10 + 0.6}" width="8.8" height="8.8" rx="2.4" fill="${fill}"/>`;
   const body = [[0, 0], [0, 1], [0, 2], [0, 3], [3, 0], [3, 3]].map(([x, y]) => cell(x, y, '#ededf0')).join('');
-  const plug = [[1, 1], [1, 2], [2, 1], [2, 2]].map(([x, y]) => cell(x, y, '#c8ccd4')).join('');
+  const plug = [[1, 1], [1, 2], [2, 1], [2, 2]].map(([x, y]) => cell(x, y, '#ededf0')).join('');
   const contacts = '<rect x="23.8" y="13.8" width="2.4" height="2.4" rx=".6" fill="#0a0a0b"/><rect x="23.8" y="23.8" width="2.4" height="2.4" rx=".6" fill="#0a0a0b"/>';
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">${body}${plug}${contacts}</svg>`;
   return `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
