@@ -6,7 +6,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { CircleHelp, Clock, LogOut, Menu as MenuIcon, Monitor, Moon, Search, Settings, Sun } from 'lucide-react';
-import { CubeMark } from '@/components/brand/cube-mark';
+import { KMark } from '@/components/brand/k-mark';
 import { Avatar } from '@/components/ui/avatar';
 import { IconButton } from '@/components/ui/icon-button';
 import { Kbd } from '@/components/ui/kbd';
@@ -57,7 +57,7 @@ function SearchPill({ onMenu, phone }: { onMenu?: () => void; phone?: boolean })
           </IconButton>
           {/* The brand on phones too: the 16 px cube mark, home to the drive. */}
           <Link href="/drive" aria-label="KDRIVE home" className="inline-flex h-9 w-6 shrink-0 items-center justify-center rounded-vx-sm">
-            <CubeMark size={16} />
+            <KMark size={16} />
           </Link>
         </>
       ) : null}

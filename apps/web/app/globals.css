@@ -113,11 +113,8 @@
   --vx-shadow-4: 0 40px 90px -50px rgb(0 0 0 / .9), 0 0 0 1px var(--vx-hair);
   --vx-shadow-mock: 0 40px 90px -50px rgb(0 0 0 / .9);
 
-  /* cube mark */
-  --vx-mark-top: #e9ebef; --vx-mark-left: #9ea3ac; --vx-mark-right: #5d616a; --vx-mark-stroke: var(--vx-bg);
-  --vx-mark-metal-top-a: #c8ccd4; --vx-mark-metal-top-b: #e3e6eb;
-  --vx-mark-metal-left: #8d929c; --vx-mark-metal-right: #4a4e57;
-  --vx-mark-metal-edge: rgb(255 255 255 / .30);
+  /* K mark: body pixels, plug pixels, plug contacts */
+  --vx-mark-body: #ededf0; --vx-mark-plug: #c8ccd4; --vx-mark-contact: #0a0a0b;
 
   color: var(--vx-text-2);
   color-scheme: dark;
@@ -214,10 +211,7 @@
   --vx-shadow-4: 0 40px 90px -50px rgb(30 30 45 / .35), 0 0 0 1px var(--vx-hair);
   --vx-shadow-mock: 0 40px 90px -50px rgb(30 30 45 / .35);
 
-  --vx-mark-top: #c8ccd4; --vx-mark-left: #6b707a; --vx-mark-right: #2f3238; --vx-mark-stroke: var(--vx-bg);
-  --vx-mark-metal-top-a: #5a5e68; --vx-mark-metal-top-b: #3b3e46;
-  --vx-mark-metal-left: #2a2c32; --vx-mark-metal-right: #121316;
-  --vx-mark-metal-edge: rgb(255 255 255 / .55);
+  --vx-mark-body: #0a0a0b; --vx-mark-plug: #63636d; --vx-mark-contact: #ffffff;
 
   color: var(--vx-text-2);
   color-scheme: light;

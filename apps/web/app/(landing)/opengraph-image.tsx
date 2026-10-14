@@ -24,6 +24,17 @@ async function inter(weight: 600 | 700, text: string): Promise<ArrayBuffer | nul
   }
 }
 
+// The pixel K (components/brand/k-mark.tsx), light on the dark card.
+const MARK_SVG = (() => {
+  const cell = (x: number, y: number, fill: string) =>
+    `<rect x="${x * 10 + 0.6}" y="${y * 10 + 0.6}" width="8.8" height="8.8" rx="2.4" fill="${fill}"/>`;
+  const body = [[0, 0], [0, 1], [0, 2], [0, 3], [3, 0], [3, 3]].map(([x, y]) => cell(x, y, '#ededf0')).join('');
+  const plug = [[1, 1], [1, 2], [2, 1], [2, 2]].map(([x, y]) => cell(x, y, '#c8ccd4')).join('');
+  const contacts = '<rect x="23.8" y="13.8" width="2.4" height="2.4" rx=".6" fill="#0a0a0b"/><rect x="23.8" y="23.8" width="2.4" height="2.4" rx=".6" fill="#0a0a0b"/>';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">${body}${plug}${contacts}</svg>`;
+  return `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
+})();
+
 export default async function OpengraphImage() {
   const art = `data:image/svg+xml;base64,${Buffer.from(posterSvg(DESKTOP, W, H)).toString('base64')}`;
   const [bold, semi] = await Promise.all([inter(700, 'KDRIVE'), inter(600, 'The drive that remembers.')]);
@@ -57,6 +68,8 @@ export default async function OpengraphImage() {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={art} width={W} height={H} alt="" style={{ position: 'absolute', inset: 0 }} />
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={MARK_SVG} width={96} height={96} alt="" style={{ marginBottom: 28 }} />
           <div
             style={{
               fontSize: 168,
