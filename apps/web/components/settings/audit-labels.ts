@@ -29,6 +29,10 @@ const LABELS: Record<string, string> = {
   'link.update': 'Link changed',
   'link.revoke': 'Link revoked',
   'quota.change': 'Quota changed',
+  'storage.request': 'More storage requested',
+  'storage.grant': 'Storage request granted',
+  'storage.dismiss': 'Storage request dismissed',
+  'billing.plan_change': 'Plan changed',
 };
 
 /** "Signed in", "Link revoked" … (falls back to the raw kind). */
@@ -50,6 +54,7 @@ export function auditDetail(meta: Record<string, unknown>): string {
   const m = meta ?? {};
   if (typeof m.from === 'number' && typeof m.to === 'number') parts.push(`${formatBytes(m.from)} → ${formatBytes(m.to)}`);
   if (typeof m.name === 'string') parts.push(m.name);
+  if (typeof m.plan === 'string') parts.push(m.plan.charAt(0).toUpperCase() + m.plan.slice(1));
   if (typeof m.mode === 'string') parts.push(m.mode);
   if (typeof m.at === 'string') parts.push(shortId(m.at));
   if (typeof m.path === 'string') parts.push(m.path);

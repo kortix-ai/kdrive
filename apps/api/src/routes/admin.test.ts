@@ -1,4 +1,4 @@
-// API-admin: users + usage, quota edits (≤ 50 GiB), audit log; gated by VOLUMES_ADMIN_EMAILS.
+// API-admin: users + usage, quota edits (≤ 1 TiB), audit log; gated by VOLUMES_ADMIN_EMAILS.
 import { afterAll, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -54,7 +54,7 @@ describe('admin', () => {
     expect(none.body.users).toEqual([]);
   });
 
-  test('set quota: ≤ 50 GiB, persists, audited; unknown user 404', async () => {
+  test('set quota: ≤ 1 TiB, persists, audited; unknown user 404', async () => {
     const admin = await signInWithWorkspace('admin@test.local');
     const u = await signInWithWorkspace('quota@test.local');
     const id = u.me.user.id;

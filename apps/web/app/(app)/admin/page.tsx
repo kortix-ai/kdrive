@@ -1,11 +1,13 @@
 'use client';
 
-// Admin (UNIFY-SPEC §14.4): users (usage, inline quota editor) and the audit log. Admins only; a 403 view otherwise.
+// Admin (UNIFY-SPEC §14.4): users (usage, inline quota editor), storage requests (grant or dismiss) and the
+// audit log. Admins only; a 403 view otherwise. `?tab=requests` (the request email's link) opens Requests.
 import { useEffect, useMemo, useState } from 'react';
 import useSWR, { mutate as globalMutate } from 'swr';
 import { Search } from 'lucide-react';
-import { formatBytes, meterLevel, type AdminUser } from '@volumes/shared';
+import { formatBytes, MAX_QUOTA_BYTES, meterLevel, type AdminUser } from '@volumes/shared';
 import { AuditTable } from '@/components/admin/audit-table';
+import { StorageRequests, useOpenStorageRequests } from '@/components/admin/storage-requests';
 import { UsersTable } from '@/components/admin/users-table';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -71,7 +73,7 @@ function UsersTab({ query }: { query: string }) {
       ) : (
         <UsersTable users={data.users} capBytes={data.workspaceCapBytes} onUpdated={onUpdated} />
       )}
-      <p className="vx-micro mt-4 text-vx-text-3">Quotas go up to 50 GB. Usage is each drive&apos;s current size; history is not counted.</p>
+      <p className="vx-micro mt-4 text-vx-text-3">Quotas go up to {formatBytes(MAX_QUOTA_BYTES)}. Usage is each drive&apos;s current size; history is not counted.</p>
     </div>
   );
 }
@@ -93,9 +95,16 @@ function Totals() {
   );
 }
 
+type AdminTab = 'users' | 'requests' | 'audit';
+
 export default function AdminPage() {
   const me = useVx((s) => s.me);
-  const [tab, setTab] = useState<'users' | 'audit'>('users');
+  const [tab, setTab] = useState<AdminTab>('users');
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get('tab');
+    if (t === 'requests' || t === 'audit') setTab(t);
+  }, []);
+  const { data: open } = useOpenStorageRequests(!!me?.isAdmin);
   const [q, setQ] = useState('');
   const query = useDebounced(q.trim(), 250);
   if (!me) return null;
@@ -110,6 +119,7 @@ export default function AdminPage() {
           onChange={setTab}
           items={[
             { id: 'users', label: 'Users' },
+            { id: 'requests', label: 'Requests', count: open?.requests.length || undefined },
             { id: 'audit', label: 'Audit' },
           ]}
         />
@@ -126,7 +136,7 @@ export default function AdminPage() {
           </div>
         ) : null}
       </div>
-      {tab === 'users' ? <UsersTab query={query} /> : <AuditTable />}
+      {tab === 'users' ? <UsersTab query={query} /> : tab === 'requests' ? <StorageRequests /> : <AuditTable />}
     </Page>
   );
 }

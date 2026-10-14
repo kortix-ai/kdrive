@@ -31,6 +31,8 @@ export const ConfigResponse = z.object({
   retentionCopy: z.string().default(RETENTION_COPY),
   /** AI agent access: whether /mcp is on, and the MCP server URL to give an agent. */
   mcp: z.object({ enabled: z.boolean(), url: z.string() }),
+  /** Paid plans: `enabled` when Stripe is configured (Checkout); otherwise people request more storage. */
+  billing: z.object({ enabled: z.boolean() }).default({ enabled: false }),
 });
 export type ConfigResponse = z.infer<typeof ConfigResponse>;
 
@@ -96,6 +98,10 @@ export const AUDIT_KINDS = [
   'link.update',
   'link.revoke',
   'quota.change',
+  'storage.request',
+  'storage.grant',
+  'storage.dismiss',
+  'billing.plan_change',
   'agent.token.create',
   'agent.token.revoke',
   'agent.grant.create',

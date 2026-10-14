@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { ThemeToggle } from '@/components/shell/theme-toggle';
-import { PrimaryCta, SIGNIN_HREF } from './cta';
+import { PrimaryCta, SIGNIN_HREF, sectionHref } from './cta';
 import { LogoMark } from './logo-mark';
 import { useReveal } from './use-reveal';
 
@@ -17,10 +17,12 @@ const LINKS = [
   { href: '#time-travel', label: 'Time travel' },
   { href: '#agents', label: 'Agents' },
   { href: '#under-the-hood', label: 'Under the hood' },
+  { href: '/pricing', label: 'Pricing' },
   { href: '#faq', label: 'FAQ' },
 ];
 
-export function Nav({ signedIn }: { signedIn: boolean }) {
+/** `home`: the bar sits on the landing itself (its anchors scroll); false on other public pages. */
+export function Nav({ signedIn, home = true }: { signedIn: boolean; home?: boolean }) {
   const [scrolled, setScrolled] = useState(false);
   // the CTA is a hairline ghost over the hero (whose own CTA leads) and turns solid once it scrolls out
   const [past, setPast] = useState(false);
@@ -54,16 +56,22 @@ export function Nav({ signedIn }: { signedIn: boolean }) {
       </a>
       <header className={`kd-nav${scrolled ? ' kd-nav--scrolled' : ''}${past ? ' kd-nav--past' : ''}`}>
         <div className="kd-container kd-nav__inner">
-          <a href="#top" className="kd-nav__brand" aria-label="KDRIVE, back to top">
+          <a href={home ? '#top' : '/'} className="kd-nav__brand" aria-label={home ? 'KDRIVE, back to top' : 'KDRIVE home'}>
             <LogoMark />
             <span>KDRIVE</span>
           </a>
           <nav className="kd-nav__links" aria-label="Sections">
-            {LINKS.map((l) => (
-              <a key={l.href} href={l.href}>
-                {l.label}
-              </a>
-            ))}
+            {LINKS.map((l) =>
+              l.href.startsWith('/') ? (
+                <Link key={l.href} href={l.href} aria-current={!home && l.href === '/pricing' ? 'page' : undefined}>
+                  {l.label}
+                </Link>
+              ) : (
+                <a key={l.href} href={sectionHref(l.href, home)}>
+                  {l.label}
+                </a>
+              ),
+            )}
           </nav>
           <div className="kd-nav__right">
             <ThemeToggle className="kd-nav__theme" />

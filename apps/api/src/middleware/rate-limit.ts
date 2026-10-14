@@ -177,6 +177,10 @@ export const limits = {
   /** Drive invitations (each one mails an address): 30 per owner and 5 per invited address, per hour. */
   driveInvite: { name: 'drive-invite', capacity: 30, refillPerSec: 30 / 3600 },
   driveInviteEmail: { name: 'drive-invite-email', capacity: 5, refillPerSec: 5 / 3600 },
+  /** Storage requests (each one can mail every admin): 5 per user per hour. */
+  storageRequest: { name: 'storage-request', capacity: 5, refillPerSec: 5 / 3600 },
+  /** Stripe Checkout and billing portal sessions: 20 per user per hour. */
+  billingSession: { name: 'billing-session', capacity: 20, refillPerSec: 20 / 3600 },
   /**
    * Per client address on /mcp, before the credential is looked up: every
    * attempt takes a token and a successful one gives it back, so only failed

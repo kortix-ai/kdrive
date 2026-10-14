@@ -29,7 +29,7 @@ function Split({ data }: { data: UsageResponse }) {
         <p className="vx-meta text-vx-text-3">Nothing stored yet.</p>
       )}
       <p className="vx-micro mt-3 text-vx-text-3">{RETENTION_COPY}</p>
-      <p className="vx-micro mt-1 text-vx-text-3">Ask an admin for more space.</p>
+      <p className="vx-micro mt-1 text-vx-text-3">Need more room? Get more storage, below.</p>
     </div>
   );
 }

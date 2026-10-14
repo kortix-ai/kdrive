@@ -4,6 +4,8 @@ import { ApiError } from '../lib/http';
 
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const BLOCK_PUT = /^\/api\/w\/[^/]+\/uploads\/[^/]+\/blocks\/[^/]+$/;
+/** Server-to-server callers with their own signature (no browser, no Origin). */
+const SIGNED_WEBHOOKS = new Set(['/api/billing/webhook']);
 
 function hasBody(req: Request): boolean {
   const len = req.headers.get('content-length');
@@ -14,12 +16,13 @@ function hasBody(req: Request): boolean {
 /**
  * Same-origin + content-type guard for our mutating routes (better-auth guards
  * its own). The Origin must be a trusted origin; a body must be JSON (the
- * block PUT must be application/octet-stream). Failure: 403 `csrf`.
+ * block PUT must be application/octet-stream). Signed webhooks are exempt.
+ * Failure: 403 `csrf`.
  */
 export const csrfGuard: MiddlewareHandler = async (c, next) => {
   const method = c.req.method.toUpperCase();
   const path = c.req.path;
-  if (!MUTATING.has(method) || !path.startsWith('/api/') || path.startsWith('/api/auth/')) return next();
+  if (!MUTATING.has(method) || !path.startsWith('/api/') || path.startsWith('/api/auth/') || SIGNED_WEBHOOKS.has(path)) return next();
 
   const origin = c.req.header('origin');
   let originOk = false;

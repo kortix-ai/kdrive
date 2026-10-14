@@ -134,6 +134,25 @@ password". `GET /api/config` tells the web app what is on (`email.enabled`,
 The sign-up page links its legal line when `NEXT_PUBLIC_TERMS_URL` and
 `NEXT_PUBLIC_PRIVACY_URL` are set for the web build.
 
+### Plans and billing
+
+Everyone starts on **Free** (10 GB). **Plus** (100 GB) and **Pro** (1 TB) are listed
+at `/pricing`; their names, sizes, prices and selling points live in one constant,
+`PLANS` in `packages/shared/src/plans.ts` (a `null` price shows "Price coming soon").
+The sidebar's "Get more storage" leads there.
+
+- **Without Stripe** (the default): a paid plan's button opens a request. Admins are
+  emailed and grant (the quota becomes the plan's size) or dismiss it under Admin →
+  Requests; the person sees the request's status on `/pricing`.
+- **With Stripe** (set all of `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`,
+  `STRIPE_PRICE_PLUS`, `STRIPE_PRICE_PRO`): paid plans go to Stripe Checkout as monthly
+  subscriptions, subscribers manage them in Stripe's billing portal, and the webhook at
+  `<BETTER_AUTH_URL>/api/billing/webhook` (`checkout.session.completed`,
+  `customer.subscription.created` / `updated` / `deleted`, `invoice.payment_failed`) sets
+  the quota: the plan's size while active, trialing or past due, 10 GB once it ends.
+  Files are never deleted; a drive over its quota only refuses uploads. Deleting an
+  account cancels its subscription.
+
 ### Running it for real
 
 `bun run build` type-checks everything and builds the web app. `bun run --cwd

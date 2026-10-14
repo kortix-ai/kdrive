@@ -10,6 +10,7 @@ import { Meter } from '@/components/ui/meter';
 import { cx } from '@/components/ui/cx';
 import { isoTitle } from '@/lib/format';
 import { QuotaEditor } from './quota-editor';
+import { SubscriptionBadge } from './storage-requests';
 
 export type UserSortKey = 'email' | 'workspaces' | 'used' | 'quota' | 'lastSignIn' | 'created';
 
@@ -107,6 +108,7 @@ export function UsersTable({ users, capBytes, onUpdated }: { users: AdminUser[];
                         {u.name ? <div className="truncate text-[12px] leading-4 text-vx-text-3">{u.name}</div> : null}
                       </div>
                       {u.isAdmin ? <Badge tone="accent">Admin</Badge> : null}
+                      <SubscriptionBadge s={u.subscription} />
                     </div>
                   </td>
                   <td className="vx-meta-row px-3 text-right text-vx-text-2">{u.workspaceCount}</td>
@@ -184,6 +186,7 @@ function PhoneUsers({
                 {u.email}
               </span>
               {u.isAdmin ? <Badge tone="accent">Admin</Badge> : null}
+              <SubscriptionBadge s={u.subscription} />
             </div>
             <div className="flex min-w-0 items-center gap-1 pl-[34px] font-mono text-[12px] leading-5 text-vx-text-3">
               <span className={cx('whitespace-nowrap', level === 'red' ? 'text-vx-danger' : level === 'amber' ? 'text-vx-warn' : 'text-vx-text-2')}>

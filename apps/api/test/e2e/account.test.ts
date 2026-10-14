@@ -55,7 +55,7 @@ describe('workspaces', () => {
 });
 
 describe('admin', () => {
-  test('admins list users with usage and change quotas (≤ 50 GiB); others get 403', async () => {
+  test('admins list users with usage and change quotas (≤ 1 TiB); others get 403', async () => {
     const u = await user('member@test.local');
     await upload(u, { '/f.bin': new Uint8Array(10_000) });
     const adm = await user('admin@test.local');
@@ -73,7 +73,7 @@ describe('admin', () => {
     const set = await adm.client.put(`/api/admin/users/${u.userId}/quota`, { quotaBytes: twenty });
     expect(set.status).toBe(200);
     expect((await u.client.get('/api/me/usage')).body.quotaBytes).toBe(twenty);
-    expect((await adm.client.put(`/api/admin/users/${u.userId}/quota`, { quotaBytes: 51 * 1024 ** 3 })).status).toBe(400);
+    expect((await adm.client.put(`/api/admin/users/${u.userId}/quota`, { quotaBytes: 1024 ** 4 + 1 })).status).toBe(400);
 
     const audit = await adm.client.get('/api/admin/audit?kind=quota.change');
     expect(audit.body.events[0]).toMatchObject({ kind: 'quota.change', target: 'member@test.local', actorEmail: 'admin@test.local', meta: { to: twenty, targetUserId: u.userId } });

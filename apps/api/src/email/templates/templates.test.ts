@@ -4,6 +4,9 @@ import { lifetime } from './layout';
 import { renderPasswordChanged } from './password-changed';
 import { renderResetPassword } from './reset';
 import { renderVerifyEmail } from './verify';
+import { planById } from '@volumes/shared';
+import { renderStorageGranted } from './storage-granted';
+import { renderStorageRequest } from './storage-request';
 import { renderAccountExists, renderWelcome } from './welcome';
 
 const URL_ = 'https://drive.example.com/api/auth/verify-email?token=abc&callbackURL=x';
@@ -17,6 +20,8 @@ const all = () => [
   renderPasswordChanged({ email: EVIL, resetUrl: URL_, via: 'change', when: new Date(0) }),
   renderWelcome({ email: EVIL, name: '<b>Ada</b>', appUrl: 'https://drive.example.com/drive' }),
   renderAccountExists({ email: EVIL, signInUrl: URL_, resetUrl: URL_ }),
+  renderStorageRequest({ email: EVIL, requester: { email: EVIL, name: '<b>Ada</b>' }, plan: planById('plus'), note: EVIL, quotaBytes: 1, url: URL_ }),
+  renderStorageGranted({ email: EVIL, plan: planById('pro'), quotaBytes: 1, url: URL_ }),
 ];
 
 describe('account email templates', () => {

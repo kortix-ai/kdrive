@@ -27,9 +27,9 @@ describe('schemas', () => {
     expect(RestoreRequest.safeParse({ scope: 'file', at: 'vc_x' }).success).toBe(false);
     expect(RestoreRequest.safeParse({ scope: 'file', at: 'bad ref' , path: '/a'}).success).toBe(false);
   });
-  test('SetQuotaRequest caps at 50 GiB', () => {
-    expect(SetQuotaRequest.safeParse({ quotaBytes: 50 * GiB }).success).toBe(true);
-    expect(SetQuotaRequest.safeParse({ quotaBytes: 50 * GiB + 1 }).success).toBe(false);
+  test('SetQuotaRequest caps at 1 TiB (the Pro plan)', () => {
+    expect(SetQuotaRequest.safeParse({ quotaBytes: 1024 * GiB }).success).toBe(true);
+    expect(SetQuotaRequest.safeParse({ quotaBytes: 1024 * GiB + 1 }).success).toBe(false);
     expect(SetQuotaRequest.safeParse({ quotaBytes: 0 }).success).toBe(false);
   });
   test('CreateLinkRequest expiry', () => {

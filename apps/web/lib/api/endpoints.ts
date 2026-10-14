@@ -7,9 +7,12 @@ import {
   type InviteRequest,
   type MemberRole,
   AcceptProposalResponse,
+  AdminStorageRequestResponse,
+  AdminStorageRequestsResponse,
   AdminUserResponse,
   AdminUsersResponse,
   AuditListResponse,
+  BillingResponse,
   CheckpointListResponse,
   CheckpointResponse,
   CommitResponse,
@@ -34,11 +37,13 @@ import {
   MutationResponse,
   PublicListResponse,
   PublicShareMeta,
+  RedirectResponse,
   RestoreResponse,
   SearchResponse,
   StatResponse,
   StorageOverviewResponse,
   StoragePeopleResponse,
+  StorageRequestResponse,
   TimelineResponse,
   UndoResponse,
   UploadCommitResponse,
@@ -54,6 +59,8 @@ import {
   type OAuthConsentDecision,
   type UpdateConnectedAppRequest,
   type CreateLinkRequest,
+  type CreateStorageRequest,
+  type PaidPlanId,
   type CreateWorkspaceRequest,
   type DuplicateWorkspaceRequest,
   type RestoreRequest,
@@ -76,6 +83,19 @@ export const api = {
     audit: (q: { before?: number | null; limit?: number } = {}) =>
       apiFetch(`/api/me/audit${qs({ before: q.before, limit: q.limit })}`, {}, AuditListResponse),
     deleteAccount: (req: { confirm: string }) => apiFetch<void>('/api/me', { method: 'DELETE', json: req }),
+    /** The latest request for more storage (open, or the last one an admin answered). */
+    storageRequest: () => apiFetch('/api/me/storage-requests', {}, StorageRequestResponse),
+    requestStorage: (req: CreateStorageRequest) =>
+      apiFetch('/api/me/storage-requests', { method: 'POST', json: req }, StorageRequestResponse),
+  },
+
+  /** Paid plans through Stripe (when the server has it configured). */
+  billing: {
+    get: () => apiFetch('/api/billing', {}, BillingResponse),
+    /** A Stripe Checkout URL to send the browser to. */
+    checkout: (plan: PaidPlanId) => apiFetch('/api/billing/checkout', { method: 'POST', json: { plan } }, RedirectResponse),
+    /** A Stripe billing portal URL (change plan or card, cancel, invoices). */
+    portal: () => apiFetch('/api/billing/portal', { method: 'POST', json: {} }, RedirectResponse),
   },
 
   auth: {
@@ -218,6 +238,12 @@ export const api = {
       apiFetch(`/api/admin/users/${encodeURIComponent(userId)}/quota`, { method: 'PUT', json: { quotaBytes } }, AdminUserResponse),
     audit: (q: { userId?: string; kind?: string; before?: number | null; limit?: number } = {}) =>
       apiFetch(`/api/admin/audit${qs({ userId: q.userId, kind: q.kind, before: q.before, limit: q.limit })}`, {}, AuditListResponse),
+    storageRequests: (q: { status?: 'open' | 'all' } = {}) =>
+      apiFetch(`/api/admin/storage-requests${qs({ status: q.status })}`, {}, AdminStorageRequestsResponse),
+    grantStorageRequest: (id: string) =>
+      apiFetch(`/api/admin/storage-requests/${encodeURIComponent(id)}/grant`, { method: 'POST', json: {} }, AdminStorageRequestResponse),
+    dismissStorageRequest: (id: string) =>
+      apiFetch(`/api/admin/storage-requests/${encodeURIComponent(id)}/dismiss`, { method: 'POST', json: {} }, AdminStorageRequestResponse),
   },
 };
 

@@ -4,13 +4,15 @@ import { db } from '../db/client';
 import { auditEvents, bauthUser, shareLinks, workspaces, type AuditEventRow } from '../db/schema';
 import { audit } from '../lib/audit';
 import { ApiError } from '../lib/http';
+import { cancelSubscriptionForDeletion } from './billing';
 import { deleteAllWorkspaceVolumes } from './workspace-admin';
 
 /**
  * Deletes every workspace volume (missingOk) and the user row (cascades to
  * sessions, settings, workspaces, ledger, links, checkpoints, uploads), then
  * audits `account.delete` with the email kept as actorEmail and userId null.
- * A storage failure aborts before any row is removed, so a retry can finish.
+ * A paid subscription is cancelled first. A billing or storage failure aborts
+ * before any row is removed, so a retry can finish.
  */
 export async function deleteAccount(userId: string, opts: { ip?: string | null } = {}): Promise<void> {
   const [user] = await db.select({ id: bauthUser.id, email: bauthUser.email }).from(bauthUser).where(eq(bauthUser.id, userId)).limit(1);
@@ -19,6 +21,7 @@ export async function deleteAccount(userId: string, opts: { ip?: string | null }
     db.$count(workspaces, eq(workspaces.userId, userId)),
     db.$count(shareLinks, eq(shareLinks.userId, userId)),
   ]);
+  await cancelSubscriptionForDeletion(userId);
   const volumes = await deleteAllWorkspaceVolumes(userId);
   await db.delete(bauthUser).where(eq(bauthUser.id, userId));
   await audit(null, {

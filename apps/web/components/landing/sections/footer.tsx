@@ -1,16 +1,17 @@
 import Link from 'next/link';
-import { DRIVE_HREF, SIGNIN_HREF } from '../cta';
+import { DRIVE_HREF, SIGNIN_HREF, sectionHref } from '../cta';
 import { LogoMark } from '../logo-mark';
 
 // The footer (LANDING-SPEC §6.9): brand block, two link columns, copyright.
 // No giant wordmark, and no links to pages that don't exist yet.
-export function Footer({ signedIn }: { signedIn: boolean }) {
+export function Footer({ signedIn, home = true }: { signedIn: boolean; home?: boolean }) {
+  const s = (href: string) => sectionHref(href, home);
   return (
     <footer className="kd-footer">
       <div className="kd-container">
         <div className="kd-footer__top">
           <div className="kd-footer__brand">
-            <a href="#top" className="kd-nav__brand" aria-label="KDRIVE, back to top">
+            <a href={home ? '#top' : '/'} className="kd-nav__brand" aria-label={home ? 'KDRIVE, back to top' : 'KDRIVE home'}>
               <LogoMark />
               <span>KDRIVE</span>
             </a>
@@ -22,16 +23,19 @@ export function Footer({ signedIn }: { signedIn: boolean }) {
               <p className="kd-footer__label">Product</p>
               <ul>
                 <li>
-                  <a href="#how">How it works</a>
+                  <a href={s('#how')}>How it works</a>
                 </li>
                 <li>
-                  <a href="#time-travel">Time travel</a>
+                  <a href={s('#time-travel')}>Time travel</a>
                 </li>
                 <li>
-                  <a href="#agents">Agents</a>
+                  <a href={s('#agents')}>Agents</a>
                 </li>
                 <li>
-                  <a href="#faq">FAQ</a>
+                  <Link href="/pricing">Pricing</Link>
+                </li>
+                <li>
+                  <a href={s('#faq')}>FAQ</a>
                 </li>
               </ul>
             </div>

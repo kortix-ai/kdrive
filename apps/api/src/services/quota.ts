@@ -14,6 +14,14 @@ export async function getQuotaBytes(userId: string, q: Reader = db): Promise<num
   return row?.q ?? env.defaultQuotaBytes;
 }
 
+/** Sets the user's quota (callers check the bounds and audit the change). */
+export async function writeQuota(userId: string, quotaBytes: number, q: Pick<typeof db, 'insert'> = db): Promise<void> {
+  await q
+    .insert(userSettings)
+    .values({ userId, quotaBytes })
+    .onConflictDoUpdate({ target: userSettings.userId, set: { quotaBytes, updatedAt: new Date() } });
+}
+
 /** Usage = Σ volume logicalBytes over the user's live workspaces. */
 export async function getUsage(userId: string): Promise<UsageResponse> {
   const [quotaBytes, rows] = await Promise.all([getQuotaBytes(userId), listWorkspaces(userId)]);

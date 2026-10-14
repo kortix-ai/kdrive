@@ -13,6 +13,7 @@ import { assertEmailVerified, requireAdmin, requireUser, sessionMiddleware } fro
 import { requireWorkspace } from './middleware/workspace';
 import { accountRoutes } from './routes/account';
 import { adminRoutes } from './routes/admin';
+import { billingRoutes, storageRequestRoutes } from './routes/billing';
 import { agentTokensRoutes } from './routes/agent-tokens';
 import { agentsOauthRoutes } from './routes/agents-oauth';
 import { checkpointsRoutes } from './routes/checkpoints';
@@ -33,7 +34,8 @@ import { invitationsRoutes } from './routes/invitations';
 import { workspacesRoutes } from './routes/workspaces';
 import type { AppEnv } from './types';
 
-const PUBLIC_PATHS = new Set(['/api/health', '/api/config']);
+/** No session needed. The Stripe webhook authenticates by its signature. */
+const PUBLIC_PATHS = new Set(['/api/health', '/api/config', '/api/billing/webhook']);
 /** Block PUTs are bounded by their plan (a hash in `missing`, at most 1 MiB), so they get their own budget. */
 const BLOCK_PUT = /^\/api\/w\/[^/]+\/uploads\/([^/]+)\/blocks\/[^/]+$/;
 
@@ -131,6 +133,8 @@ export function createApp(): Hono<AppEnv> {
   app.route('/api', meRoutes);
   app.route('/api', meStorageRoutes);
   app.route('/api', accountRoutes);
+  app.route('/api', storageRequestRoutes);
+  app.route('/api/billing', billingRoutes);
   app.route('/api/w/:ws', filesRoutes);
   app.route('/api/w/:ws', uploadsRoutes);
   app.route('/api/w/:ws', timelineRoutes);
