@@ -68,4 +68,16 @@ describe('account email settings', () => {
     expect(e.signupAllowlist).toEqual(['ada@x.test', '@team.test']);
     expect(() => loadEnv({ VOLUMES_SIGNUP_MODE: 'maybe' })).toThrow(/VOLUMES_SIGNUP_MODE/);
   });
+
+  test('Stripe: the secret key alone turns billing config on; the other variables are optional overrides', () => {
+    expect(loadEnv({ NODE_ENV: 'test' }).stripe).toBeNull();
+    expect(loadEnv({ NODE_ENV: 'test', STRIPE_SECRET_KEY: 'sk_test_abc12345' }).stripe).toEqual({
+      secretKey: 'sk_test_abc12345',
+      webhookSecret: null,
+      prices: { plus: null, pro: null },
+    });
+    expect(loadEnv({ NODE_ENV: 'test', STRIPE_SECRET_KEY: 'sk_test_abc12345', STRIPE_PRICE_PLUS: 'price_1' }).stripe?.prices).toEqual({ plus: 'price_1', pro: null });
+    // Overrides without a key are ignored, not a startup error.
+    expect(loadEnv({ NODE_ENV: 'test', STRIPE_WEBHOOK_SECRET: 'whsec_x', STRIPE_PRICE_PRO: 'price_2' }).stripe).toBeNull();
+  });
 });

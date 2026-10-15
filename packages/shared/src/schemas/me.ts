@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { RETENTION_COPY } from '../constants';
+import { PlanPricesSchema } from './billing';
 import { IsoDateSchema } from './common';
 import { WorkspaceSummarySchema } from './workspaces';
 
@@ -31,8 +32,13 @@ export const ConfigResponse = z.object({
   retentionCopy: z.string().default(RETENTION_COPY),
   /** AI agent access: whether /mcp is on, and the MCP server URL to give an agent. */
   mcp: z.object({ enabled: z.boolean(), url: z.string() }),
-  /** Paid plans: `enabled` when Stripe is configured (Checkout); otherwise people request more storage. */
-  billing: z.object({ enabled: z.boolean() }).default({ enabled: false }),
+  /**
+   * Paid plans: `enabled` when Stripe is configured (Checkout); otherwise people request more storage.
+   * `prices`: the paid plans' monthly prices as an admin set them (null: not set yet).
+   */
+  billing: z
+    .object({ enabled: z.boolean(), prices: PlanPricesSchema.default({ plus: null, pro: null }) })
+    .default({ enabled: false, prices: { plus: null, pro: null } }),
 });
 export type ConfigResponse = z.infer<typeof ConfigResponse>;
 
@@ -104,6 +110,10 @@ export const AUDIT_KINDS = [
   'storage.grant',
   'storage.dismiss',
   'billing.plan_change',
+  'billing.config_key',
+  'billing.config_prices',
+  'billing.config_webhook',
+  'billing.config_disconnect',
   'agent.token.create',
   'agent.token.revoke',
   'agent.grant.create',

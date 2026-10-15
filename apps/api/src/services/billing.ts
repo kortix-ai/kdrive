@@ -1,8 +1,9 @@
 // Paid plans as Stripe monthly subscriptions.
 //
-// Off unless every STRIPE_* variable is set (env.stripe); then /pricing sends
-// people to Stripe Checkout and the billing portal instead of the storage
-// request flow (services/storage-requests.ts), which stays for admins.
+// Off until Stripe is configured: under Admin → Billing, with the key pasted there or taken
+// from STRIPE_SECRET_KEY (services/billing-config.ts resolves the pieces). Then /pricing sends people to Stripe Checkout and
+// the billing portal instead of the storage request flow (services/storage-requests.ts), which
+// stays for admins.
 //
 // Stripe is the source of truth. Checkout and the portal only start things; a
 // subscription's state reaches us through signed webhooks, and each one is
@@ -13,11 +14,10 @@
 
 import { and, eq, inArray } from 'drizzle-orm';
 import type { Context } from 'hono';
-import Stripe from 'stripe';
+import type Stripe from 'stripe';
 import {
   formatBytes,
   isPaidPlan,
-  PAID_PLAN_IDS,
   planById,
   planForQuota,
   type BillingResponse,
@@ -31,47 +31,24 @@ import { env, type StripeConfig } from '../env';
 import { audit } from '../lib/audit';
 import { ApiError } from '../lib/http';
 import type { SessionUser } from '../types';
+import { billingEnabled, resolveBilling, type ResolvedBilling } from './billing-config';
 import { getQuotaBytes, writeQuota } from './quota';
+import { stripeClient, type StripeClient } from './stripe-client';
 
-/** The slice of the Stripe SDK this module uses (tests inject a fake). */
-export interface StripeClient {
-  customers: { create(p: Stripe.CustomerCreateParams): Promise<{ id: string }> };
-  checkout: { sessions: { create(p: Stripe.Checkout.SessionCreateParams): Promise<{ id: string; url: string | null }> } };
-  billingPortal: { sessions: { create(p: Stripe.BillingPortal.SessionCreateParams): Promise<{ url: string }> } };
-  subscriptions: {
-    retrieve(id: string): Promise<Stripe.Subscription>;
-    cancel(id: string): Promise<unknown>;
-  };
-  webhooks: { constructEventAsync(payload: string, header: string, secret: string): Promise<Stripe.Event> };
+export { billingEnabled } from './billing-config';
+export { setStripeClientForTests, type StripeClient } from './stripe-client';
+
+const NOT_SET_UP = () => new ApiError(404, 'not_found', 'Billing is not set up on this server.');
+
+/** The configuration in effect, when billing is on. */
+async function config(): Promise<StripeConfig> {
+  const r = await resolveBilling();
+  if (!r.stripe) throw NOT_SET_UP();
+  return r.stripe;
 }
 
-let client: StripeClient | null = null;
-let clientKey: string | null = null;
-let testClient: StripeClient | null = null;
-
-/** Tests: use `c` instead of the real SDK (null puts the SDK back). */
-export function setStripeClientForTests(c: StripeClient | null): void {
-  testClient = c;
-}
-
-/** Billing is on: all four STRIPE_* variables are set. */
-export function billingEnabled(): boolean {
-  return env.stripe !== null;
-}
-
-function config(): StripeConfig {
-  if (!env.stripe) throw new ApiError(404, 'not_found', 'Billing is not set up on this server.');
-  return env.stripe;
-}
-
-function stripe(): StripeClient {
-  const cfg = config();
-  if (testClient) return testClient;
-  if (!client || clientKey !== cfg.secretKey) {
-    client = new Stripe(cfg.secretKey, { maxNetworkRetries: 2, timeout: 10_000, appInfo: { name: 'KDRIVE' } });
-    clientKey = cfg.secretKey;
-  }
-  return client;
+function stripe(cfg: StripeConfig): StripeClient {
+  return stripeClient(cfg.secretKey);
 }
 
 /** Runs a Stripe call; any failure is a 502 the client can retry (never Stripe's own message). */
@@ -123,7 +100,7 @@ export async function subscriptionsFor(userIds: string[]): Promise<Map<string, S
 export async function getBilling(userId: string): Promise<BillingResponse> {
   const [quotaBytes, row] = await Promise.all([getQuotaBytes(userId), accountOf(userId)]);
   return {
-    enabled: billingEnabled(),
+    enabled: await billingEnabled(),
     plan: planForQuota(quotaBytes).id,
     quotaBytes,
     subscription: toSubscription(row),
@@ -132,11 +109,11 @@ export async function getBilling(userId: string): Promise<BillingResponse> {
 }
 
 /** The user's Stripe customer, created on first use (one per user, reused by every checkout). */
-async function ensureCustomer(user: SessionUser): Promise<string> {
+async function ensureCustomer(cfg: StripeConfig, user: SessionUser): Promise<string> {
   const existing = await accountOf(user.id);
   if (existing) return existing.stripeCustomerId;
   const customer = await call('customers.create', () =>
-    stripe().customers.create({ email: user.email, name: user.name ?? undefined, metadata: { userId: user.id } }),
+    stripe(cfg).customers.create({ email: user.email, name: user.name ?? undefined, metadata: { userId: user.id } }),
   );
   await db.insert(billingAccounts).values({ userId: user.id, stripeCustomerId: customer.id }).onConflictDoNothing();
   // Two checkouts at once: the first row wins and the spare customer is never used.
@@ -145,14 +122,14 @@ async function ensureCustomer(user: SessionUser): Promise<string> {
 
 /** POST /api/billing/checkout: a Checkout Session for a monthly subscription to `plan`. */
 export async function createCheckout(user: SessionUser, plan: PaidPlanId): Promise<string> {
-  const cfg = config();
+  const cfg = await config();
   const current = entitledPlan(await accountOf(user.id));
   if (current) {
     throw new ApiError(409, 'conflict', `You already subscribe to ${planById(current).name}. Change or cancel it from Manage billing.`);
   }
-  const customer = await ensureCustomer(user);
+  const customer = await ensureCustomer(cfg, user);
   const session = await call('checkout.sessions.create', () =>
-    stripe().checkout.sessions.create({
+    stripe(cfg).checkout.sessions.create({
       mode: 'subscription',
       customer,
       client_reference_id: user.id,
@@ -169,11 +146,11 @@ export async function createCheckout(user: SessionUser, plan: PaidPlanId): Promi
 
 /** POST /api/billing/portal: Stripe's billing portal (change plan or card, cancel, invoices). */
 export async function createPortal(user: SessionUser): Promise<string> {
-  config();
+  const cfg = await config();
   const row = await accountOf(user.id);
   if (!row) throw new ApiError(404, 'not_found', 'There is no billing account to manage yet.');
   const session = await call('billingPortal.sessions.create', () =>
-    stripe().billingPortal.sessions.create({ customer: row.stripeCustomerId, return_url: appUrl('/pricing') }),
+    stripe(cfg).billingPortal.sessions.create({ customer: row.stripeCustomerId, return_url: appUrl('/pricing') }),
   );
   return session.url;
 }
@@ -185,21 +162,30 @@ export async function createPortal(user: SessionUser): Promise<string> {
 export async function cancelSubscriptionForDeletion(userId: string): Promise<void> {
   const row = await accountOf(userId);
   if (!row?.subscriptionId || !row.status || row.status === 'canceled' || row.status === 'incomplete_expired') return;
-  if (!billingEnabled()) {
+  // A key is enough to cancel, even while billing is otherwise incomplete.
+  const { secretKey } = await resolveBilling();
+  if (!secretKey) {
     console.warn(`[billing] account ${userId} has subscription ${row.subscriptionId} but Stripe is not configured; cancel it in the dashboard`);
     return;
   }
-  await call('subscriptions.cancel', () => stripe().subscriptions.cancel(row.subscriptionId!));
+  await call('subscriptions.cancel', () => stripeClient(secretKey).subscriptions.cancel(row.subscriptionId!));
 }
 
 // ── webhooks ─────────────────────────────────────────────────────────────────
 
 const idOf = (v: string | { id: string } | null | undefined): string | null => (typeof v === 'string' ? v : (v?.id ?? null));
 
-/** The plan a subscription pays for: its first item's price, else the plan we put in its metadata. */
-function planOf(sub: Stripe.Subscription, cfg: StripeConfig): PaidPlanId | null {
-  const price = sub.items?.data?.[0]?.price?.id;
-  for (const id of PAID_PLAN_IDS) if (price && cfg.prices[id] === price) return id;
+/**
+ * The plan a subscription pays for: the plan KDRIVE marked on its first item's Price (every
+ * Price made from Admin → Billing, old amounts included), else a known plan Price id (current
+ * or from STRIPE_PRICE_*), else the plan we put in the subscription's metadata at Checkout.
+ */
+function planOf(sub: Stripe.Subscription, r: ResolvedBilling): PaidPlanId | null {
+  const price = sub.items?.data?.[0]?.price;
+  const marked = price?.metadata?.kdrive_plan;
+  if (marked && isPaidPlan(marked)) return marked;
+  const known = price?.id ? r.priceIds.get(price.id) : undefined;
+  if (known) return known;
   const meta = sub.metadata?.plan;
   return meta && isPaidPlan(meta) ? meta : null;
 }
@@ -214,8 +200,7 @@ function periodEnd(sub: Stripe.Subscription): Date | null {
  * Brings one subscription's state into billing_accounts and, when the plan it entitles
  * changes, the user's quota. Serialised per user by a row lock.
  */
-async function syncSubscription(sub: Stripe.Subscription, hintUserId: string | null): Promise<void> {
-  const cfg = config();
+async function syncSubscription(sub: Stripe.Subscription, hintUserId: string | null, r: ResolvedBilling): Promise<void> {
   const customerId = idOf(sub.customer);
   if (!customerId) return;
   await db.transaction(async (tx) => {
@@ -232,7 +217,7 @@ async function syncSubscription(sub: Stripe.Subscription, hintUserId: string | n
       [row] = await tx.select().from(billingAccounts).where(eq(billingAccounts.userId, u.id)).for('update');
       if (!row || row.stripeCustomerId !== customerId) return;
     }
-    const plan = planOf(sub, cfg);
+    const plan = planOf(sub, r);
     const entitled = ENTITLED.has(sub.status);
     // An older subscription ending must not undo the one in effect now.
     if (row.subscriptionId && row.subscriptionId !== sub.id && !entitled && entitledPlan(row)) return;
@@ -278,10 +263,10 @@ async function syncSubscription(sub: Stripe.Subscription, hintUserId: string | n
   });
 }
 
-async function syncById(subscriptionId: string | null, hintUserId: string | null = null): Promise<void> {
+async function syncById(r: ResolvedBilling, client: StripeClient, subscriptionId: string | null, hintUserId: string | null = null): Promise<void> {
   if (!subscriptionId) return;
-  const sub = await call('subscriptions.retrieve', () => stripe().subscriptions.retrieve(subscriptionId));
-  await syncSubscription(sub, hintUserId);
+  const sub = await call('subscriptions.retrieve', () => client.subscriptions.retrieve(subscriptionId));
+  await syncSubscription(sub, hintUserId, r);
 }
 
 /** The subscription an invoice belongs to (moved under `parent` in newer API versions). */
@@ -293,34 +278,42 @@ function invoiceSubscription(inv: Stripe.Invoice): string | null {
 /**
  * POST /api/billing/webhook. Verifies the signature over the raw body, then handles each
  * event once: its id is recorded first, and removed again if handling fails so Stripe's
- * retry runs it. Unknown event types are acknowledged and ignored.
+ * retry runs it. Unknown event types are acknowledged and ignored. The events acted on are
+ * WEBHOOK_EVENTS (services/stripe-client.ts), what an endpoint made from Admin → Billing sends.
  */
 export async function handleWebhook(c: Context, rawBody: string): Promise<{ received: true; duplicate?: true }> {
-  const cfg = config();
+  const r = await resolveBilling();
+  if (!r.stripe) throw NOT_SET_UP();
+  const client = stripe(r.stripe);
   const sig = c.req.header('stripe-signature');
   if (!sig) throw new ApiError(400, 'bad_request', 'Missing Stripe signature.');
-  let event: Stripe.Event;
-  try {
-    event = await stripe().webhooks.constructEventAsync(rawBody, sig, cfg.webhookSecret);
-  } catch {
-    throw new ApiError(400, 'bad_request', 'Invalid Stripe signature.');
+  let event: Stripe.Event | null = null;
+  // The endpoint's secret first; STRIPE_WEBHOOK_SECRET too, so an endpoint set up by env keeps working.
+  for (const secret of r.webhookSecrets) {
+    try {
+      event = await client.webhooks.constructEventAsync(rawBody, sig, secret);
+      break;
+    } catch {
+      /* try the next secret */
+    }
   }
+  if (!event) throw new ApiError(400, 'bad_request', 'Invalid Stripe signature.');
   const [fresh] = await db.insert(billingEvents).values({ id: event.id, type: event.type }).onConflictDoNothing().returning({ id: billingEvents.id });
   if (!fresh) return { received: true, duplicate: true };
   try {
     switch (event.type) {
       case 'checkout.session.completed': {
         const s = event.data.object;
-        if (s.mode === 'subscription') await syncById(idOf(s.subscription), s.client_reference_id ?? null);
+        if (s.mode === 'subscription') await syncById(r, client, idOf(s.subscription), s.client_reference_id ?? null);
         break;
       }
       case 'customer.subscription.created':
       case 'customer.subscription.updated':
       case 'customer.subscription.deleted':
-        await syncById(event.data.object.id);
+        await syncById(r, client, event.data.object.id);
         break;
       case 'invoice.payment_failed':
-        await syncById(invoiceSubscription(event.data.object));
+        await syncById(r, client, invoiceSubscription(event.data.object));
         break;
     }
   } catch (e) {

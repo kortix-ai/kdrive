@@ -1,10 +1,11 @@
 import { DEFAULT_QUOTA_BYTES, GiB, TiB } from './constants';
 
-// Storage plans. The one place their names, sizes, prices and selling points
-// live: the pricing page renders this list, the API grants `storageBytes` when
-// a request is granted or a subscription starts. Prices are not decided yet:
-// `price: null` renders as "Price coming soon"; set `{ amount, currency }` here
-// (and the matching monthly Price in Stripe) once they are.
+// Storage plans. The one place their names, sizes and selling points live: the
+// pricing page renders this list, the API grants `storageBytes` when a request
+// is granted or a subscription starts. The paid plans' prices are not set here:
+// an admin types them under Admin → Billing (the API creates the matching
+// monthly Prices in Stripe) and /api/config hands them out; `withPrices` lays
+// them over this list. `price: null` renders as "Price coming soon".
 
 export const PLAN_IDS = ['free', 'plus', 'pro'] as const;
 export type PlanId = (typeof PLAN_IDS)[number];
@@ -56,6 +57,30 @@ export const PLANS: readonly Plan[] = [
     features: ['1 TB of storage', 'Everything in Plus', 'Room for large media and datasets', 'Priority help when something goes wrong'],
   },
 ];
+
+/** A paid plan's price as an admin set it, or null while it is not set. */
+export type PlanPrices = Record<PaidPlanId, PlanPrice | null>;
+
+export const NO_PLAN_PRICES: PlanPrices = { plus: null, pro: null };
+
+/** The plans with the paid plans' prices from `prices` (from /api/config); missing ones stay null. */
+export function withPrices(prices: Partial<PlanPrices> | null | undefined): Plan[] {
+  return PLANS.map((p) => (isPaidPlan(p.id) ? { ...p, price: prices?.[p.id] ?? p.price } : p));
+}
+
+/** Currencies an admin can price the plans in (ISO 4217, upper case). */
+export const BILLING_CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'CHF', 'SGD', 'INR', 'JPY'] as const;
+export type BillingCurrency = (typeof BILLING_CURRENCIES)[number];
+
+/** Digits after the decimal point in `currency`'s major unit (Stripe amounts are in the minor unit). */
+export function currencyDecimals(currency: string): number {
+  return ['JPY', 'KRW', 'VND', 'CLP'].includes(currency.toUpperCase()) ? 0 : 2;
+}
+
+/** 9.5 USD → 950 (Stripe's unit_amount). */
+export function toMinorUnits(amount: number, currency: string): number {
+  return Math.round(amount * 10 ** currencyDecimals(currency));
+}
 
 export function planById(id: PlanId): Plan {
   return PLANS.find((p) => p.id === id)!;

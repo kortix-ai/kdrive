@@ -6,7 +6,7 @@ import { emailEnabled } from '../email/client';
 import { ok } from '../lib/http';
 import { requireUser } from '../middleware/session';
 import { isAdminUser } from '../services/admins';
-import { billingEnabled } from '../services/billing';
+import { publicBilling } from '../services/billing-config';
 import { getUsage } from '../services/quota';
 import { listSharedWorkspaceSummaries } from '../services/members';
 import { ensureUserBootstrap, listWorkspaces, toWorkspaceSummaries } from '../services/workspaces';
@@ -16,7 +16,7 @@ import type { AppEnv } from '../types';
 /** GET /api/config, GET /api/me, GET /api/me/usage (FOUNDATION). */
 export const meRoutes = new Hono<AppEnv>();
 
-meRoutes.get('/config', (c) =>
+meRoutes.get('/config', async (c) =>
   ok(c, ConfigResponse, {
     providers: env.providers,
     devLogin: env.devLoginEnabled,
@@ -29,7 +29,7 @@ meRoutes.get('/config', (c) =>
     storageMode: storageMode(),
     retentionCopy: RETENTION_COPY,
     mcp: { enabled: env.mcpEnabled, url: MCP_RESOURCE },
-    billing: { enabled: billingEnabled() },
+    billing: await publicBilling(),
   }),
 );
 
