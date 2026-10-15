@@ -25,6 +25,13 @@ const Raw = z.object({
   VOLUMES_EMAIL_PASSWORD: z.preprocess(emptyToUndefined, z.enum(['0', '1']).default('1')),
   /** Who may create an account: everyone, the allowlist (+ admins), or admins only. */
   VOLUMES_SIGNUP_MODE: z.preprocess(emptyToUndefined, z.enum(['open', 'invite-only', 'closed']).default('open')),
+  /**
+   * Admins, comma-separated addresses. The source of truth: they are always admins (once the
+   * address is verified), may always create an account, and cannot be removed in the UI.
+   */
+  VOLUMES_ADMIN_EMAILS: opt(),
+  /** The commit this build runs (shown in Admin → Settings); read from git when unset. */
+  VOLUMES_COMMIT: opt(),
   /** invite-only: addresses (ada@x.com) or whole domains (@x.com), comma-separated. */
   VOLUMES_SIGNUP_ALLOWLIST: opt(),
   /** '1' holds signed-in users with an unverified email at the verify screen. */
@@ -107,6 +114,10 @@ export interface Env {
   isLocalMode: boolean;
   /** Mutable so tests can switch policies at runtime; read at request time, never cached. */
   signupMode: 'open' | 'invite-only' | 'closed';
+  /** VOLUMES_ADMIN_EMAILS, lower-cased and de-duplicated. Mutable so tests can change it. */
+  adminEmails: string[];
+  /** VOLUMES_COMMIT (null when unset). */
+  commit: string | null;
   /** Lower-cased addresses and `@domain` entries allowed to sign up in invite-only mode. */
   signupAllowlist: string[];
   requireEmailVerification: boolean;
@@ -216,6 +227,15 @@ export function loadEnv(source: Record<string, string | undefined> = process.env
     emailLinks: emailProvider || isLocalMode,
     isLocalMode,
     signupMode: r.VOLUMES_SIGNUP_MODE,
+    adminEmails: [
+      ...new Set(
+        (r.VOLUMES_ADMIN_EMAILS ?? '')
+          .split(',')
+          .map((e) => e.trim().toLowerCase())
+          .filter(Boolean),
+      ),
+    ],
+    commit: r.VOLUMES_COMMIT ?? null,
     signupAllowlist: (r.VOLUMES_SIGNUP_ALLOWLIST ?? '')
       .split(',')
       .map((e) => e.trim().toLowerCase())

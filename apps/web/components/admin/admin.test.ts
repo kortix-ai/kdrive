@@ -1,7 +1,10 @@
 import { describe, expect, test } from 'bun:test';
 import { AUDIT_KINDS, GiB } from '@volumes/shared';
 import { auditLabel, AUDIT_GROUPS } from '@/components/settings/audit-labels';
-import { adminRouteSearch, EMPTY_AUDIT, parseAdminRoute, rangeFrom } from './admin-route';
+import { auditFilterSearch, auditHref, EMPTY_AUDIT, legacyAdminPath, parseAuditFilter, rangeFrom, sectionOf } from './admin-route';
+import { nextDriveSort } from './drives';
+import { dayLabel, niceMax } from './overview';
+import { clockTime } from './server-log';
 import { looksLikeEmail } from './admins';
 import { parsePrice, priceInput } from './billing';
 import { auditParams, kindChips, toggleKinds } from './audit-table';
@@ -47,25 +50,35 @@ describe('users table', () => {
 });
 
 describe('admin route', () => {
-  test('tab, user and audit filters round-trip through the query string', () => {
-    const r = parseAdminRoute('?tab=audit&q=ada&kind=link.create&kind=link.revoke&workspaceId=w1&range=7d');
-    expect(r).toEqual({
-      tab: 'audit',
-      user: null,
-      audit: { q: 'ada', userId: null, kinds: ['link.create', 'link.revoke'], workspaceId: 'w1', range: '7d' },
-    });
-    expect(parseAdminRoute(adminRouteSearch(r))).toEqual(r);
-    expect(adminRouteSearch({ ...r, tab: 'overview' })).toBe('');
-    expect(adminRouteSearch({ tab: 'users', user: 'u1', audit: EMPTY_AUDIT })).toBe('?tab=users&user=u1');
+  test('audit filters round-trip through the query string', () => {
+    const f = parseAuditFilter('?q=ada&kind=link.create&kind=link.revoke&workspaceId=w1&range=7d');
+    expect(f).toEqual({ q: 'ada', userId: null, kinds: ['link.create', 'link.revoke'], workspaceId: 'w1', range: '7d' });
+    expect(parseAuditFilter(auditFilterSearch(f))).toEqual(f);
+    expect(auditFilterSearch(EMPTY_AUDIT)).toBe('');
+    expect(parseAuditFilter('?range=1y').range).toBe('all');
+    expect(auditHref({ userId: 'u1' })).toBe('/admin/logs?userId=u1');
   });
 
-  test('old and partial links land somewhere sensible', () => {
-    expect(parseAdminRoute('').tab).toBe('overview');
-    expect(parseAdminRoute('?tab=requests').tab).toBe('requests');
-    expect(parseAdminRoute('?tab=nope').tab).toBe('overview');
-    expect(parseAdminRoute('?user=u1').tab).toBe('users');
-    expect(parseAdminRoute('?userId=u1')).toMatchObject({ tab: 'audit', audit: { userId: 'u1' } });
-    expect(parseAdminRoute('?tab=audit&range=1y').audit.range).toBe('all');
+  test('old ?tab= links redirect to their section', () => {
+    expect(legacyAdminPath('')).toBeNull();
+    expect(legacyAdminPath('?tab=requests')).toBe('/admin/requests');
+    expect(legacyAdminPath('?tab=billing')).toBe('/admin/billing');
+    expect(legacyAdminPath('?tab=admins')).toBe('/admin/admins');
+    expect(legacyAdminPath('?tab=users')).toBe('/admin/users');
+    expect(legacyAdminPath('?tab=users&user=u1')).toBe('/admin/users/u1');
+    expect(legacyAdminPath('?user=u1')).toBe('/admin/users/u1');
+    expect(legacyAdminPath('?tab=domains')).toBe('/admin/users?view=domains');
+    expect(legacyAdminPath('?tab=audit&kind=undo&range=7d')).toBe('/admin/logs?kind=undo&range=7d');
+    expect(legacyAdminPath('?userId=u1')).toBe('/admin/logs?userId=u1');
+    expect(legacyAdminPath('?tab=overview')).toBe('/admin');
+    expect(legacyAdminPath('?tab=nope')).toBe('/admin');
+  });
+
+  test('sectionOf', () => {
+    expect(sectionOf('/admin')).toBe('overview');
+    expect(sectionOf('/admin/users/u1')).toBe('users');
+    expect(sectionOf('/admin/logs')).toBe('logs');
+    expect(sectionOf('/admin/unknown')).toBe('overview');
   });
 
   test('rangeFrom', () => {
@@ -130,11 +143,6 @@ describe('subscription badge', () => {
 });
 
 describe('billing', () => {
-  test('the Billing tab has its own URL', () => {
-    expect(parseAdminRoute('?tab=billing').tab).toBe('billing');
-    expect(adminRouteSearch({ ...parseAdminRoute(''), tab: 'billing' })).toBe('?tab=billing');
-  });
-
   test('parsePrice: a monthly amount, at least 0.50, decimals by currency', () => {
     expect(parsePrice('9', 'USD')).toEqual({ amount: 9, error: null });
     expect(parsePrice(' 9.50 ', 'EUR')).toEqual({ amount: 9.5, error: null });
@@ -152,5 +160,22 @@ describe('billing', () => {
     expect(priceInput(9, 'USD')).toBe('9');
     expect(priceInput(9.5, 'USD')).toBe('9.50');
     expect(priceInput(1200, 'JPY')).toBe('1200');
+  });
+});
+
+describe('console sections', () => {
+  test('drive sort: a new column starts newest first (names A→Z); the same column flips', () => {
+    expect(nextDriveSort({ key: 'created', dir: 'desc' }, 'created')).toEqual({ key: 'created', dir: 'asc' });
+    expect(nextDriveSort({ key: 'created', dir: 'desc' }, 'name')).toEqual({ key: 'name', dir: 'asc' });
+    expect(nextDriveSort({ key: 'name', dir: 'asc' }, 'created')).toEqual({ key: 'created', dir: 'desc' });
+  });
+
+  test('sign-up chart: round y tops and day labels', () => {
+    expect([0, 1, 3, 5, 7, 13, 42, 99, 101].map(niceMax)).toEqual([1, 1, 3, 5, 8, 15, 50, 100, 150]);
+    expect(dayLabel('2026-10-05')).toBe('5 Oct');
+  });
+
+  test('clockTime is 24 h', () => {
+    expect(clockTime('2026-10-15T13:02:07.000Z')).toMatch(/^\d{2}:\d{2}:\d{2}$/);
   });
 });

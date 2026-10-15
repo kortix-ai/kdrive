@@ -1,6 +1,7 @@
 import type { MiddlewareHandler } from 'hono';
 import { auth } from '../auth';
 import { env } from '../env';
+import { audit } from '../lib/audit';
 import { ApiError } from '../lib/http';
 import { isAdminUser } from '../services/admins';
 import type { AppEnv } from '../types';
@@ -33,11 +34,39 @@ export const requireUser: MiddlewareHandler<AppEnv> = async (c, next) => {
   await next();
 };
 
-/** 403 `forbidden` unless the user's verified email is in the `admins` table (see isAdminUser). */
+/** Recently audited refusals (user + path), so a reloading page writes one event a minute, not hundreds. */
+const deniedSeen = new Map<string, number>();
+const DENIED_EVERY_MS = 60_000;
+
+function shouldAuditDenied(key: string, now = Date.now()): boolean {
+  const last = deniedSeen.get(key);
+  if (last !== undefined && now - last < DENIED_EVERY_MS) return false;
+  if (deniedSeen.size > 5000) deniedSeen.clear();
+  deniedSeen.set(key, now);
+  return true;
+}
+
+/** Forgets the refusal throttle (tests). */
+export function clearAdminDeniedThrottle(): void {
+  deniedSeen.clear();
+}
+
+/**
+ * 404 `not_found` (the same answer as a route that does not exist) unless the user is an
+ * admin: a verified address in VOLUMES_ADMIN_EMAILS or the `admins` table (see isAdminUser).
+ * Nobody else can tell the admin API is there. The refusal is audited (no account id, so it
+ * never shows in the user's own activity).
+ */
 export const requireAdmin: MiddlewareHandler<AppEnv> = async (c, next) => {
   const u = c.get('user');
   if (!u) throw new ApiError(401, 'unauthorized', 'Sign in to continue.');
-  if (!(await isAdminUser(u))) throw new ApiError(403, 'forbidden', 'Admins only.');
+  if (!(await isAdminUser(u))) {
+    const path = c.req.path;
+    if (shouldAuditDenied(`${u.id}|${c.req.method} ${path}`)) {
+      await audit(c, { kind: 'admin.denied', userId: null, actorEmail: u.email, target: path, meta: { userId: u.id, method: c.req.method } });
+    }
+    throw new ApiError(404, 'not_found', 'No such route.');
+  }
   await next();
 };
 

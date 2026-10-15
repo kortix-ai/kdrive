@@ -48,8 +48,9 @@ bun run seed          # dev@volumes.local; --email you@x.com for another account
 bun run dev           # http://localhost:4100/signin → "Continue with dev account"
 ```
 
-The dev account is not an admin. For the admin panel, sign in with the seeded
-admin address (`allen@kortix.ai`), or seed it with `--email allen@kortix.ai`.
+The dev account is not an admin. For the admin console, list your address in
+`VOLUMES_ADMIN_EMAILS` (or sign in with the seeded `allen@kortix.ai`, or seed it
+with `--email allen@kortix.ai`).
 
 The seed script uses the running API when it finds one on port 4101. Otherwise
 it runs the app in-process, so you can seed before or after `bun run dev`. It
@@ -79,4 +80,4 @@ http://localhost:4100:
 9. **Workspaces:** duplicate the drive at a past version, then switch between workspaces in the left rail.
 10. **Themes:** KDRIVE opens in Dark for a new browser. Switch with the sun/moon button in the top bar (or the landing nav), or pick Dark, Light or System under Settings → Appearance. The choice applies before paint on reload, to the landing too, and to other open tabs.
 11. **Pricing:** "Get more storage" under the sidebar meter opens `/pricing`. Request Plus, then as an admin grant it under Admin → Requests; the sidebar shows 100 GB.
-12. **Settings and admin:** check the activity log and drives in Settings. Sign in as an admin (the seeded `allen@kortix.ai`, or an address added under Admin → Admins) and walk the admin tabs: Overview totals, Users (sort, search, open a user, change a quota), Domains, Requests, Audit (filter by person, events, window and drive, expand a row, Export CSV) and Admins (add, remove; the last one stays).
+12. **Settings and admin:** check the activity log and drives in Settings. Signed in as someone else, `/admin` and `/admin/users` are the normal 404. Sign in as an admin (an address in `VOLUMES_ADMIN_EMAILS`, the seeded `allen@kortix.ai`, or one added under Admin → Admins) and walk the console: Overview (totals, sign-ups chart), Users (sort, search, open a user, change a quota; By domain), Drives (search, pages), Storage requests, Billing, Logs (audit: filter by person, events, window and drive, expand a row, Export CSV; Server log: level filter, Live), Admins (server-config admins are locked; add, remove; the last one stays) and Settings. An old link such as `/admin?tab=requests` lands on its section; on a phone the sidebar is a drawer.

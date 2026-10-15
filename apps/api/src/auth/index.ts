@@ -205,6 +205,20 @@ export const auth = betterAuth({
       }
     }),
     after: createAuthMiddleware(async (ctx) => {
+      // A refused password sign-in goes to the audit log (no account id: the address may not exist).
+      if (ctx.path === '/sign-in/email' && ctx.context.returned instanceof APIError) {
+        const returned = ctx.context.returned;
+        const email = String(ctx.body?.email ?? '').trim().toLowerCase().slice(0, 320) || null;
+        const ip = ctx.headers?.get(CLIENT_IP_HEADER) ?? null;
+        await audit(null, {
+          kind: 'auth.sign_in_failed',
+          userId: null,
+          actorEmail: email,
+          meta: { reason: String((returned.body as { code?: unknown } | undefined)?.code ?? returned.status) },
+          ip,
+        });
+        return;
+      }
       if (ctx.path !== '/change-password' || ctx.context.returned instanceof APIError) return;
       const u = ctx.context.session?.user;
       if (!u) return;

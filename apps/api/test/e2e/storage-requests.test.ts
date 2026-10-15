@@ -33,7 +33,7 @@ describe('asking for more storage', () => {
     expect(sent[0].subject).toContain('Plus');
     expect(sent[0].text).toContain('ada@test.local');
     expect(sent[0].text).toContain('photos from 2019');
-    expect(sent[0].links?.[0]).toContain('/admin?tab=requests');
+    expect(sent[0].links?.[0]).toContain('/admin/requests');
 
     // Same plan again: updated in place, no second mail.
     const again = await ada.client.post('/api/me/storage-requests', { plan: 'plus' });
@@ -88,8 +88,8 @@ describe('admins answer requests', () => {
     const adm = await user('admin@test.local');
     const { request } = (await ada.client.post('/api/me/storage-requests', { plan: 'plus', note: 'more room' })).body;
 
-    expect((await ada.client.get('/api/admin/storage-requests')).status).toBe(403);
-    expect((await ada.client.post(`/api/admin/storage-requests/${request.id}/grant`)).status).toBe(403);
+    expect((await ada.client.get('/api/admin/storage-requests')).status).toBe(404);
+    expect((await ada.client.post(`/api/admin/storage-requests/${request.id}/grant`)).status).toBe(404);
 
     const list = await adm.client.get('/api/admin/storage-requests');
     expect(list.status).toBe(200);

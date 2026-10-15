@@ -21,13 +21,13 @@ describe('admin', () => {
   });
   afterAll(() => setStoreForTests(null));
 
-  test('non-admins get 403 on every admin route', async () => {
+  test('non-admins get 404 on every admin route', async () => {
     const { client, me } = await signInWithWorkspace('plain@test.local');
-    expect((await client.get('/api/admin/users')).status).toBe(403);
-    expect((await client.get('/api/admin/audit')).status).toBe(403);
+    expect((await client.get('/api/admin/users')).status).toBe(404);
+    expect((await client.get('/api/admin/audit')).status).toBe(404);
     const put = await client.put(`/api/admin/users/${me.user.id}/quota`, { quotaBytes: 20 * GiB });
-    expect(put.status).toBe(403);
-    expect(put.body.error.code).toBe('forbidden');
+    expect(put.status).toBe(404);
+    expect(put.body.error.code).toBe('not_found');
     const [s] = await db.select().from(userSettings).where(eq(userSettings.userId, me.user.id));
     expect(s.quotaBytes).toBe(10 * GiB);
   });

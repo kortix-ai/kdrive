@@ -1,9 +1,10 @@
-import { and, asc, count, eq, gte, ilike, inArray, isNull, or, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gte, ilike, inArray, isNull, or, sql } from 'drizzle-orm';
 import type { Context } from 'hono';
 import {
   formatBytes,
   MAX_QUOTA_BYTES,
   type AdminDomain,
+  type AdminDrive,
   type AdminOverviewResponse,
   type AdminUser,
   type AdminUserDetailResponse,
@@ -11,12 +12,14 @@ import {
   type Subscription,
 } from '@volumes/shared';
 import { db } from '../db/client';
-import { bauthUser, storageRequests, userSettings, workspaceMembers, workspaces } from '../db/schema';
+import { bauthUser, billingAccounts, storageRequests, userSettings, workspaceMembers, workspaces } from '../db/schema';
 import { env } from '../env';
 import { audit } from '../lib/audit';
 import { ApiError } from '../lib/http';
-import { adminEmails } from './admins';
-import { subscriptionsFor } from './billing';
+import { adminEmails, adminSource } from './admins';
+import { billingEnabled, subscriptionsFor } from './billing';
+import { getStore } from '../storage';
+import { isStoreError } from '../storage/types';
 import { writeQuota } from './quota';
 import { mapLimit } from './workspace-admin';
 import { listWorkspaces, workspaceUsage } from './workspaces';
@@ -234,6 +237,7 @@ export async function adminUserDetail(userId: string): Promise<Omit<AdminUserDet
   return {
     user: toAdminUser(u, agg, subs.get(userId) ?? null, admins),
     isListedAdmin: admins.has(u.email.toLowerCase()),
+    adminSource: admins.has(u.email.toLowerCase()) ? adminSource(u.email) : null,
     drives: own.map((w, i) => ({
       id: w.id,
       name: w.name,
@@ -273,10 +277,25 @@ export async function adminSetQuota(c: Context | null, admin: { id: string }, us
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** GET /api/admin/overview: server totals and the five users storing the most. */
+/** "2026-10-15" for an instant (UTC). */
+const utcDay = (t: number) => new Date(t).toISOString().slice(0, 10);
+
+/** The last `days` UTC days, oldest first, each with its count (missing days are 0). */
+export function fillDays(rows: { day: string; n: number }[], days: number, now: number = Date.now()): { date: string; count: number }[] {
+  const byDay = new Map(rows.map((r) => [r.day, r.n]));
+  const out: { date: string; count: number }[] = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const date = utcDay(now - i * DAY_MS);
+    out.push({ date, count: byDay.get(date) ?? 0 });
+  }
+  return out;
+}
+
+/** GET /api/admin/overview: server totals, sign-ups per day and the five users storing the most. */
 export async function adminOverview(): Promise<AdminOverviewResponse> {
   const now = Date.now();
-  const [top, [drives], [shared], [quota], [open], [d7], [d30], usage] = await Promise.all([
+  const startOfWindow = new Date(`${utcDay(now - 29 * DAY_MS)}T00:00:00.000Z`);
+  const [top, [drives], [shared], [quota], [open], [d7], [d30], usage, perDay, billingOn] = await Promise.all([
     adminListUsers({ sort: 'used', dir: 'desc', limit: 5 }),
     db.select({ n: count() }).from(workspaces).where(isNull(workspaces.deletedAt)),
     db
@@ -292,7 +311,21 @@ export async function adminOverview(): Promise<AdminOverviewResponse> {
     db.select({ n: count() }).from(bauthUser).where(gte(bauthUser.createdAt, new Date(now - 7 * DAY_MS))),
     db.select({ n: count() }).from(bauthUser).where(gte(bauthUser.createdAt, new Date(now - 30 * DAY_MS))),
     usageSnapshot(),
+    db
+      .select({ day: sql<string>`to_char(${bauthUser.createdAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD')`, n: count() })
+      .from(bauthUser)
+      .where(gte(bauthUser.createdAt, startOfWindow))
+      .groupBy(sql`1`),
+    billingEnabled().catch(() => false),
   ]);
+  let activeSubscriptions: number | null = null;
+  if (billingOn) {
+    const [subs] = await db
+      .select({ n: count() })
+      .from(billingAccounts)
+      .where(inArray(billingAccounts.status, ['active', 'trialing', 'past_due']));
+    activeSubscriptions = Number(subs?.n ?? 0);
+  }
   return {
     users: top.total,
     drives: Number(drives?.n ?? 0),
@@ -304,6 +337,85 @@ export async function adminOverview(): Promise<AdminOverviewResponse> {
     signups30d: Number(d30?.n ?? 0),
     topUsers: top.users,
     usageAt: usage.at.toISOString(),
+    signupsByDay: fillDays(perDay.map((r) => ({ day: r.day, n: Number(r.n) })), 30, now),
+    activeSubscriptions,
+  };
+}
+
+// ── drives ───────────────────────────────────────────────────────────────────
+
+/**
+ * GET /api/admin/drives: every live drive with its owner, how many people it is shared with,
+ * and (for the page shown) its file count and size, read from storage now.
+ */
+export async function adminListDrives(q: {
+  q?: string;
+  sort: 'created' | 'name';
+  dir: 'asc' | 'desc';
+  page: number;
+  limit: number;
+}): Promise<{
+  drives: AdminDrive[];
+  total: number;
+}> {
+  const pattern = q.q ? escapeLike(q.q) : null;
+  const where = and(
+    isNull(workspaces.deletedAt),
+    pattern ? or(ilike(workspaces.name, pattern), ilike(bauthUser.email, pattern), ilike(bauthUser.name, pattern)) : undefined,
+  );
+  const order =
+    q.sort === 'name'
+      ? [q.dir === 'asc' ? asc(sql`lower(${workspaces.name})`) : desc(sql`lower(${workspaces.name})`), asc(workspaces.id)]
+      : [q.dir === 'asc' ? asc(workspaces.createdAt) : desc(workspaces.createdAt), asc(workspaces.id)];
+  const [rows, [total]] = await Promise.all([
+    db
+      .select({
+        id: workspaces.id,
+        name: workspaces.name,
+        isDefault: workspaces.isDefault,
+        volumeId: workspaces.volumeId,
+        createdAt: workspaces.createdAt,
+        owner: { id: bauthUser.id, email: bauthUser.email, name: bauthUser.name },
+      })
+      .from(workspaces)
+      .innerJoin(bauthUser, eq(bauthUser.id, workspaces.userId))
+      .where(where)
+      .orderBy(...order)
+      .limit(q.limit)
+      .offset((q.page - 1) * q.limit),
+    db.select({ n: count() }).from(workspaces).innerJoin(bauthUser, eq(bauthUser.id, workspaces.userId)).where(where),
+  ]);
+  const members = rows.length
+    ? await db
+        .select({ workspaceId: workspaceMembers.workspaceId, n: count() })
+        .from(workspaceMembers)
+        .where(inArray(workspaceMembers.workspaceId, rows.map((r) => r.id)))
+        .groupBy(workspaceMembers.workspaceId)
+    : [];
+  const memberCount = new Map(members.map((m) => [m.workspaceId, Number(m.n)]));
+  const store = getStore();
+  const info = await mapLimit(rows, USAGE_CONCURRENCY, async (r) => {
+    if (!r.volumeId) return { bytes: 0, files: 0 };
+    try {
+      const v = await store.getVolume(r.volumeId);
+      return { bytes: v.logicalBytes, files: v.fileCount as number | null };
+    } catch (e) {
+      if (isStoreError(e, 'volume_not_found')) return { bytes: 0, files: 0 };
+      return { bytes: 0, files: null };
+    }
+  });
+  return {
+    total: Number(total?.n ?? 0),
+    drives: rows.map((r, i) => ({
+      id: r.id,
+      name: r.name,
+      isDefault: r.isDefault,
+      owner: r.owner,
+      memberCount: memberCount.get(r.id) ?? 0,
+      fileCount: info[i].files,
+      usedBytes: info[i].bytes,
+      createdAt: r.createdAt.toISOString(),
+    })),
   };
 }
 

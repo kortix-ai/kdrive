@@ -1,6 +1,7 @@
 import { env } from './env';
 import { createApp } from './app';
 import { serveNode } from './lib/node-serve';
+import { reconcileEnvAdmins } from './services/admins';
 import { getStore, StorageConfigError } from './storage';
 
 function main() {
@@ -14,10 +15,16 @@ function main() {
     }
     throw e;
   }
-  if (process.env.VOLUMES_ADMIN_EMAILS?.trim()) {
-    console.warn('[volumes-api] VOLUMES_ADMIN_EMAILS is ignored: admins are kept in the database. Add or remove them under Admin → Admins.');
-  }
   const app = createApp();
+  // VOLUMES_ADMIN_EMAILS is the source of truth for admins: mirror it into the table (idempotent).
+  reconcileEnvAdmins().then(
+    ({ added, removed }) => {
+      if (added.length || removed.length) {
+        console.log(`[volumes-api] admins from VOLUMES_ADMIN_EMAILS: +${added.length} -${removed.length}`);
+      }
+    },
+    (e) => console.warn('[volumes-api] could not apply VOLUMES_ADMIN_EMAILS:', e instanceof Error ? e.message : e),
+  );
   // node:http (not Bun.serve): Bun.serve drops an explicit Content-Length on
   // streamed bodies, so downloads would lose their size and progress.
   serveNode(app.fetch, { port: env.API_PORT, hostname: env.API_HOST, maxBodyBytes: 64 * 1024 * 1024 }, (addr) => {

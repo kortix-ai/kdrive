@@ -22,6 +22,11 @@ Object.assign(process.env, {
   GOOGLE_CLIENT_SECRET: 'kdrive-test-google-secret',
   GITHUB_CLIENT_ID: '',
   GITHUB_CLIENT_SECRET: '',
+  // Suites switch env.adminEmails on themselves (whatever a local .env lists).
+  VOLUMES_ADMIN_EMAILS: '',
+  // No real mail provider, whatever a local .env sets (test/mail.ts captures what is sent).
+  RESEND_API_KEY: '',
+  MAILTRAP_API_TOKEN: '',
 });
 
 // Account mail is swallowed unless a test captures it (test/mail.ts), so suites that create

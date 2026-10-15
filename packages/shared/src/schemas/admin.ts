@@ -6,6 +6,10 @@ import { IsoDateSchema } from './common';
 import { AuditEventSchema } from './me';
 import { MemberRoleSchema } from './workspaces';
 
+/** Where an admin comes from: VOLUMES_ADMIN_EMAILS (locked in the UI) or the Admins section. */
+export const AdminSourceSchema = z.enum(['env', 'db']);
+export type AdminSource = z.infer<typeof AdminSourceSchema>;
+
 export const AdminUserSchema = z.object({
   id: z.string(),
   email: z.string(),
@@ -118,6 +122,10 @@ export const AdminOverviewResponse = z.object({
   topUsers: z.array(AdminUserSchema),
   /** When the usage numbers were read from storage (they are cached briefly). */
   usageAt: IsoDateSchema,
+  /** New accounts per UTC day, oldest first: the last 30 days, today included. */
+  signupsByDay: z.array(z.object({ date: z.string(), count: z.number() })).default([]),
+  /** Subscriptions in effect (active, trialing or past due); null while billing is off. */
+  activeSubscriptions: z.number().nullable().default(null),
 });
 export type AdminOverviewResponse = z.infer<typeof AdminOverviewResponse>;
 
@@ -150,6 +158,8 @@ export const AdminUserDetailResponse = z.object({
   sharedWith: z.array(AdminSharedDriveSchema),
   /** Their address is on the admin list (rights need it verified too: see user.isAdmin). */
   isListedAdmin: z.boolean(),
+  /** Where the listing comes from: `env` (VOLUMES_ADMIN_EMAILS, cannot be removed here), `db`, or null. */
+  adminSource: AdminSourceSchema.nullable().default(null),
   workspaceCapBytes: z.number().optional(),
 });
 export type AdminUserDetailResponse = z.infer<typeof AdminUserDetailResponse>;
@@ -183,6 +193,8 @@ export type AdminDomainsResponse = z.infer<typeof AdminDomainsResponse>;
 
 export const AdminEntrySchema = z.object({
   email: z.string(),
+  /** `env`: set in the server config, cannot be removed here. */
+  source: AdminSourceSchema.default('db'),
   addedBy: z.string().nullable(),
   createdAt: IsoDateSchema,
   /** The account with this address, once someone signed up with it. */
@@ -198,3 +210,117 @@ export type AddAdminRequest = z.input<typeof AddAdminRequest>;
 
 export const AdminEntryResponse = z.object({ admin: AdminEntrySchema });
 export type AdminEntryResponse = z.infer<typeof AdminEntryResponse>;
+
+/** GET /api/admin/session: the signed-in admin (404 for everyone else, like every /api/admin route). */
+export const AdminSessionResponse = z.object({
+  user: z.object({ id: z.string(), email: z.string(), name: z.string().nullable(), image: z.string().nullable() }),
+  source: AdminSourceSchema,
+});
+export type AdminSessionResponse = z.infer<typeof AdminSessionResponse>;
+
+// ── drives ───────────────────────────────────────────────────────────────────
+
+export const ADMIN_DRIVE_SORTS = ['created', 'name'] as const;
+
+export const AdminDrivesQuery = z.object({
+  /** Matches the drive's name or its owner's email or name (case-insensitive substring). */
+  q: z.string().trim().max(200).optional(),
+  sort: z.enum(ADMIN_DRIVE_SORTS).default('created'),
+  dir: z.enum(['asc', 'desc']).default('desc'),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+});
+export type AdminDrivesQuery = z.input<typeof AdminDrivesQuery>;
+
+export const AdminDriveSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  isDefault: z.boolean(),
+  owner: z.object({ id: z.string(), email: z.string(), name: z.string().nullable() }),
+  /** People the drive is shared with (the owner not counted). */
+  memberCount: z.number(),
+  /** Files at the drive's current version (null when storage cannot say). */
+  fileCount: z.number().nullable(),
+  usedBytes: z.number(),
+  createdAt: IsoDateSchema,
+});
+export type AdminDrive = z.infer<typeof AdminDriveSchema>;
+
+export const AdminDrivesResponse = z.object({
+  drives: z.array(AdminDriveSchema),
+  total: z.number(),
+  page: z.number(),
+  limit: z.number(),
+});
+export type AdminDrivesResponse = z.infer<typeof AdminDrivesResponse>;
+
+// ── server log ───────────────────────────────────────────────────────────────
+
+export const SERVER_LOG_LEVELS = ['warn', 'error'] as const;
+export const ServerLogLevelSchema = z.enum(SERVER_LOG_LEVELS);
+export type ServerLogLevel = z.infer<typeof ServerLogLevelSchema>;
+
+export const AdminLogsQuery = z.object({
+  /** `warn` shows warnings and errors; `error` errors only. */
+  level: z.enum(['all', ...SERVER_LOG_LEVELS]).default('all'),
+  /** Only entries after this id (polling). */
+  after: z.coerce.number().int().min(0).optional(),
+  limit: z.coerce.number().int().min(1).max(2000).default(500),
+});
+export type AdminLogsQuery = z.input<typeof AdminLogsQuery>;
+
+export const ServerLogEntrySchema = z.object({
+  id: z.number(),
+  at: IsoDateSchema,
+  level: ServerLogLevelSchema,
+  /** `console`: the API's own warn/error output; `request`: a request that failed with a 5xx. */
+  source: z.enum(['console', 'request']),
+  message: z.string(),
+  method: z.string().optional(),
+  /** Path only, never the query string. */
+  path: z.string().optional(),
+  status: z.number().optional(),
+  durationMs: z.number().optional(),
+});
+export type ServerLogEntry = z.infer<typeof ServerLogEntrySchema>;
+
+export const AdminLogsResponse = z.object({
+  /** Newest first. */
+  entries: z.array(ServerLogEntrySchema),
+  /** How many entries the server keeps (older ones fall off). */
+  capacity: z.number(),
+  /** Since when this process has been collecting. */
+  since: IsoDateSchema,
+});
+export type AdminLogsResponse = z.infer<typeof AdminLogsResponse>;
+
+// ── server settings (read-only, never a secret value) ───────────────────────
+
+export const AdminSettingsResponse = z.object({
+  publicUrl: z.string(),
+  signup: z.object({
+    mode: z.enum(['open', 'invite-only', 'closed']),
+    /** Entries on VOLUMES_SIGNUP_ALLOWLIST (addresses and @domains). */
+    allowlistSize: z.number(),
+    emailPassword: z.boolean(),
+    requireEmailVerification: z.boolean(),
+  }),
+  email: z.object({
+    configured: z.boolean(),
+    provider: z.enum(['resend', 'mailtrap']).nullable(),
+    from: z.string(),
+  }),
+  providers: z.object({ google: z.boolean(), github: z.boolean() }),
+  storage: z.object({ mode: z.enum(['emulated', 'platinum']).nullable() }),
+  mcpEnabled: z.boolean(),
+  defaultQuotaBytes: z.number(),
+  maxWorkspacesPerUser: z.number(),
+  /** VOLUMES_ADMIN_EMAILS, as configured. */
+  adminEmails: z.array(z.string()),
+  billing: z.object({ enabled: z.boolean() }),
+  version: z.string(),
+  commit: z.string().nullable(),
+  nodeEnv: z.string(),
+  startedAt: IsoDateSchema,
+});
+export type AdminSettingsResponse = z.infer<typeof AdminSettingsResponse>;
