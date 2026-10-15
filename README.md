@@ -150,17 +150,36 @@ The sign-up page links its legal line when `NEXT_PUBLIC_TERMS_URL` and
 ### Plans and billing
 
 Everyone starts on **Free** (10 GB). **Plus** (100 GB) and **Pro** (1 TB) are listed
-at `/pricing`; their names, sizes, prices and selling points live in one constant,
-`PLANS` in `packages/shared/src/plans.ts` (a `null` price shows "Price coming soon").
-The sidebar's "Get more storage" leads there.
+at `/pricing`; their names, sizes and selling points live in one constant, `PLANS` in
+`packages/shared/src/plans.ts`. Their monthly prices are set by an admin (below) and
+handed out by `GET /api/config`; a plan without one shows "Price coming soon". The
+sidebar's "Get more storage" leads there.
 
 - **Without Stripe** (the default): a paid plan's button opens a request. Admins are
   emailed and grant (the quota becomes the plan's size) or dismiss it under Admin →
   Requests; the person sees the request's status on `/pricing`.
-- **With Stripe** (set all of `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`,
-  `STRIPE_PRICE_PLUS`, `STRIPE_PRICE_PRO`): paid plans go to Stripe Checkout as monthly
-  subscriptions, subscribers manage them in Stripe's billing portal, and the webhook at
-  `<BETTER_AUTH_URL>/api/billing/webhook` (`checkout.session.completed`,
+- **With Stripe**, set up under **Admin → Billing**: paste one Stripe secret key
+  (`sk_live_…`/`sk_test_…`, or a restricted `rk_…` key allowed to manage products, prices,
+  webhook endpoints, customers, Checkout, the billing portal and subscriptions) and type
+  the Plus and Pro prices. KDRIVE checks the key, creates the webhook endpoint at
+  `<BETTER_AUTH_URL>/api/billing/webhook` and a Product (`kdrive_plus`, `kdrive_pro`) with a
+  monthly Price per plan, and keeps the key and the webhook's signing secret encrypted in
+  `app_settings` (AES-256-GCM under a key derived from `BETTER_AUTH_SECRET`; rotating that
+  secret means pasting the key again). A new amount is a new Price: people already
+  subscribed keep what they pay. On a server Stripe cannot reach (localhost), the key is
+  saved and the page asks for a signing secret instead, e.g. the one
+  `stripe listen --forward-to <BETTER_AUTH_URL>/api/billing/webhook` prints.
+
+  The key can instead come from the server environment: with `STRIPE_SECRET_KEY` set, Admin
+  → Billing shows it read-only (mode, a hint of the key, the account) instead of the paste
+  field, and saving the prices there creates the Prices and the webhook endpoint with that
+  key. Precedence is per piece, the environment first: `STRIPE_SECRET_KEY` over a saved key;
+  `STRIPE_WEBHOOK_SECRET` and `STRIPE_PRICE_PLUS` / `STRIPE_PRICE_PRO` (optional, read only
+  next to that key) over the saved webhook secret and Prices. Billing is on once a key, a
+  webhook secret and a Price for both plans resolve, wherever each comes from.
+
+  Paid plans then go to Stripe Checkout as monthly subscriptions, subscribers manage them
+  in Stripe's billing portal, and the webhook (`checkout.session.completed`,
   `customer.subscription.created` / `updated` / `deleted`, `invoice.payment_failed`) sets
   the quota: the plan's size while active, trialing or past due, 10 GB once it ends.
   Files are never deleted; a drive over its quota only refuses uploads. Deleting an
@@ -176,6 +195,12 @@ proxy that appends `X-Forwarded-For` in front of the web app, so rate limits and
 the audit trail see each client's address. `VOLUMES_TRUSTED_ORIGINS` adds origins
 allowed to call mutating routes; `VOLUMES_MAX_WORKSPACES_PER_USER` (default 5)
 caps workspaces per person.
+
+`bun run --cwd apps/api start:prod` does the same with its variables from an encrypted
+`apps/api/.env.prod` ([dotenvx](https://dotenvx.com)): the server holds only the
+decryption key, as `DOTENV_PRIVATE_KEY_PROD` in its environment (or an `.env.keys` file
+next to it, never committed), and `dotenvx run` decrypts the file at boot. `start` keeps
+reading plain `.env` files.
 
 ### Checks
 
