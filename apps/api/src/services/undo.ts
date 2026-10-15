@@ -8,7 +8,7 @@ import { ApiError } from '../lib/http';
 import { getStore } from '../storage';
 import type { WorkspaceCtx } from '../types';
 import { getAction } from './ledger';
-import { reattachLinks, unmoveLiveLinks } from './links';
+import { reattachFollowers, unmoveFollowers } from './follow';
 import { reconcileLostCommits } from './lost-commits';
 import { changedUnder, restoreDrive, restorePaths } from './restore';
 import { auditAs, type AuditedCtx } from './restore-request';
@@ -48,8 +48,8 @@ export async function undoAction(ctx: AuditedCtx, id: string): Promise<ActionSum
   }
   // Live links follow their items back: moved ones return to the old path, detached ones work again.
   if (action.status === 'committed') {
-    for (const r of [...rows].reverse()) if (r.op === 'moved' && r.fromPath) await unmoveLiveLinks(ws.id, r.path, r.fromPath, action.id);
-    await reattachLinks(ws.id, target.id);
+    for (const r of [...rows].reverse()) if (r.op === 'moved' && r.fromPath) await unmoveFollowers(ws.id, r.path, r.fromPath, action.id);
+    await reattachFollowers(ws.id, target.id);
   }
   await auditAs(ctx, { kind: 'undo', target: target.id, meta: { kind: target.kind, actionId: action.id, at: target.baseCommitId } });
   return action;

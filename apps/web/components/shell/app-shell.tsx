@@ -5,6 +5,8 @@ import { useEffect, useRef, useState } from 'react';
 import CheckpointDialog from '@/components/versioning/checkpoint-dialog';
 import DuplicateDialog from '@/components/workspaces/duplicate-dialog';
 import PeopleDialog from '@/components/workspaces/people-dialog';
+import LabelPicker from '@/components/labels/label-picker';
+import LabelsDialog from '@/components/labels/labels-dialog';
 import RenameWorkspaceDialog from '@/components/workspaces/rename-dialog';
 import GlobalDropZone from '@/components/drive/global-drop-zone';
 import RestoreDialog from '@/components/versioning/restore-dialog';
@@ -204,6 +206,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <DuplicateDialog />
       <RenameWorkspaceDialog />
       <PeopleDialog />
+      <LabelPicker />
+      <LabelsDialog />
       <ShortcutSheet open={sheet} onClose={() => setSheet(false)} />
     </div>
   );

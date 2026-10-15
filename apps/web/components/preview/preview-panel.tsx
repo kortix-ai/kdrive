@@ -23,6 +23,8 @@ import { contentUrl, zipUrl } from '@/lib/urls';
 import { FilePreview, rendererFor } from './file-preview';
 import { compareEntries, formatWhen, kindLabel, middleTruncate, stepSibling } from './names';
 import { PreviewError, PreviewSkeleton } from './states';
+import CommentsSection from '@/components/comments/comments-section';
+import { PreviewCommentsButton, PreviewLabels, PreviewTagButton } from '@/components/labels/preview-labels';
 
 const noRetry = { revalidateOnFocus: false, shouldRetryOnError: false } as const;
 
@@ -255,6 +257,8 @@ export default function PreviewPanel() {
                 </IconButton>
               </Tooltip>
             )}
+            {at || path === '/' ? null : <PreviewTagButton path={path} />}
+            {stat.type !== 'dir' ? <PreviewCommentsButton path={path} /> : null}
             <Tooltip label="Share" kbd={selected ? '⇧S' : undefined}>
               <IconButton label="Share" nativeTitle={false} size="sm" onClick={() => openShare(path)}>
                 <Share2 size={16} strokeWidth={1.75} aria-hidden />
@@ -301,6 +305,7 @@ export default function PreviewPanel() {
           </div>
         ) : null}
       </div>
+      <PreviewLabels path={path} past={!!at} />
     </div>
   );
 
@@ -365,6 +370,7 @@ export default function PreviewPanel() {
         </>
       )}
       <div className="flex-1" />
+      {stat && stat.type !== 'dir' ? <CommentsSection ws={ws} path={path} at={at} /> : null}
       {/* A folder's summary already is its details; only files get the collapsible list. */}
       {stat && stat.type !== 'dir' ? <Details stat={stat} at={at} /> : null}
     </div>

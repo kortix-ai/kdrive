@@ -13,6 +13,7 @@ import { Segmented } from '@/components/ui/segmented';
 import { Tooltip } from '@/components/ui/tooltip';
 import { useVx } from '@/lib/store';
 import Breadcrumbs from './breadcrumbs';
+import LabelFilter from '@/components/labels/label-filter';
 
 /** In someone else's drive: "Ada's · View only" (or Editor). Opens People. */
 function SharedBadge() {
@@ -133,6 +134,7 @@ export default function Toolbar({
         />
       </div>
       <SharedBadge />
+      {past ? null : <LabelFilter />}
       {missing ? null : (
         <>
           {viewToggle}

@@ -4,7 +4,7 @@
 // edge that replaces the column header while anything is selected: ✕ · "2 selected" + size · divider · Download, Move,
 // Copy, Star, Share*, Versions*, Delete, More (* single item only). In the past, write actions stay
 // visible but disabled with the reason, and a single item offers Restore.
-import { Clock, Copy, Download, FolderInput, MoreHorizontal, RotateCcw, Share2, Star, Trash, X } from 'lucide-react';
+import { Clock, Copy, Download, FolderInput, MoreHorizontal, RotateCcw, Share2, Star, Tag, Trash, X } from 'lucide-react';
 import { formatBytes, type FileEntry } from '@volumes/shared';
 import { IconButton } from '@/components/ui/icon-button';
 import { Tooltip } from '@/components/ui/tooltip';
@@ -118,6 +118,20 @@ export default function SelectionBar({
       {one ? (
         <Act label={past ? 'Share pinned link…' : 'Share…'} kbd="⇧S" onClick={() => cmd.share(one)} disabled={viewOnly} reason={VIEW_ONLY_REASON}>
           <Share2 {...I} />
+        </Act>
+      ) : null}
+      {cmd.tags && !past ? (
+        <Act
+          label="Tags…"
+          onClick={(e) => {
+            const r = e.currentTarget.getBoundingClientRect();
+            cmd.tags!(entries, { x: r.left, y: r.bottom + 4, flipY: r.top - 4 });
+          }}
+          disabled={viewOnly}
+          reason={VIEW_ONLY_REASON}
+          className="max-[420px]:hidden"
+        >
+          <Tag {...I} />
         </Act>
       ) : null}
       {one?.type === 'file' ? (

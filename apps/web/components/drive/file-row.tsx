@@ -23,6 +23,7 @@ import { useVx } from '@/lib/store';
 import type { Drift } from '@/lib/drive/drift';
 import { useDriveCtx, type DriveCtxValue } from './drive-context';
 import { RenameInput } from './rename-dialog';
+import { ItemAnnotations } from '@/components/labels/label-chip';
 import s from './drive.module.css';
 
 /** Columns come from CSS (`--vx-list-cols` / `--vx-list-cols-compact`). */
@@ -239,6 +240,7 @@ function FileRowImpl({ entry, style }: { entry: FileEntry; style?: React.CSSProp
     <>
       {starred && !renaming ? <StarMark className={lit ? 'text-vx-on-selection' : 'text-vx-text-2'} /> : null}
       {drift && !renaming ? <DriftChip drift={drift} /> : null}
+      {!ctx.past && !renaming ? <ItemAnnotations path={entry.path} lit={lit} max={ctx.density === 'wide' ? 2 : 1} /> : null}
       {pending === 'waiting' ? <span className={cx('vx-meta shrink-0', meta)}>Waiting for a free slot</span> : null}
       {drift === 'gone' && !phone ? <GoneRestore entry={entry} className="shrink-0" /> : null}
     </>
@@ -290,6 +292,7 @@ function FileRowImpl({ entry, style }: { entry: FileEntry; style?: React.CSSProp
           <span className="flex min-w-0 items-center gap-2">
             {name}
             {starred && !renaming ? <StarMark className={lit ? 'text-vx-on-selection' : 'text-vx-text-2'} /> : null}
+            {!ctx.past && !renaming ? <ItemAnnotations path={entry.path} lit={lit} dots /> : null}
           </span>
           <span className={cx('vx-meta flex min-w-0 items-center gap-2', meta)}>
             {drift && !renaming ? (
