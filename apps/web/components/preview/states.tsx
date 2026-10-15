@@ -49,16 +49,20 @@ export function PreviewError({
 }
 
 /** Text-like files over TEXT_PREVIEW_MAX_BYTES. */
-export function TooLarge({ size, downloadHref, className }: { size: number; downloadHref: string; className?: string }) {
+export function TooLarge({ size, downloadHref, className }: { size: number; downloadHref: string | null; className?: string }) {
   return (
     <div className={cx('flex flex-col items-center justify-center px-6 py-12 text-center', className)}>
       <div className="vx-title">Too large to preview here</div>
       <p className="vx-meta mt-1.5 text-vx-text-3">
         {formatBytes(size)} · previews show files up to {formatBytes(TEXT_PREVIEW_MAX_BYTES)}
       </p>
-      <a href={downloadHref} className={buttonClass('outline', 'sm', { withIcon: true, className: 'mt-4' })}>
-        <Download size={16} strokeWidth={1.75} aria-hidden /> Download
-      </a>
+      {downloadHref ? (
+        <a href={downloadHref} className={buttonClass('outline', 'sm', { withIcon: true, className: 'mt-4' })}>
+          <Download size={16} strokeWidth={1.75} aria-hidden /> Download
+        </a>
+      ) : (
+        <p className="vx-meta mt-1 text-vx-text-3">Downloads are off for this link.</p>
+      )}
     </div>
   );
 }

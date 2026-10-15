@@ -20,8 +20,26 @@ export const ShareLinkSchema = z.object({
   openCount: z.number(),
   lastOpenedAt: IsoDateSchema.nullable(),
   createdAt: IsoDateSchema,
+  /** A password is set (the password itself never leaves the server). */
+  hasPassword: z.boolean(),
+  /** false: view only, the public page offers no downloads and the API refuses them. */
+  allowDownload: z.boolean(),
+  /** Lower-cased; empty = anyone with the link. */
+  allowedEmails: z.array(z.string()),
 });
 export type ShareLink = z.infer<typeof ShareLinkSchema>;
+
+/** Most addresses one link can be limited to. */
+export const LINK_EMAILS_MAX = 50;
+export const LINK_PASSWORD_MIN = 4;
+export const LINK_PASSWORD_MAX = 128;
+
+export const LinkPasswordSchema = z.string().min(LINK_PASSWORD_MIN).max(LINK_PASSWORD_MAX);
+/** Trimmed, lower-cased and de-duplicated. */
+export const LinkEmailsSchema = z
+  .array(z.string().trim().toLowerCase().pipe(z.string().email().max(254)))
+  .max(LINK_EMAILS_MAX)
+  .transform((list) => [...new Set(list)]);
 
 export const CreateLinkRequest = z.object({
   path: PathSchema,
@@ -29,11 +47,18 @@ export const CreateLinkRequest = z.object({
   /** pinned: defaults to head */
   at: RefSchema.optional(),
   expiresAt: z.string().datetime({ offset: true }).nullable().optional(),
+  password: LinkPasswordSchema.nullable().optional(),
+  allowDownload: z.boolean().optional(),
+  allowedEmails: LinkEmailsSchema.optional(),
 });
 export type CreateLinkRequest = z.input<typeof CreateLinkRequest>;
 
+/** Every field is optional: absent = unchanged. `password: null` removes it, `allowedEmails: []` opens the link to anyone. */
 export const UpdateLinkRequest = z.object({
   expiresAt: z.string().datetime({ offset: true }).nullable().optional(),
+  password: LinkPasswordSchema.nullable().optional(),
+  allowDownload: z.boolean().optional(),
+  allowedEmails: LinkEmailsSchema.optional(),
 });
 export type UpdateLinkRequest = z.input<typeof UpdateLinkRequest>;
 
@@ -56,6 +81,8 @@ export const PublicShareMeta = z.object({
   ownerName: z.string().nullable(),
   size: z.number().optional(),
   mime: z.string().optional(),
+  /** false: previews only, no download or zip. */
+  allowDownload: z.boolean(),
 });
 export type PublicShareMeta = z.infer<typeof PublicShareMeta>;
 
@@ -75,3 +102,6 @@ export type PublicContentQuery = z.input<typeof PublicContentQuery>;
 
 export const PublicZipQuery = z.object({ path: PathSchema.default('/') });
 export type PublicZipQuery = z.input<typeof PublicZipQuery>;
+
+export const PublicUnlockRequest = z.object({ password: z.string().min(1).max(LINK_PASSWORD_MAX) });
+export type PublicUnlockRequest = z.input<typeof PublicUnlockRequest>;

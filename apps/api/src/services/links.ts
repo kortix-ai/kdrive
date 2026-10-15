@@ -1,6 +1,6 @@
 import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import type { Context } from 'hono';
-import { basename, type ShareLink } from '@volumes/shared';
+import { basename, type CreateLinkRequest, type ShareLink, type UpdateLinkRequest } from '@volumes/shared';
 import { db } from '../db/client';
 import { bauthUser, shareLinks, workspaces, type ShareLinkRow } from '../db/schema';
 import { env } from '../env';
@@ -10,6 +10,7 @@ import { newId, newToken } from '../lib/ids';
 import { getStore } from '../storage';
 import { isStoreError, type Ref } from '../storage/types';
 import type { WorkspaceCtx } from '../types';
+import { hashLinkPassword, mailLinkToPeople } from './link-access';
 import { assertTagBudget, linkTag } from './tags';
 import { statOrNull } from './tree';
 import { ensureVolume, toCtx } from './workspaces';
@@ -37,6 +38,9 @@ export function toShareLink(row: ShareLinkRow): ShareLink {
     openCount: row.openCount,
     lastOpenedAt: row.lastOpenedAt ? row.lastOpenedAt.toISOString() : null,
     createdAt: row.createdAt.toISOString(),
+    hasPassword: !!row.passwordHash,
+    allowDownload: row.allowDownload,
+    allowedEmails: row.allowedEmails,
   };
 }
 
@@ -47,6 +51,19 @@ function parseExpiry(v: string | null | undefined): Date | null {
   if (Number.isNaN(d.getTime())) throw new ApiError(400, 'bad_request', 'Invalid expiry date.');
   if (d.getTime() <= Date.now()) throw new ApiError(400, 'bad_request', 'The expiry date must be in the future.');
   return d;
+}
+
+/** Access fields as audit meta: never the password, only whether there is one. */
+function accessMeta(row: Pick<ShareLinkRow, 'passwordHash' | 'allowDownload' | 'allowedEmails'>) {
+  return { password: !!row.passwordHash, allowDownload: row.allowDownload, people: row.allowedEmails.length };
+}
+
+/** Mails the newly listed people (looks the sender up, so callers only pass the user id). */
+async function mailNewPeople(row: ShareLinkRow, userId: string, workspaceName: string, emails: string[]): Promise<void> {
+  if (!emails.length) return;
+  const [sender] = await db.select({ name: bauthUser.name, email: bauthUser.email }).from(bauthUser).where(eq(bauthUser.id, userId)).limit(1);
+  if (!sender) return;
+  mailLinkToPeople(row, shareUrl(row.token), linkDisplayName(row, workspaceName), sender, emails);
 }
 
 /**
@@ -82,10 +99,17 @@ export async function createLink(
   c: Context | null,
   ws: WorkspaceCtx,
   userId: string,
-  input: { path: string; mode: 'live' | 'pinned'; at?: Ref; expiresAt?: string | null },
+  input: Pick<CreateLinkRequest, 'password' | 'allowDownload' | 'allowedEmails'> & {
+    path: string;
+    mode: 'live' | 'pinned';
+    at?: Ref;
+    expiresAt?: string | null;
+  },
 ): Promise<ShareLink> {
   const store = getStore();
   const expiresAt = parseExpiry(input.expiresAt);
+  const passwordHash = input.password ? await hashLinkPassword(input.password) : null;
+  const allowedEmails = input.allowedEmails ?? [];
   const id = newId();
 
   let commitId: string | null = null;
@@ -123,6 +147,9 @@ export async function createLink(
         commitId,
         tag,
         expiresAt,
+        passwordHash,
+        allowDownload: input.allowDownload ?? true,
+        allowedEmails,
       })
       .returning();
   } catch (e) {
@@ -134,31 +161,48 @@ export async function createLink(
     userId,
     workspaceId: ws.id,
     target: input.path,
-    meta: { linkId: id, mode: input.mode, commitId, expiresAt: expiresAt?.toISOString() ?? null },
+    meta: { linkId: id, mode: input.mode, commitId, expiresAt: expiresAt?.toISOString() ?? null, ...accessMeta(row) },
   });
+  await mailNewPeople(row, userId, ws.name, allowedEmails);
   return toShareLink(row);
 }
 
-/** Changes the expiry of a live (not revoked) link. */
+/**
+ * Changes a (not revoked) link's expiry and access: absent fields stay as they
+ * are. A new or removed password signs out everyone who unlocked it; people
+ * added to the list get the link by mail.
+ */
 export async function updateLink(
   c: Context | null,
   ws: WorkspaceCtx,
   userId: string,
   id: string,
-  input: { expiresAt?: string | null },
+  input: Pick<UpdateLinkRequest, 'expiresAt' | 'password' | 'allowDownload' | 'allowedEmails'>,
 ): Promise<ShareLink> {
   const row = await getOwnLink(ws, id);
   if (row.revokedAt) throw new ApiError(409, 'conflict', 'This link was revoked and can no longer be changed.');
-  if (input.expiresAt === undefined) return toShareLink(row);
-  const expiresAt = parseExpiry(input.expiresAt);
-  const [next] = await db.update(shareLinks).set({ expiresAt }).where(eq(shareLinks.id, row.id)).returning();
+  const set: Partial<Pick<ShareLinkRow, 'expiresAt' | 'passwordHash' | 'allowDownload' | 'allowedEmails'>> = {};
+  if (input.expiresAt !== undefined) set.expiresAt = parseExpiry(input.expiresAt);
+  if (input.password !== undefined) set.passwordHash = input.password ? await hashLinkPassword(input.password) : null;
+  if (input.allowDownload !== undefined) set.allowDownload = input.allowDownload;
+  if (input.allowedEmails !== undefined) set.allowedEmails = input.allowedEmails;
+  if (Object.keys(set).length === 0) return toShareLink(row);
+  const [next] = await db.update(shareLinks).set(set).where(eq(shareLinks.id, row.id)).returning();
   await audit(c, {
     kind: 'link.update',
     userId,
     workspaceId: ws.id,
     target: row.path,
-    meta: { linkId: row.id, from: row.expiresAt?.toISOString() ?? null, to: expiresAt?.toISOString() ?? null },
+    meta: {
+      linkId: row.id,
+      from: row.expiresAt?.toISOString() ?? null,
+      to: next.expiresAt?.toISOString() ?? null,
+      ...accessMeta(next),
+      ...(input.password !== undefined ? { passwordChanged: true } : {}),
+    },
   });
+  const added = next.allowedEmails.filter((e) => !row.allowedEmails.includes(e));
+  await mailNewPeople(next, userId, ws.name, added);
   return toShareLink(next);
 }
 

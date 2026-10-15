@@ -36,4 +36,12 @@ describe('schemas', () => {
     expect(CreateLinkRequest.safeParse({ path: '/a', mode: 'live', expiresAt: '2030-01-01T00:00:00.000Z' }).success).toBe(true);
     expect(CreateLinkRequest.safeParse({ path: '/a', mode: 'live', expiresAt: 'tomorrow' }).success).toBe(false);
   });
+  test('CreateLinkRequest access: emails trimmed, lower-cased, unique and at most 50', () => {
+    const r = CreateLinkRequest.parse({ path: '/a', mode: 'live', allowedEmails: [' Ada@X.io', 'ada@x.io', 'bo@y.io'] });
+    expect(r.allowedEmails).toEqual(['ada@x.io', 'bo@y.io']);
+    const many = Array.from({ length: 51 }, (_, i) => `p${i}@x.io`);
+    expect(CreateLinkRequest.safeParse({ path: '/a', mode: 'live', allowedEmails: many }).success).toBe(false);
+    expect(CreateLinkRequest.safeParse({ path: '/a', mode: 'live', password: 'abc' }).success).toBe(false);
+    expect(CreateLinkRequest.safeParse({ path: '/a', mode: 'live', password: 'abcd', allowDownload: false }).success).toBe(true);
+  });
 });

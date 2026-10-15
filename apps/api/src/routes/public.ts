@@ -8,13 +8,15 @@ import {
   mimeFor,
   PublicListResponse,
   PublicShareMeta,
+  PublicUnlockRequest,
   relativeTo,
   tryNormalizePath,
   type FileEntry,
 } from '@volumes/shared';
-import { ApiError, ok } from '../lib/http';
+import { ApiError, noContent, ok, parseJson } from '../lib/http';
 import { checkRateLimit, clientIp, limits } from '../middleware/rate-limit';
 import { streamFile, streamZip } from '../services/content';
+import { assertDownloadAllowed, assertLinkAccess, unlockLink } from '../services/link-access';
 import { linkDisplayName, recordLinkOpen, resolvePublicLinkFull, type PublicLink } from '../services/links';
 import { listDir, statOrNull } from '../services/tree';
 import { getStore } from '../storage';
@@ -24,7 +26,8 @@ import type { AppEnv } from '../types';
 /**
  * Public share routes (mounted at /api/public, no session needed). Every read
  * is confined to the link root and to the link's version (pinned commit or
- * head). The owner's workspace and volume ids never appear in a response.
+ * head), and passes the link's access gates (people, password; downloads for
+ * the download routes). The owner's workspace and volume ids never appear in a response.
  */
 export const publicRoutes = new Hono<AppEnv>();
 
@@ -43,13 +46,16 @@ const notFound = () => new ApiError(404, 'not_found', 'Nothing is shared at this
  */
 const TOKEN_MISS_ALL = { name: 'link-miss-all', capacity: 600, refillPerSec: 5 } as const;
 
-async function resolveLink(c: Context, token: string): Promise<PublicLink> {
+async function resolveLink(c: Context, token: string, opts: { gate?: boolean } = {}): Promise<PublicLink> {
+  let pl: PublicLink;
   try {
-    return await resolvePublicLinkFull(token);
+    pl = await resolvePublicLinkFull(token);
   } catch (e) {
     if (e instanceof ApiError && e.status === 404) checkRateLimit({ ...TOKEN_MISS_ALL, key: () => 'all' }, c);
     throw e;
   }
+  if (opts.gate !== false) await assertLinkAccess(c, pl.link);
+  return pl;
 }
 
 /** Link opens: 60/min per IP+token and 600/min per token (architecture §6.1). */
@@ -123,7 +129,18 @@ publicRoutes.get('/s/:token', async (c) => {
     expiresAt: pl.link.expiresAt ? pl.link.expiresAt.toISOString() : null,
     ownerName: pl.ownerName,
     ...(st.type === 'file' ? { size: st.size, mime: mimeFor(basename(pl.link.path)) } : {}),
+    allowDownload: pl.link.allowDownload,
   });
+});
+
+/** The password form: a right password sets a short-lived unlock cookie for this link only. */
+publicRoutes.post('/s/:token/unlock', async (c) => {
+  const token = c.req.param('token');
+  limitOpen(c, token);
+  const pl = await resolveLink(c, token, { gate: false });
+  const req = await parseJson(c, PublicUnlockRequest);
+  await unlockLink(c, pl.link, req.password);
+  return noContent(c);
 });
 
 publicRoutes.get('/s/:token/files', async (c) => {
@@ -153,13 +170,16 @@ publicRoutes.get('/s/:token/content', async (c) => {
   const st = await statOrNull(pl.ws, abs, pl.at);
   if (!st) throw notFound();
   if (st.type !== 'file') throw new ApiError(409, 'not_a_file', 'That is a folder, not a file.');
-  return streamFile(c, pl.ws, abs, { at: pl.at, download: flag(c, 'download') });
+  const download = flag(c, 'download');
+  if (download) assertDownloadAllowed(pl.link);
+  return streamFile(c, pl.ws, abs, { at: pl.at, download, viewOnly: !pl.link.allowDownload });
 });
 
 publicRoutes.get('/s/:token/zip', async (c) => {
   const token = c.req.param('token');
   limitRead(c, token);
   const pl = await resolveLink(c, token);
+  assertDownloadAllowed(pl.link);
   const root = await linkRoot(pl);
   // A file link downloads the file itself; only a folder link zips.
   if (root.type === 'file') return streamFile(c, pl.ws, pl.link.path, { at: pl.at, download: true });

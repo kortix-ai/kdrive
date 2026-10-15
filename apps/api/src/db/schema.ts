@@ -260,6 +260,12 @@ export const shareLinks = pgTable(
     detachedByActionId: text('detached_by_action_id'),
     openCount: integer('open_count').notNull().default(0),
     lastOpenedAt: timestamp('last_opened_at', tz),
+    // Access controls. The password is only ever stored as an argon2id hash; an
+    // unlock cookie is bound to that hash, so changing or removing it signs every
+    // visitor out. Allowed emails are lower-cased; empty = anyone with the link.
+    passwordHash: text('password_hash'),
+    allowDownload: boolean('allow_download').notNull().default(true),
+    allowedEmails: text('allowed_emails').array().notNull().default(sql`'{}'::text[]`),
     createdAt: timestamp('created_at', tz).defaultNow().notNull(),
   },
   (t) => [index('share_links_ws_idx').on(t.workspaceId)],
