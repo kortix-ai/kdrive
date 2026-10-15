@@ -9,16 +9,20 @@ import {
   PublicListResponse,
   PublicShareMeta,
   PublicUnlockRequest,
+  PublicUploadMeta,
+  PublicUploadResponse,
   relativeTo,
   tryNormalizePath,
   type FileEntry,
+  type LinkKind,
 } from '@volumes/shared';
 import { ApiError, noContent, ok, parseJson } from '../lib/http';
-import { checkRateLimit, clientIp, limits } from '../middleware/rate-limit';
+import { checkRateLimit, clientIp, ipBucket, limits } from '../middleware/rate-limit';
 import { streamFile, streamZip } from '../services/content';
 import { assertDownloadAllowed, assertLinkAccess, unlockLink } from '../services/link-access';
 import { linkDisplayName, recordLinkOpen, resolvePublicLinkFull, type PublicLink } from '../services/links';
 import { listDir, statOrNull } from '../services/tree';
+import { fileLimit, receiveUpload, remainingFiles, senderName } from '../services/upload-links';
 import { getStore } from '../storage';
 import type { FileStat } from '../storage/types';
 import type { AppEnv } from '../types';
@@ -46,10 +50,14 @@ const notFound = () => new ApiError(404, 'not_found', 'Nothing is shared at this
  */
 const TOKEN_MISS_ALL = { name: 'link-miss-all', capacity: 600, refillPerSec: 5 } as const;
 
-async function resolveLink(c: Context, token: string, opts: { gate?: boolean } = {}): Promise<PublicLink> {
+/**
+ * The link behind a token, of `kind` (a token of the other kind is unknown),
+ * past its access gates unless `gate: false` (the unlock routes).
+ */
+async function resolveLink(c: Context, token: string, opts: { gate?: boolean; kind?: LinkKind } = {}): Promise<PublicLink> {
   let pl: PublicLink;
   try {
-    pl = await resolvePublicLinkFull(token);
+    pl = await resolvePublicLinkFull(token, opts.kind ?? 'view');
   } catch (e) {
     if (e instanceof ApiError && e.status === 404) checkRateLimit({ ...TOKEN_MISS_ALL, key: () => 'all' }, c);
     throw e;
@@ -195,3 +203,59 @@ function byTypeThenName(a: FileEntry, b: FileEntry): number {
   if (a.type !== b.type) return a.type === 'dir' ? -1 : b.type === 'dir' ? 1 : 0;
   return collator.compare(a.name, b.name);
 }
+
+// ── upload links ────────────────────────────────────────────────────────────
+// `/u/<token>`: people send files into the link's folder. Nothing here lists
+// or reads the folder; a file's response names only what the sender sent.
+// The people and password gates hold for the page and for every file, checked
+// before any byte of the body is read.
+
+/** Files sent per address (one request each): bursts of 120, then one every 2 s. */
+const UPLOAD_IP = { name: 'upload-link-ip', capacity: 120, refillPerSec: 0.5 } as const;
+/** Files sent per link, across every sender. */
+const UPLOAD_TOKEN = { name: 'upload-link-token', capacity: 600, refillPerSec: 2 } as const;
+
+publicRoutes.get('/u/:token', async (c) => {
+  const token = c.req.param('token');
+  limitOpen(c, token);
+  const pl = await resolveLink(c, token, { kind: 'upload' });
+  await linkRoot(pl);
+  await recordLinkOpen(pl.link.id);
+  return ok(c, PublicUploadMeta, {
+    name: linkDisplayName(pl.link, pl.workspaceName),
+    ownerName: pl.ownerName,
+    expiresAt: pl.link.expiresAt ? pl.link.expiresAt.toISOString() : null,
+    maxFileBytes: fileLimit(pl.link),
+    remainingFiles: remainingFiles(pl.link),
+  });
+});
+
+/** The password form of an upload link (same gate and cookie rules as a share link). */
+publicRoutes.post('/u/:token/unlock', async (c) => {
+  const token = c.req.param('token');
+  limitOpen(c, token);
+  const pl = await resolveLink(c, token, { kind: 'upload', gate: false });
+  const req = await parseJson(c, PublicUnlockRequest);
+  await unlockLink(c, pl.link, req.password);
+  return noContent(c);
+});
+
+/**
+ * One file per request: `?name=<relative path>&sender=<optional name>`, the raw bytes as the body. */
+publicRoutes.post('/u/:token/files', async (c) => {
+  const token = c.req.param('token');
+  checkRateLimit({ ...UPLOAD_IP, key: (cc) => ipBucket(clientIp(cc)) }, c);
+  checkRateLimit({ ...UPLOAD_TOKEN, key: () => token }, c);
+  const pl = await resolveLink(c, token, { kind: 'upload' });
+  const len = c.req.header('content-length');
+  const declaredSize = len !== undefined && /^\d{1,16}$/.test(len) ? Number(len) : NaN;
+  if (!Number.isSafeInteger(declaredSize)) throw new ApiError(411, 'bad_request', 'The upload needs a Content-Length.');
+  const body = c.req.raw.body ?? new ReadableStream<Uint8Array>({ start: (ctl) => ctl.close() });
+  const r = await receiveUpload(pl, {
+    name: c.req.query('name') ?? '',
+    sender: senderName(c.req.query('sender')),
+    declaredSize,
+    body,
+  });
+  return ok(c, PublicUploadResponse, r, 201);
+});

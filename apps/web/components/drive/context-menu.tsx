@@ -14,6 +14,7 @@ import {
   FolderOpen,
   FolderPlus,
   FolderUp,
+  Inbox,
   GitCompareArrows,
   Pencil,
   RotateCcw,
@@ -41,6 +42,8 @@ export interface DriveCommands {
   comparePrevious(e: FileEntry): void;
   compareWithNow(e: FileEntry): void;
   share(e: FileEntry): void;
+  /** A folder: the share dialog on its Upload link tab (people send files in). */
+  requestFiles(e: FileEntry): void;
   checkpoint(): void;
   remove(es: FileEntry[]): void;
   restore(e: FileEntry): void;
@@ -54,7 +57,7 @@ const I = 16;
 const W = 1.75;
 
 /** Items that change the drive (or share it): a viewer sees them disabled, with the reason. */
-const WRITE_ITEMS = new Set(['up', 'upd', 'nf', 'rename', 'mv', 'cp', 'share', 'cpt', 'del', 'restore']);
+const WRITE_ITEMS = new Set(['up', 'upd', 'nf', 'rename', 'mv', 'cp', 'share', 'req', 'cpt', 'del', 'restore']);
 
 function lockForViewer(items: MenuItem[], viewOnly: boolean | undefined): MenuItem[] {
   if (!viewOnly) return items;
@@ -136,6 +139,7 @@ function driveMenuItems(o: { targets: FileEntry[]; past: boolean; drift: Readonl
       items.push({ id: 'cmp', label: 'Compare with previous', icon: <GitCompareArrows size={I} strokeWidth={W} />, kbd: 'C', onSelect: () => cmd.comparePrevious(one) });
     }
     items.push({ id: 'share', label: 'Share…', icon: <Share2 size={I} strokeWidth={W} />, kbd: 'S', onSelect: () => cmd.share(one) });
+    if (isDir) items.push({ id: 'req', label: 'Request files…', icon: <Inbox size={I} strokeWidth={W} />, onSelect: () => cmd.requestFiles(one) });
     items.push({ id: 'cpt', label: 'Checkpoint…', icon: <Diamond size={I} strokeWidth={W} />, kbd: 'P', onSelect: cmd.checkpoint });
   }
   items.push({ id: 's3', type: 'separator' });
@@ -159,6 +163,8 @@ export function buildFolderMenu(o: {
   past: boolean;
   cmd: Pick<DriveCommands, 'newFolder' | 'uploadFiles' | 'uploadFolder'>;
   share: () => void;
+  /** Opens the share dialog on its Upload link tab. */
+  requestFiles?: () => void;
   history: () => void;
   downloadZip: () => void;
   /** Set at the drive's top level for its owner: opens Rename drive. */
@@ -175,6 +181,9 @@ export function buildFolderMenu(o: {
     { id: 'upd', label: 'Upload folder', icon: <FolderUp size={I} strokeWidth={W} />, kbd: '⇧U', onSelect: cmd.uploadFolder, disabled: past, reason: READ_ONLY_REASON },
     { id: 's1', type: 'separator' },
     { id: 'share', label: past ? 'Share pinned link…' : 'Share…', icon: <Share2 size={I} strokeWidth={W} />, onSelect: o.share },
+    ...(o.requestFiles
+      ? [{ id: 'req', label: 'Request files…', icon: <Inbox size={I} strokeWidth={W} />, onSelect: o.requestFiles, disabled: past, reason: READ_ONLY_REASON }]
+      : []),
     { id: 'history', label: 'Versions', icon: <Clock size={I} strokeWidth={W} />, kbd: 'H', onSelect: o.history },
     { id: 'zip', label: 'Download .zip', icon: <Download size={I} strokeWidth={W} />, onSelect: o.downloadZip },
     ...(o.renameDrive || o.people ? [{ id: 's2', type: 'separator' } as const] : []),

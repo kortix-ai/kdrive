@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { CircleAlert, EyeOff, KeyRound, Pin, Users } from 'lucide-react';
-import { shortId, type ShareLink, type UpdateLinkRequest } from '@volumes/shared';
+import { CircleAlert, EyeOff, Inbox, KeyRound, Pin, Users } from 'lucide-react';
+import { formatBytes, shortId, type ShareLink, type UpdateLinkRequest } from '@volumes/shared';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cx } from '@/components/ui/cx';
@@ -15,6 +15,13 @@ import { linkStatus } from './expiry';
 
 function plural(n: number, one: string, many = one + 's') {
   return `${n} ${n === 1 ? one : many}`;
+}
+
+/** An upload link's files and limits: "3 of 10 files · up to 100 MB each". */
+export function uploadText(link: Pick<ShareLink, 'maxFileBytes' | 'maxFiles' | 'uploadCount'>): string {
+  const n = link.uploadCount ?? 0;
+  const files = link.maxFiles ? `${n} of ${plural(link.maxFiles, 'file')}` : plural(n, 'file');
+  return link.maxFileBytes ? `${files} · up to ${formatBytes(link.maxFileBytes)} each` : files;
 }
 
 /** Access badges after the mode badge: who (people), how (password), what (view only). */
@@ -66,7 +73,7 @@ function AccessEditor({ link, onSave, onDone }: { link: ShareLink; onSave: (req:
   };
   return (
     <div className="mb-2 rounded-vx-md bg-vx-surface-2 px-3.5 py-1.5 shadow-[inset_0_0_0_1px_var(--vx-hair-strong)]">
-      <AccessFields value={draft} onChange={setDraft} hadPassword={link.hasPassword} />
+      <AccessFields value={draft} onChange={setDraft} hadPassword={link.hasPassword} upload={link.kind === 'upload'} />
       {error ? (
         <p role="alert" className="mb-2 flex items-start gap-2 rounded-vx-sm bg-vx-danger-wash px-3 py-2 text-[13px] leading-5 text-vx-danger">
           <CircleAlert size={16} strokeWidth={1.75} className="mt-0.5 shrink-0" aria-hidden />
@@ -129,8 +136,10 @@ export function LinkRow({
           : `expires ${formatDate(link.expiresAt)}`
         : 'never expires';
 
+  const upload = link.kind === 'upload';
   const metaTitle = [
     link.mode === 'pinned' && link.commitId ? shortId(link.commitId) : null,
+    upload ? uploadText(link) : null,
     plural(link.openCount, 'open'),
     expiry,
     `created ${formatWhen(link.createdAt)}`,
@@ -145,6 +154,8 @@ export function LinkRow({
           <Badge tone="dashed">Revoked</Badge>
         ) : status === 'expired' ? (
           <Badge tone="dashed">Expired</Badge>
+        ) : upload ? (
+          <Badge icon={<Inbox strokeWidth={2} aria-hidden />}>Upload</Badge>
         ) : link.mode === 'live' ? (
           <Badge tone="live" pip>
             Live
@@ -162,6 +173,7 @@ export function LinkRow({
               {' · '}
             </>
           ) : null}
+          {upload ? `${uploadText(link)} · ` : null}
           {plural(link.openCount, 'open')}
           {' · '}
           <span title={link.expiresAt ? isoTitle(link.expiresAt) : undefined}>{expiry}</span>

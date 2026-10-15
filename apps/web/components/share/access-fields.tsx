@@ -107,16 +107,19 @@ function EmailsField({ emails, onChange }: { emails: string[]; onChange: (emails
 /**
  * Who can open a link and what they can do: a password, specific people, and downloads.
  * Shared by the create form and a link's Edit panel. `hadPassword`: editing a link that has one.
+ * `upload`: an upload link (senders, and no downloads to allow).
  */
 export function AccessFields({
   value,
   onChange,
   hadPassword = false,
+  upload = false,
   className,
 }: {
   value: AccessDraft;
   onChange: (next: AccessDraft) => void;
   hadPassword?: boolean;
+  upload?: boolean;
   className?: string;
 }) {
   const set = (patch: Partial<AccessDraft>) => onChange({ ...value, ...patch });
@@ -126,7 +129,7 @@ export function AccessFields({
         on={value.peopleOn}
         onChange={(peopleOn) => set({ peopleOn })}
         title="Only specific people"
-        body="Viewers sign in with an address you list. Off: anyone with the link."
+        body={`${upload ? 'Senders' : 'Viewers'} sign in with an address you list. Off: anyone with the link.`}
       >
         <EmailsField emails={value.emails} onChange={(emails) => set({ emails })} />
       </OptionRow>
@@ -151,16 +154,18 @@ export function AccessFields({
           />
         </div>
       </OptionRow>
-      <OptionRow
-        on={value.allowDownload}
-        onChange={(allowDownload) => set({ allowDownload })}
-        title="Allow downloads"
-        body={
-          value.allowDownload
-            ? 'Viewers can download files and folders.'
-            : "View only: previews, no download buttons. This discourages saving copies; it can't stop screenshots."
-        }
-      />
+      {upload ? null : (
+        <OptionRow
+          on={value.allowDownload}
+          onChange={(allowDownload) => set({ allowDownload })}
+          title="Allow downloads"
+          body={
+            value.allowDownload
+              ? 'Viewers can download files and folders.'
+              : "View only: previews, no download buttons. This discourages saving copies; it can't stop screenshots."
+          }
+        />
+      )}
     </div>
   );
 }

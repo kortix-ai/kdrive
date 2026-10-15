@@ -1,6 +1,6 @@
 import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import type { Context } from 'hono';
-import { basename, type CreateLinkRequest, type ShareLink, type UpdateLinkRequest } from '@volumes/shared';
+import { basename, type CreateLinkRequest, type LinkKind, type ShareLink, type UpdateLinkRequest } from '@volumes/shared';
 import { db } from '../db/client';
 import { bauthUser, shareLinks, workspaces, type ShareLinkRow } from '../db/schema';
 import { env } from '../env';
@@ -19,14 +19,15 @@ import { ensureVolume, toCtx } from './workspaces';
 const TOKEN = /^[A-Za-z0-9_-]{32}$/;
 const LINK_ID = /^[0-9a-z]{26}$/;
 
-export function shareUrl(token: string): string {
-  return `${env.BETTER_AUTH_URL}/s/${token}`;
+export function shareUrl(token: string, kind: LinkKind = 'view'): string {
+  return `${env.BETTER_AUTH_URL}/${kind === 'upload' ? 'u' : 's'}/${token}`;
 }
 
 export function toShareLink(row: ShareLinkRow): ShareLink {
   return {
     id: row.id,
-    url: shareUrl(row.token),
+    kind: row.kind,
+    url: shareUrl(row.token, row.kind),
     token: row.token,
     path: row.path,
     targetType: row.targetType,
@@ -41,6 +42,9 @@ export function toShareLink(row: ShareLinkRow): ShareLink {
     hasPassword: !!row.passwordHash,
     allowDownload: row.allowDownload,
     allowedEmails: row.allowedEmails,
+    ...(row.kind === 'upload'
+      ? { maxFileBytes: row.maxFileBytes, maxFiles: row.maxFiles, uploadCount: row.uploadCount, uploadBytes: row.uploadBytes }
+      : {}),
   };
 }
 
@@ -63,7 +67,7 @@ async function mailNewPeople(row: ShareLinkRow, userId: string, workspaceName: s
   if (!emails.length) return;
   const [sender] = await db.select({ name: bauthUser.name, email: bauthUser.email }).from(bauthUser).where(eq(bauthUser.id, userId)).limit(1);
   if (!sender) return;
-  mailLinkToPeople(row, shareUrl(row.token), linkDisplayName(row, workspaceName), sender, emails);
+  mailLinkToPeople(row, shareUrl(row.token, row.kind), linkDisplayName(row, workspaceName), sender, emails);
 }
 
 /**
@@ -94,6 +98,7 @@ async function getOwnLink(ws: WorkspaceCtx, id: string): Promise<ShareLinkRow> {
 /**
  * Creates a live or pinned link. The target type comes from a stat at the
  * link's version. A pinned link tags its commit (`ln-<id>`) so retention keeps it.
+ * An upload link is always live and names a folder.
  */
 export async function createLink(
   c: Context | null,
@@ -104,9 +109,14 @@ export async function createLink(
     mode: 'live' | 'pinned';
     at?: Ref;
     expiresAt?: string | null;
+    kind?: LinkKind;
+    maxFileBytes?: number | null;
+    maxFiles?: number | null;
   },
 ): Promise<ShareLink> {
   const store = getStore();
+  const kind = input.kind ?? 'view';
+  if (kind === 'upload' && input.mode !== 'live') throw new ApiError(400, 'bad_request', 'An upload link is always live.');
   const expiresAt = parseExpiry(input.expiresAt);
   const passwordHash = input.password ? await hashLinkPassword(input.password) : null;
   const allowedEmails = input.allowedEmails ?? [];
@@ -124,6 +134,7 @@ export async function createLink(
     throw new ApiError(404, 'path_not_found', 'That file or folder does not exist at this version.', { path: input.path });
   }
   if (st.type !== 'file' && st.type !== 'dir') throw new ApiError(400, 'bad_request', 'Only files and folders can be shared.');
+  if (kind === 'upload' && st.type !== 'dir') throw new ApiError(400, 'not_a_directory', 'Files can only be sent into a folder.');
 
   let tag: string | null = null;
   if (commitId) {
@@ -148,8 +159,11 @@ export async function createLink(
         tag,
         expiresAt,
         passwordHash,
-        allowDownload: input.allowDownload ?? true,
+        allowDownload: kind === 'upload' ? true : (input.allowDownload ?? true), // nothing to download through an upload link
         allowedEmails,
+        kind,
+        maxFileBytes: kind === 'upload' ? (input.maxFileBytes ?? null) : null,
+        maxFiles: kind === 'upload' ? (input.maxFiles ?? null) : null,
       })
       .returning();
   } catch (e) {
@@ -161,7 +175,7 @@ export async function createLink(
     userId,
     workspaceId: ws.id,
     target: input.path,
-    meta: { linkId: id, mode: input.mode, commitId, expiresAt: expiresAt?.toISOString() ?? null, ...accessMeta(row) },
+    meta: { linkId: id, kind, mode: input.mode, commitId, expiresAt: expiresAt?.toISOString() ?? null, ...accessMeta(row) },
   });
   await mailNewPeople(row, userId, ws.name, allowedEmails);
   return toShareLink(row);
@@ -233,8 +247,12 @@ export interface PublicLink {
   workspaceName: string;
 }
 
-/** resolvePublicLink plus the owner's display name (for the public page). */
-export async function resolvePublicLinkFull(token: string): Promise<PublicLink> {
+/**
+ * resolvePublicLink plus the owner's display name (for the public page). A
+ * token of the other kind is unknown here: an upload link never opens as a
+ * view link, nor the reverse.
+ */
+export async function resolvePublicLinkFull(token: string, kind: LinkKind = 'view'): Promise<PublicLink> {
   if (!TOKEN.test(token)) throw new ApiError(404, 'not_found', 'This link does not exist.');
   const [hit] = await db
     .select({ link: shareLinks, ws: workspaces, ownerName: bauthUser.name })
@@ -245,6 +263,7 @@ export async function resolvePublicLinkFull(token: string): Promise<PublicLink> 
     .limit(1);
   if (!hit) throw new ApiError(404, 'not_found', 'This link does not exist.');
   const { link } = hit;
+  if (link.kind !== kind) throw new ApiError(404, 'not_found', 'This link does not exist.');
   if (link.revokedAt) throw new ApiError(410, 'link_revoked', 'This link was revoked by its owner.');
   // The shared item was deleted: whatever appears at that path later is not what was shared.
   if (link.detachedAt) throw new ApiError(404, 'not_found', 'Nothing is shared at this address.');

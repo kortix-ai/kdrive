@@ -21,8 +21,8 @@ export function hashLinkPassword(password: string): Promise<string> {
   return Bun.password.hash(password, { algorithm: 'argon2id' });
 }
 
-/** The cookie only travels with this link's public routes. */
-const cookiePath = (token: string) => `/api/public/s/${token}`;
+/** The cookie only travels with this link's public routes (`/s/…`, or `/u/…` for an upload link). */
+const cookiePath = (link: Pick<ShareLinkRow, 'token' | 'kind'>) => `/api/public/${link.kind === 'upload' ? 'u' : 's'}/${link.token}`;
 
 /**
  * MAC over the link, the expiry and the stored hash. The hash carries its own
@@ -47,7 +47,7 @@ function isUnlocked(c: Context, link: ShareLinkRow): boolean {
 function setUnlocked(c: Context, link: ShareLinkRow): void {
   const exp = Math.floor(Date.now() / 1000) + UNLOCK_TTL_SECONDS;
   setCookie(c, COOKIE, `${exp}.${unlockMac(link, exp).toString('base64url')}`, {
-    path: cookiePath(link.token),
+    path: cookiePath(link),
     httpOnly: true,
     secure: env.secureCookies,
     sameSite: 'Lax',
@@ -132,6 +132,7 @@ export function mailLinkToPeople(
       isDir: link.targetType === 'dir',
       hasPassword: !!link.passwordHash,
       url,
+      upload: link.kind === 'upload',
     });
     sendInBackground({ to: email, ...mail, category: 'link-shared', links: [url] });
   }

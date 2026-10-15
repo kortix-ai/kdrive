@@ -6,6 +6,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { KeyRound, LogIn, Users } from 'lucide-react';
+import type { LinkKind } from '@volumes/shared';
 import { Button, buttonClass } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ApiError } from '@/lib/api/client';
@@ -47,7 +48,7 @@ function GateCard({ icon, title, body, children }: { icon: React.ReactNode; titl
   );
 }
 
-function PasswordGate({ token, onUnlocked }: { token: string; onUnlocked: () => void }) {
+function PasswordGate({ token, kind, onUnlocked }: { token: string; kind: LinkKind; onUnlocked: () => void }) {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,7 +59,7 @@ function PasswordGate({ token, onUnlocked }: { token: string; onUnlocked: () => 
     setBusy(true);
     setError(null);
     try {
-      await api.public.unlock(token, password);
+      await api.public.unlock(token, password, kind);
       onUnlocked();
     } catch (err) {
       const apiErr = err instanceof ApiError ? err : null;
@@ -144,15 +145,18 @@ function WrongAccountGate({ next, email, verified }: { next: string; email?: str
 export function PublicGate({
   gate,
   token,
+  kind = 'view',
   next,
   onUnlocked,
 }: {
   gate: NonNullable<ReturnType<typeof gateFor>>;
   token: string;
+  /** `upload`: the gate of an upload link. */
+  kind?: LinkKind;
   next: string;
   onUnlocked: () => void;
 }) {
-  if (gate.kind === 'password') return <PasswordGate token={token} onUnlocked={onUnlocked} />;
+  if (gate.kind === 'password') return <PasswordGate token={token} kind={kind} onUnlocked={onUnlocked} />;
   if (gate.kind === 'sign-in') return <SignInGate next={next} />;
   return <WrongAccountGate next={next} email={gate.email} verified={gate.verified} />;
 }
