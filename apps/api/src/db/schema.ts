@@ -522,6 +522,58 @@ export const proposalBlocks = pgTable(
   (t) => [primaryKey({ columns: [t.userId, t.sha256] })],
 );
 
+/**
+ * A person's starred items (private to them). A star names a path, so it follows its item
+ * through renames and moves and is detached when the item is deleted, exactly like a live
+ * share link (services/stars.ts, called from the link hooks in services/links.ts). Losing
+ * access to the drive hides its stars; they come back if access does.
+ */
+export const stars = pgTable(
+  'stars',
+  {
+    id: text('id').primaryKey(), // ulid
+    userId: text('user_id')
+      .notNull()
+      .references(() => bauthUser.id, { onDelete: 'cascade' }),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    path: text('path').notNull(),
+    targetType: text('target_type').$type<'file' | 'dir'>().notNull(),
+    detachedAt: timestamp('detached_at', tz),
+    detachedByActionId: text('detached_by_action_id'),
+    createdAt: timestamp('created_at', tz).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex('stars_user_ws_path_idx').on(t.userId, t.workspaceId, t.path).where(sql`detached_at IS NULL`),
+    index('stars_ws_path_idx').on(t.workspaceId, t.path),
+    index('stars_user_created_idx').on(t.userId, t.createdAt.desc()),
+  ],
+);
+
+/**
+ * Files a person opened (previewed or downloaded): one row per user and item, the newest
+ * open wins, at most RECENT_OPENS_CAP rows per user. Changes they made come from the ledger.
+ */
+export const recentOpens = pgTable(
+  'recent_opens',
+  {
+    userId: text('user_id')
+      .notNull()
+      .references(() => bauthUser.id, { onDelete: 'cascade' }),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    path: text('path').notNull(),
+    openedAt: timestamp('opened_at', tz).defaultNow().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.workspaceId, t.path] }),
+    index('recent_opens_user_opened_idx').on(t.userId, t.openedAt.desc()),
+    index('recent_opens_ws_path_idx').on(t.workspaceId, t.path),
+  ],
+);
+
 export type WorkspaceRow = typeof workspaces.$inferSelect;
 export type UserSettingsRow = typeof userSettings.$inferSelect;
 export type WorkspaceMemberRow = typeof workspaceMembers.$inferSelect;
@@ -539,3 +591,5 @@ export type ProposalFileRow = typeof proposalFiles.$inferSelect;
 export type StorageRequestRow = typeof storageRequests.$inferSelect;
 export type BillingAccountRow = typeof billingAccounts.$inferSelect;
 export type AdminRow = typeof admins.$inferSelect;
+export type StarRow = typeof stars.$inferSelect;
+export type RecentOpenRow = typeof recentOpens.$inferSelect;

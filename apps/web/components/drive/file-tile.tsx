@@ -2,8 +2,8 @@
 
 // Grid cards (UNIFY-SPEC §12.1, §14.2; DESIGN-v2 §6.2). File card: r6 on `--vx-surface-2`
 // with a 1 px hair, a 6 px inset, a 40 px head (type icon that swaps to the checkbox on hover,
-// name, ⋮), a 4:3 r4 mat and a Mono `size · modified` caption. Folder card: 44 px, r6, hair,
-// outline folder + name + ⋮. Same states as rows; past mode filters thumbnails.
+// name, ☆, ⋮), a 4:3 r4 mat and a Mono `size · modified` caption. Folder card: 44 px, r6, hair,
+// outline folder + name + ☆ + ⋮. The star shows on hover, and stays (filled) while starred. Same states as rows; past mode filters thumbnails.
 import { memo } from 'react';
 import { MoreVertical } from 'lucide-react';
 import { formatBytes, type FileEntry } from '@volumes/shared';
@@ -13,7 +13,7 @@ import { cx } from '@/components/ui/cx';
 import { CAPTION_H, FOLDER_TILE_H, HEAD_H } from '@/lib/drive/layout';
 import { formatRelative, isoTitle } from '@/lib/format';
 import { useDriveCtx } from './drive-context';
-import { DriftChip, GoneRestore, MiddleName, RowCheck, itemTone } from './file-row';
+import { DriftChip, GoneRestore, MiddleName, RowCheck, StarButton, itemTone } from './file-row';
 import { RenameInput } from './rename-dialog';
 import Thumbnail from './thumbnail';
 import s from './drive.module.css';
@@ -68,6 +68,14 @@ function cardTone(st: ReturnType<typeof useItemState>) {
   );
 }
 
+/** The card's star toggle: revealed on hover like the ⋮, always shown while starred (now only). */
+function CardStar({ entry }: { entry: FileEntry }) {
+  const ctx = useDriveCtx();
+  if (ctx.past) return null;
+  const on = ctx.starred.has(entry.path);
+  return <StarButton entry={entry} className={cx(!on && s.reveal, 'group-aria-selected:text-vx-on-selection')} />;
+}
+
 function MenuDots({ entry }: { entry: FileEntry }) {
   const ctx = useDriveCtx();
   return (
@@ -120,6 +128,7 @@ function FileTileImpl({ entry, style }: { entry: FileEntry; style?: React.CSSPro
             <MiddleName name={entry.name} className={cx('text-[14px] font-medium leading-5', selected ? 'text-vx-on-selection' : 'text-vx-text-1')} />
           )}
         </span>
+        <CardStar entry={entry} />
         <MenuDots entry={entry} />
       </div>
       <Thumbnail ws={ctx.ws} entry={entry} at={ctx.at} past={ctx.past}>
@@ -166,6 +175,7 @@ function FolderTileImpl({ entry, style }: { entry: FileEntry; style?: React.CSSP
         {drift && !renaming ? <DriftChip drift={drift} /> : null}
       </div>
       {drift === 'gone' ? <GoneRestore entry={entry} className="shrink-0" /> : null}
+      <CardStar entry={entry} />
       <MenuDots entry={entry} />
       {dropTarget && moving ? (
         <span

@@ -19,6 +19,7 @@ import { compareWithPrevious, deleteItems, downloadEntries, createFolder, moveIt
 import { computeDrift } from '@/lib/drive/drift';
 import { computeGridLayout } from '@/lib/drive/layout';
 import { requestReveal, setDragging, useDriveRows } from '@/lib/drive/optimistic';
+import { toggleStars, useDriveStars } from '@/lib/drive/stars';
 import {
   DRAG_MIME,
   clickSelection,
@@ -120,6 +121,7 @@ export default function FileBrowser({ path }: { path: string }) {
   const storeDialogOpen = useVx((st) => !!(st.share || st.restore || st.checkpoint || st.duplicate));
   const promptOpen = useUploadPrompts((st) => !!(st.conflict || st.quota));
   const { pending, removing, dragging, reveal } = useDriveRows();
+  const starred = useDriveStars();
 
   const at = tt?.commitId ?? null;
   const past = !!tt;
@@ -316,6 +318,7 @@ export default function FileBrowser({ path }: { path: string }) {
     compareWithNow: (e) => at && router.push(compareHref(e.path, at, nowListing.data?.commitId ?? 'head')),
     share: (e) => (viewOnly ? readOnly() : vx().openShare(e.path)),
     requestFiles: (e) => (viewOnly ? readOnly() : vx().openShare(e.path, 'upload')),
+    star: (es) => ws && !past && void toggleStars(ws, es, starred),
     checkpoint: () => (viewOnly ? readOnly() : vx().openCheckpoint(null)),
     remove: (es) => {
       if (locked) return readOnly();
@@ -418,6 +421,10 @@ export default function FileBrowser({ path }: { path: string }) {
         if (t.length) cmd.copyTo(t);
       },
       s: () => {
+        const t = targets();
+        if (t.length && !past) cmd.star(t);
+      },
+      'shift+s': () => {
         const t = single();
         if (t) cmd.share(t);
       },
@@ -579,6 +586,7 @@ export default function FileBrowser({ path }: { path: string }) {
     addedLaterOpen,
     density,
     anySelected: selectionArr.length > 0,
+    starred,
     cmd,
     onItemMouseDown: (e, entry) => {
       if (e.button !== 0) return;
@@ -700,7 +708,7 @@ export default function FileBrowser({ path }: { path: string }) {
   const loadingFirst = !data && !err;
   const fetching = !!data && (listing.isValidating || stale);
   const countLabel = data && !hardError ? `${entries.length.toLocaleString()} ${entries.length === 1 ? 'item' : 'items'}` : '';
-  const menuItems = menu ? buildDriveMenu({ targets: menu.targets, past, drift: drift?.byPath ?? null, cmd, viewOnly }) : [];
+  const menuItems = menu ? buildDriveMenu({ targets: menu.targets, past, drift: drift?.byPath ?? null, cmd, viewOnly, starred }) : [];
   const folderMenu = buildFolderMenu({
     past,
     cmd,

@@ -2,20 +2,22 @@
 
 // Selection bar (UNIFY-SPEC §14.2): a 40 px r4 bar on `--vx-raise` with a 1 px hair-strong
 // edge that replaces the column header while anything is selected: ✕ · "2 selected" + size · divider · Download, Move,
-// Copy, Share*, Versions*, Delete, More (* single item only). In the past, write actions stay
+// Copy, Star, Share*, Versions*, Delete, More (* single item only). In the past, write actions stay
 // visible but disabled with the reason, and a single item offers Restore.
-import { Clock, Copy, Download, FolderInput, MoreHorizontal, RotateCcw, Share2, Trash, X } from 'lucide-react';
+import { Clock, Copy, Download, FolderInput, MoreHorizontal, RotateCcw, Share2, Star, Trash, X } from 'lucide-react';
 import { formatBytes, type FileEntry } from '@volumes/shared';
 import { IconButton } from '@/components/ui/icon-button';
 import { Tooltip } from '@/components/ui/tooltip';
 import { cx } from '@/components/ui/cx';
 import type { DriveCommands } from './context-menu';
+import { useDriveStars } from '@/lib/drive/stars';
 import { currentRole, useVx, VIEW_ONLY_REASON } from '@/lib/store';
 import { READ_ONLY_REASON } from './drive-context';
 import s from './drive.module.css';
 
 function Act({
   label,
+  pressed,
   kbd,
   onClick,
   disabled,
@@ -26,6 +28,8 @@ function Act({
 }: {
   tone?: 'past' | 'danger';
   label: string;
+  /** A toggle that is on (e.g. every selected item is starred). */
+  pressed?: boolean;
   kbd?: string;
   onClick: (e: React.MouseEvent<HTMLButtonElement>) => void;
   disabled?: boolean;
@@ -39,6 +43,7 @@ function Act({
         size="sm"
         label={label}
         nativeTitle={false}
+        aria-pressed={pressed}
         disabled={disabled}
         onClick={onClick}
         className={cx(
@@ -80,6 +85,8 @@ export default function SelectionBar({
   const n = entries.length;
   const one = n === 1 ? entries[0] : null;
   const size = entries.reduce((sum, e) => sum + (e.type === 'file' ? e.size : 0), 0);
+  const starred = useDriveStars();
+  const allStarred = n > 0 && entries.every((e) => starred.has(e.path));
   return (
     <div
       role="toolbar"
@@ -103,8 +110,13 @@ export default function SelectionBar({
       <Act label="Copy to…" kbd="⇧M" onClick={() => cmd.copyTo(entries)} disabled={locked} reason={reason} className="max-[420px]:hidden">
         <Copy {...I} />
       </Act>
+      {past ? null : (
+        <Act label={allStarred ? 'Remove from Starred' : 'Add to Starred'} kbd="S" pressed={allStarred} onClick={() => cmd.star(entries)}>
+          <Star {...I} fill={allStarred ? 'currentColor' : 'none'} />
+        </Act>
+      )}
       {one ? (
-        <Act label={past ? 'Share pinned link…' : 'Share…'} kbd="S" onClick={() => cmd.share(one)} disabled={viewOnly} reason={VIEW_ONLY_REASON}>
+        <Act label={past ? 'Share pinned link…' : 'Share…'} kbd="⇧S" onClick={() => cmd.share(one)} disabled={viewOnly} reason={VIEW_ONLY_REASON}>
           <Share2 {...I} />
         </Act>
       ) : null}

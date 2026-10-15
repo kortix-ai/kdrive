@@ -3,13 +3,14 @@
 // One list row (UNIFY-SPEC §12.1, DESIGN-v2 §6.2, §7): 36 px, full-bleed in the sheet with a
 // hair-soft divider, grid `--vx-list-cols`
 // (checkbox · icon + name · modified · size · actions). At rest a row shows only its icon,
-// name, date and size; the checkbox and the actions (Download · Share · Versions · More)
+// name (with a filled star when starred), date and size; the checkbox and the actions
+// (Star · Download · Share · Versions · More)
 // appear on hover, focus or selection. With compact columns (panel or rail open) the
 // actions overlay the row end and cover the date entirely. Phones get 60 px rows with a
 // meta line and a ⋮ button. States: hover, selected, focused, renaming, pending,
 // collapsing, dragging, drop target, past drift chips, gone-now, ghost.
 import { memo } from 'react';
-import { ChevronRight, Clock, Download, MoreHorizontal, MoreVertical, Share2 } from 'lucide-react';
+import { ChevronRight, Clock, Download, MoreHorizontal, MoreVertical, Share2, Star } from 'lucide-react';
 import { formatBytes, type FileEntry } from '@volumes/shared';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -118,20 +119,55 @@ const stop = {
   onDoubleClick: (e: React.MouseEvent) => e.stopPropagation(),
 };
 
-/** Hover actions: Download · Share · Versions (files) · More. 28 px icon buttons, r4. */
+/** The filled star next to a starred item's name (always shown, unlike the hover actions). */
+export function StarMark({ className }: { className?: string }) {
+  return (
+    <span role="img" aria-label="Starred" title="Starred" className={cx('inline-flex shrink-0', className)}>
+      <Star size={12} strokeWidth={2} fill="currentColor" aria-hidden />
+    </span>
+  );
+}
+
+/** The star toggle of a row or card (filled while starred). Starring changes nothing in the drive, so viewers have it too. */
+export function StarButton({ entry, className }: { entry: FileEntry; className?: string }) {
+  const ctx = useDriveCtx();
+  const on = ctx.starred.has(entry.path);
+  return (
+    <Tooltip label={on ? 'Remove from Starred' : 'Add to Starred'} kbd="S">
+      <IconButton
+        size="sm"
+        label={on ? `Unstar ${entry.name}` : `Star ${entry.name}`}
+        nativeTitle={false}
+        tabIndex={-1}
+        aria-pressed={on}
+        className={className}
+        {...stop}
+        onClick={(e) => {
+          e.stopPropagation();
+          ctx.cmd.star([entry]);
+        }}
+      >
+        <Star size={16} strokeWidth={1.75} fill={on ? 'currentColor' : 'none'} aria-hidden />
+      </IconButton>
+    </Tooltip>
+  );
+}
+
+/** Hover actions: Star (now only) · Download · Share · Versions (files) · More. 28 px icon buttons, r4. */
 export function RowActions({ entry, className }: { entry: FileEntry; className?: string }) {
   const ctx = useDriveCtx();
   const isFile = entry.type === 'file';
   const btn = 'group-aria-selected:text-vx-on-selection';
   return (
     <span className={cx('flex items-center justify-end', className)}>
+      {ctx.past ? null : <StarButton entry={entry} className={btn} />}
       <Tooltip label={isFile ? 'Download' : 'Download .zip'} kbd="D">
         <IconButton size="sm" label={isFile ? `Download ${entry.name}` : `Download ${entry.name} as .zip`} nativeTitle={false} tabIndex={-1} className={btn} {...stop} onClick={(e) => { e.stopPropagation(); ctx.cmd.download([entry]); }}>
           <Download size={16} strokeWidth={1.75} aria-hidden />
         </IconButton>
       </Tooltip>
       {ctx.viewOnly ? null : (
-        <Tooltip label={ctx.past ? 'Share pinned link' : 'Share'} kbd="S">
+        <Tooltip label={ctx.past ? 'Share pinned link' : 'Share'} kbd="⇧S">
           <IconButton size="sm" label={`Share ${entry.name}`} nativeTitle={false} tabIndex={-1} className={btn} {...stop} onClick={(e) => { e.stopPropagation(); ctx.cmd.share(entry); }}>
             <Share2 size={16} strokeWidth={1.75} aria-hidden />
           </IconButton>
@@ -198,8 +234,10 @@ function FileRowImpl({ entry, style }: { entry: FileEntry; style?: React.CSSProp
     />
   );
 
+  const starred = !ctx.past && ctx.starred.has(entry.path);
   const extras = (
     <>
+      {starred && !renaming ? <StarMark className={lit ? 'text-vx-on-selection' : 'text-vx-text-2'} /> : null}
       {drift && !renaming ? <DriftChip drift={drift} /> : null}
       {pending === 'waiting' ? <span className={cx('vx-meta shrink-0', meta)}>Waiting for a free slot</span> : null}
       {drift === 'gone' && !phone ? <GoneRestore entry={entry} className="shrink-0" /> : null}
@@ -249,7 +287,10 @@ function FileRowImpl({ entry, style }: { entry: FileEntry; style?: React.CSSProp
         ) : null}
         <FileIcon name={entry.name} type={entry.type} size={28} />
         <span className="flex min-w-0 flex-col gap-0.5 pr-1">
-          <span className="flex min-w-0 items-center gap-2">{name}</span>
+          <span className="flex min-w-0 items-center gap-2">
+            {name}
+            {starred && !renaming ? <StarMark className={lit ? 'text-vx-on-selection' : 'text-vx-text-2'} /> : null}
+          </span>
           <span className={cx('vx-meta flex min-w-0 items-center gap-2', meta)}>
             {drift && !renaming ? (
               <DriftChip drift={drift} />

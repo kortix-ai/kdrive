@@ -99,6 +99,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       'mod+b': () => window.matchMedia('(min-width: 1024px)').matches && toggleSide(),
       '?': () => setSheet(true),
       'g d': () => router.push('/drive'),
+      'g r': () => router.push('/recent'),
+      'g s': () => router.push('/starred'),
       'g c': () => router.push('/checkpoints'),
       'g x': () => router.push('/recently-deleted'),
       'g p': () => router.push('/proposals'),
