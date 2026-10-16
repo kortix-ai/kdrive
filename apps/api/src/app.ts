@@ -17,6 +17,7 @@ import { billingRoutes, storageRequestRoutes } from './routes/billing';
 import { agentTokensRoutes } from './routes/agent-tokens';
 import { agentsOauthRoutes } from './routes/agents-oauth';
 import { checkpointsRoutes } from './routes/checkpoints';
+import { commentsRoutes } from './routes/comments';
 import { deletedRoutes } from './routes/deleted';
 import { filesRoutes } from './routes/files';
 import { healthRoutes } from './routes/health';
@@ -32,6 +33,7 @@ import { timelineRoutes } from './routes/timeline';
 import { uploadsRoutes } from './routes/uploads';
 import { versionsRoutes } from './routes/versions';
 import { invitationsRoutes } from './routes/invitations';
+import { labelsRoutes } from './routes/labels';
 import { workspacesRoutes } from './routes/workspaces';
 import type { AppEnv } from './types';
 
@@ -148,6 +150,8 @@ export function createApp(): Hono<AppEnv> {
   app.route('/api/w/:ws', proposalsRoutes);
   app.route('/api/w/:ws', driveStorageRoutes);
   app.route('/api/w/:ws', driveStarsRoutes);
+  app.route('/api/w/:ws', commentsRoutes);
+  app.route('/api/w/:ws', labelsRoutes);
   app.route('/api/agents', agentTokensRoutes);
   app.route('/api/agents', agentsOauthRoutes);
   app.route('/api/public', publicRoutes);

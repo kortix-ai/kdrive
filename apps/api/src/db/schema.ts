@@ -282,6 +282,78 @@ export const shareLinks = pgTable(
   (t) => [index('share_links_ws_idx').on(t.workspaceId)],
 );
 
+/**
+ * A comment on a file, by any member of the drive. A reply names its thread's first
+ * comment (`parent_id`; one level only). Like a live link, a comment follows its file
+ * through moves (services/follow.ts); deleting the file detaches it, and undoing that
+ * delete or restoring the file brings it back.
+ */
+export const fileComments = pgTable(
+  'file_comments',
+  {
+    id: text('id').primaryKey(), // ulid
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    path: text('path').notNull(),
+    parentId: text('parent_id').references((): AnyPgColumn => fileComments.id, { onDelete: 'cascade' }),
+    userId: text('user_id').references(() => bauthUser.id, { onDelete: 'set null' }),
+    body: text('body').notNull(),
+    commitId: text('commit_id'), // the drive's head when written: the file version it speaks about
+    editedAt: timestamp('edited_at', tz),
+    resolvedAt: timestamp('resolved_at', tz), // thread roots only
+    resolvedBy: text('resolved_by').references(() => bauthUser.id, { onDelete: 'set null' }),
+    detachedAt: timestamp('detached_at', tz),
+    detachedByActionId: text('detached_by_action_id'),
+    createdAt: timestamp('created_at', tz).defaultNow().notNull(),
+  },
+  (t) => [
+    index('file_comments_ws_path_idx').on(t.workspaceId, t.path).where(sql`detached_at IS NULL`),
+    index('file_comments_parent_idx').on(t.parentId),
+    index('file_comments_detached_by_idx').on(t.workspaceId, t.detachedByActionId),
+  ],
+);
+
+/** A tag (in the UI) of one drive: a name, unique per drive ignoring case, and a palette colour. */
+export const fileLabels = pgTable(
+  'file_labels',
+  {
+    id: text('id').primaryKey(), // ulid
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    color: text('color').notNull(),
+    createdBy: text('created_by').references(() => bauthUser.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', tz).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex('file_labels_ws_name_idx').on(t.workspaceId, sql`lower(${t.name})`)],
+);
+
+/** A tag on a file or folder. Follows the item like a comment does. */
+export const fileLabelAssignments = pgTable(
+  'file_label_assignments',
+  {
+    id: text('id').primaryKey(), // ulid
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    labelId: text('label_id')
+      .notNull()
+      .references(() => fileLabels.id, { onDelete: 'cascade' }),
+    path: text('path').notNull(),
+    createdBy: text('created_by').references(() => bauthUser.id, { onDelete: 'set null' }),
+    detachedAt: timestamp('detached_at', tz),
+    detachedByActionId: text('detached_by_action_id'),
+    createdAt: timestamp('created_at', tz).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex('file_label_assignments_live_idx').on(t.labelId, t.path).where(sql`detached_at IS NULL`),
+    index('file_label_assignments_ws_path_idx').on(t.workspaceId, t.path),
+    index('file_label_assignments_detached_by_idx').on(t.workspaceId, t.detachedByActionId),
+  ],
+);
+
 export type UploadRowPlan = {
   files: { path: string; size: number }[];
   dirs: string[];
@@ -593,3 +665,6 @@ export type BillingAccountRow = typeof billingAccounts.$inferSelect;
 export type AdminRow = typeof admins.$inferSelect;
 export type StarRow = typeof stars.$inferSelect;
 export type RecentOpenRow = typeof recentOpens.$inferSelect;
+export type FileCommentRow = typeof fileComments.$inferSelect;
+export type FileLabelRow = typeof fileLabels.$inferSelect;
+export type FileLabelAssignmentRow = typeof fileLabelAssignments.$inferSelect;

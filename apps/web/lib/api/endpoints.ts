@@ -80,6 +80,17 @@ import {
   type UpdateLinkRequest,
   type UpdateWorkspaceRequest,
   type UploadPlanRequest,
+  CommentCountsResponse,
+  CommentListResponse,
+  CommentResponse,
+  LabelItemsResponse,
+  LabelListResponse,
+  LabelResponse,
+  type AssignLabelRequest,
+  type CreateCommentRequest,
+  type CreateLabelRequest,
+  type UpdateCommentRequest,
+  type UpdateLabelRequest,
 } from '@volumes/shared';
 import { apiFetch, qs } from './client';
 
@@ -173,6 +184,27 @@ export const api = {
     update: (ws: string, id: string, req: UpdateLinkRequest) =>
       apiFetch(`${w(ws)}/links/${encodeURIComponent(id)}`, { method: 'PATCH', json: req }, LinkResponse),
     revoke: (ws: string, id: string) => apiFetch<void>(`${w(ws)}/links/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  },
+
+  /** Comments on files (every member of the drive, viewers too). */
+  comments: {
+    list: (ws: string, path: string) => apiFetch(`${w(ws)}/comments${qs({ path })}`, {}, CommentListResponse),
+    counts: (ws: string) => apiFetch(`${w(ws)}/comments/counts`, {}, CommentCountsResponse),
+    create: (ws: string, req: CreateCommentRequest) => apiFetch(`${w(ws)}/comments`, { method: 'POST', json: req }, CommentResponse),
+    update: (ws: string, id: string, req: UpdateCommentRequest) =>
+      apiFetch(`${w(ws)}/comments/${encodeURIComponent(id)}`, { method: 'PATCH', json: req }, CommentResponse),
+    remove: (ws: string, id: string) => apiFetch<void>(`${w(ws)}/comments/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  },
+
+  /** The drive's tags ("labels" in the API). */
+  labels: {
+    list: (ws: string) => apiFetch(`${w(ws)}/labels`, {}, LabelListResponse),
+    items: (ws: string, id: string) => apiFetch(`${w(ws)}/labels/${encodeURIComponent(id)}/items`, {}, LabelItemsResponse),
+    create: (ws: string, req: CreateLabelRequest) => apiFetch(`${w(ws)}/labels`, { method: 'POST', json: req }, LabelResponse),
+    update: (ws: string, id: string, req: UpdateLabelRequest) =>
+      apiFetch(`${w(ws)}/labels/${encodeURIComponent(id)}`, { method: 'PATCH', json: req }, LabelResponse),
+    remove: (ws: string, id: string) => apiFetch<void>(`${w(ws)}/labels/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+    assign: (ws: string, req: AssignLabelRequest) => apiFetch(`${w(ws)}/labels/assign`, { method: 'POST', json: req }, LabelListResponse),
   },
 
   public: {

@@ -15,6 +15,7 @@ import { formatRelative, isoTitle } from '@/lib/format';
 import { useDriveCtx } from './drive-context';
 import { DriftChip, GoneRestore, MiddleName, RowCheck, StarButton, itemTone } from './file-row';
 import { RenameInput } from './rename-dialog';
+import { ItemAnnotations } from '@/components/labels/label-chip';
 import Thumbnail from './thumbnail';
 import s from './drive.module.css';
 
@@ -147,6 +148,7 @@ function FileTileImpl({ entry, style }: { entry: FileEntry; style?: React.CSSPro
         <span className="shrink-0">{formatBytes(entry.size)}</span>
         <span aria-hidden>·</span>
         <span className="min-w-0 truncate">{entry.mtime ? formatRelative(entry.mtime) : '—'}</span>
+        {ctx.past ? null : <ItemAnnotations path={entry.path} lit={selected} dots className="ml-auto" />}
       </div>
       {pending && pending !== 'delete' ? <span className={s.pendingLine} aria-hidden /> : null}
     </div>
@@ -173,6 +175,7 @@ function FolderTileImpl({ entry, style }: { entry: FileEntry; style?: React.CSSP
           <MiddleName name={entry.name} className={cx('text-[14px] font-medium leading-5', selected ? 'text-vx-on-selection' : 'text-vx-text-1')} />
         )}
         {drift && !renaming ? <DriftChip drift={drift} /> : null}
+        {!ctx.past && !renaming ? <ItemAnnotations path={entry.path} lit={selected} dots /> : null}
       </div>
       {drift === 'gone' ? <GoneRestore entry={entry} className="shrink-0" /> : null}
       <CardStar entry={entry} />

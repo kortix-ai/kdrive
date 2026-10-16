@@ -43,7 +43,7 @@ import { startUpload } from '@/lib/upload/uploads';
 import { pickUploadSources } from '@/lib/upload/walk';
 import DriveContextMenu, { buildDriveMenu, buildFolderMenu, type DriveCommands } from './context-menu';
 import { DriveCtx, READ_ONLY_REASON, type DriveCtxValue } from './drive-context';
-import EmptyDrive, { type EmptyKind } from './empty-drive';
+import EmptyDrive, { DriveEmpty, type EmptyKind } from './empty-drive';
 import FileGrid from './file-grid';
 import FileList, { LIST_TOP, type ListRow } from './file-list';
 import { LIST_INSET, PHONE_ROW_H, ROW_H, RowCheck, listCols } from './file-row';
@@ -53,6 +53,8 @@ import type { PaletteItem } from './search-results';
 import SelectionBar from './selection-bar';
 import SelectionRect from './selection-rect';
 import Toolbar from './toolbar';
+import { TaggedBar } from '@/components/labels/tagged-bar';
+import { openComments, useActiveFilter, useAnnotationsUi, useLabelItems } from '@/lib/annotations';
 import s from './drive.module.css';
 
 type MenuState = { x: number; y: number; flipY?: number; align?: 'start' | 'end'; targets: FileEntry[] } | null;
@@ -137,6 +139,16 @@ export default function FileBrowser({ path }: { path: string }) {
 
   const listing = useListing(path);
   const nowListing = useNowListing(path, past);
+  // A tag filter (toolbar) shows the items with that tag across the drive instead of this folder.
+  const labelFilter = useActiveFilter();
+  const tagged = useLabelItems(past ? null : labelFilter);
+  const filtering = !!labelFilter && !past;
+  // Opening a folder (from the tagged list or the crumbs) leaves the filter.
+  const lastPath = useRef(path);
+  useEffect(() => {
+    if (lastPath.current !== path) useAnnotationsUi.getState().setFilter(null);
+    lastPath.current = path;
+  }, [path]);
 
   const [sort, setSort] = useState<SortSpec>(DEFAULT_SORT);
   useEffect(() => setSort(loadSort()), []);
@@ -190,7 +202,10 @@ export default function FileBrowser({ path }: { path: string }) {
   const errCode = isApiError(err) ? err.code : null;
   const hardError = errCode === 'version_gone' || errCode === 'path_not_found' || errCode === 'not_a_directory' || errCode === 'invalid_path' || errCode === 'not_found';
   const stale = !!data && data.path !== path;
-  const entries = useMemo(() => (data && !hardError ? sortEntries(data.entries, sort) : []), [data, sort, hardError]);
+  const entries = useMemo(
+    () => (filtering ? sortEntries(tagged.data?.items ?? [], sort) : data && !hardError ? sortEntries(data.entries, sort) : []),
+    [filtering, tagged.data, data, sort, hardError],
+  );
   const byPath = useMemo(() => new Map(entries.map((e) => [e.path, e])), [entries]);
   const order = useMemo(() => entries.map((e) => e.path), [entries]);
   // The folder may not exist any more: then every past row is "gone now".
@@ -317,8 +332,8 @@ export default function FileBrowser({ path }: { path: string }) {
     comparePrevious: (e) => ws && void compareWithPrevious(ws, e.path, (href) => router.push(href)),
     compareWithNow: (e) => at && router.push(compareHref(e.path, at, nowListing.data?.commitId ?? 'head')),
     share: (e) => (viewOnly ? readOnly() : vx().openShare(e.path)),
-    requestFiles: (e) => (viewOnly ? readOnly() : vx().openShare(e.path, 'upload')),
     star: (es) => ws && !past && void toggleStars(ws, es, starred),
+    requestFiles: (e) => (viewOnly ? readOnly() : vx().openShare(e.path, 'upload')),
     checkpoint: () => (viewOnly ? readOnly() : vx().openCheckpoint(null)),
     remove: (es) => {
       if (locked) return readOnly();
@@ -333,6 +348,12 @@ export default function FileBrowser({ path }: { path: string }) {
     uploadFiles: () => uploadFiles(false),
     uploadFolder: () => uploadFiles(true),
     newFolder,
+    comments: (e) => openComments(e.path),
+    tags: (es, pos) => {
+      if (past) return readOnly();
+      const p = pos ?? (menu ? { x: menu.x, y: menu.y, flipY: menu.flipY } : { x: window.innerWidth / 2 - 130, y: 120 });
+      useAnnotationsUi.getState().openPicker({ ...p, paths: es.map((e) => e.path) });
+    },
   };
 
   const canDropInto = (dest: string) => {
@@ -702,12 +723,14 @@ export default function FileBrowser({ path }: { path: string }) {
     else empty = past ? { kind: 'past-missing', when: pastLabel } : { kind: 'missing' };
   } else if (err && !data) {
     empty = { kind: 'error', message: err instanceof Error ? err.message : 'Unknown error.' };
+  } else if (filtering) {
+    empty = null;
   } else if (data && !stale && entries.length === 0 && !creating && !addedLater.length) {
     empty = past ? { kind: 'past-empty', when: pastLabel } : path === '/' ? { kind: 'drive' } : { kind: 'folder' };
   }
-  const loadingFirst = !data && !err;
+  const loadingFirst = filtering ? !tagged.data : !data && !err;
   const fetching = !!data && (listing.isValidating || stale);
-  const countLabel = data && !hardError ? `${entries.length.toLocaleString()} ${entries.length === 1 ? 'item' : 'items'}` : '';
+  const countLabel = filtering || (data && !hardError) ? `${entries.length.toLocaleString()} ${entries.length === 1 ? 'item' : 'items'}` : '';
   const menuItems = menu ? buildDriveMenu({ targets: menu.targets, past, drift: drift?.byPath ?? null, cmd, viewOnly, starred }) : [];
   const folderMenu = buildFolderMenu({
     past,
@@ -745,6 +768,8 @@ export default function FileBrowser({ path }: { path: string }) {
           phone={phone}
           missing={hardError}
         />
+
+        {filtering ? <TaggedBar labelId={labelFilter!} count={tagged.data?.items.length ?? null} /> : null}
 
         {/* Column header ⇄ selection bar: same 44 px slot, so the list never jumps. An empty or missing
             folder has no columns to head, so the slot (and its "0 items") is left out. */}
@@ -852,6 +877,8 @@ export default function FileBrowser({ path }: { path: string }) {
                 </div>
               ))}
             </div>
+          ) : filtering && entries.length === 0 ? (
+            <DriveEmpty art="search" title="Nothing carries this tag yet." body="Tag files and folders from their menu, or from the bar that appears when you select some." />
           ) : empty ? (
             <EmptyDrive
               state={empty}

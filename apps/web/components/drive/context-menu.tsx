@@ -26,6 +26,8 @@ import {
   Users,
   Clock,
   ArrowRight,
+  MessageSquare,
+  Tag,
 } from 'lucide-react';
 import type { FileEntry } from '@volumes/shared';
 import { ContextMenu, type MenuItem } from '@/components/ui/menu';
@@ -44,10 +46,10 @@ export interface DriveCommands {
   comparePrevious(e: FileEntry): void;
   compareWithNow(e: FileEntry): void;
   share(e: FileEntry): void;
-  /** A folder: the share dialog on its Upload link tab (people send files in). */
-  requestFiles(e: FileEntry): void;
   /** Stars the items, or unstars them when every one already is. */
   star(es: FileEntry[]): void;
+  /** A folder: the share dialog on its Upload link tab (people send files in). */
+  requestFiles(e: FileEntry): void;
   checkpoint(): void;
   remove(es: FileEntry[]): void;
   restore(e: FileEntry): void;
@@ -55,13 +57,17 @@ export interface DriveCommands {
   uploadFiles(): void;
   uploadFolder(): void;
   newFolder(): void;
+  /** Opens the file's comments. */
+  comments?(e: FileEntry): void;
+  /** Opens the Tags picker for the items (at the menu, or `at`). */
+  tags?(es: FileEntry[], at?: { x: number; y: number; flipY?: number }): void;
 }
 
 const I = 16;
 const W = 1.75;
 
 /** Items that change the drive (or share it): a viewer sees them disabled, with the reason. */
-const WRITE_ITEMS = new Set(['up', 'upd', 'nf', 'rename', 'mv', 'cp', 'share', 'req', 'cpt', 'del', 'restore']);
+const WRITE_ITEMS = new Set(['up', 'upd', 'nf', 'rename', 'mv', 'cp', 'share', 'req', 'cpt', 'del', 'restore', 'tags']);
 
 function lockForViewer(items: MenuItem[], viewOnly: boolean | undefined): MenuItem[] {
   if (!viewOnly) return items;
@@ -167,6 +173,10 @@ function driveMenuItems(o: {
     if (isDir) items.push({ id: 'req', label: 'Request files…', icon: <Inbox size={I} strokeWidth={W} />, onSelect: () => cmd.requestFiles(one) });
     items.push({ id: 'cpt', label: 'Checkpoint…', icon: <Diamond size={I} strokeWidth={W} />, kbd: 'P', onSelect: cmd.checkpoint });
   }
+  // Comments and tags: anyone in the drive comments; tags change for editors only (WRITE_ITEMS).
+  if ((isFile && cmd.comments) || cmd.tags) items.push({ id: 's-notes', type: 'separator' });
+  if (one && isFile && cmd.comments) items.push({ id: 'comments', label: 'Comments', icon: <MessageSquare size={I} strokeWidth={W} />, onSelect: () => cmd.comments!(one) });
+  if (cmd.tags) items.push({ id: 'tags', label: 'Tags…', icon: <Tag size={I} strokeWidth={W} />, onSelect: () => cmd.tags!(targets) });
   items.push({ id: 's3', type: 'separator' });
   items.push({
     id: 'del',

@@ -101,6 +101,10 @@
   --vx-tick: #55555f;
   --vx-inverse: #ededf0; --vx-on-inverse: #0a0a0b; --vx-inverse-accent: #0a0a0b;
   --vx-avatar-bg: #2a2a31; --vx-avatar-fg: #ededf0;
+  /* tags: muted hues on graphite (chips draw a wash of the same ink) */
+  --vx-label-slate: #a3abb8; --vx-label-sage: #9cc4a4; --vx-label-moss: #b8c27e; --vx-label-sand: #d6bb8a;
+  --vx-label-clay: #e0a088; --vx-label-rose: #e3a1b4; --vx-label-plum: #bfa6dc; --vx-label-sky: #8fb8e0;
+  --vx-label-tint: 14%;
   --skel-base: #16161a; --skel-hi: #1d1d22;
 
   /* file types: a tinted tile with a coloured glyph (no violet) */
@@ -204,6 +208,9 @@
   --vx-tick: #a3a3ad;
   --vx-inverse: #17171b; --vx-on-inverse: #f4f4f6; --vx-inverse-accent: #ededf0;
   --vx-avatar-bg: #dcdce3; --vx-avatar-fg: #111114;
+  --vx-label-slate: #4f5866; --vx-label-sage: #2f6b43; --vx-label-moss: #5b6516; --vx-label-sand: #85602a;
+  --vx-label-clay: #9c4a2c; --vx-label-rose: #a33a5c; --vx-label-plum: #6a4a9a; --vx-label-sky: #2c5f93;
+  --vx-label-tint: 11%;
   --skel-base: #ececf0; --skel-hi: #f6f6f8;
 
   --vx-ft-doc: #2f62d1; --vx-ft-sheet: #1b7546; --vx-ft-pdf: #c2302a; --vx-ft-slides: #a85c0c;
@@ -483,6 +490,9 @@ html.vx-theme-switching *, html.vx-theme-switching *::before, html.vx-theme-swit
 .vx-meta-row { font-family: var(--vx-font-mono); font-size: 12.5px; line-height: 20px; font-weight: 400; }
 .vx-micro { font-size: 12px; line-height: 16px; font-weight: 400; }
 .vx-eyebrow { font-family: var(--vx-font-mono); font-size: 11px; line-height: 16px; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; color: var(--vx-text-3); }
+/* A tag chip: `--lc` is one of the --vx-label-* inks (components/labels/label-chip.tsx). */
+.vx-tag { color: var(--lc); background: color-mix(in srgb, var(--lc) var(--vx-label-tint), transparent); }
+.vx-tag-dot { background: var(--lc); }
 .vx-colhead { font-family: var(--vx-font-mono); font-size: 11px; line-height: 16px; font-weight: 500; letter-spacing: .10em; text-transform: uppercase; color: var(--vx-text-3); }
 /* Header cells that hold the user's own data (CSV columns): the colhead voice, but never re-cased. */
 .vx-datahead { font-family: var(--vx-font-mono); font-size: 11px; line-height: 16px; font-weight: 500; letter-spacing: .04em; color: var(--vx-text-3); }

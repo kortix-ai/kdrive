@@ -20,3 +20,4 @@ export * from './schemas/proposals';
 export * from './schemas/storage';
 export * from './schemas/starred';
 export * from './agents-copy';
+export * from './schemas/annotations';

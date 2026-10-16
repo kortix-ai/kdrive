@@ -31,6 +31,7 @@ the admin the suites sign in as.
 | `apps/api/test/e2e/storage-requests.test.ts` | Requesting a paid plan (one open request, updates, refusals, rate limit, admin mail), admin grant and dismiss |
 | `apps/api/test/e2e/billing.test.ts` | Stripe (a fake client, real webhook signatures): Checkout and portal sessions, signature rejection, subscription → quota up, upgrade, cancel → back to 10 GB, past due, idempotent and retried events, cancel on account deletion |
 | `apps/api/test/e2e/integrity.test.ts` | Restores that never write the wrong bytes, undo guards, logical-byte quota and upload reservations, commit-time conflicts, retries and lost responses, upload slots, share links that follow their item, batch restore, dedup that never reveals other users' files |
+| `apps/api/test/e2e/comments-labels.test.ts` | Comments by owner, editors and viewers (replies, edit own, resolve, delete rules, limits), drive tags (unique names, palette, viewer read-only, assign / unassign, tagged items), both following their item through renames, moves, deletes, undo and restore |
 | `apps/api/test/e2e/storage.test.ts` | Settings → Storage: bytes and files by kind, per drive, largest files, replaced and deleted content in the retention window; who wrote each current file in a shared drive through moves, overwrites, folder copies, deletes, undo, agents, former members and duplicates |
 
 Every e2e test gets an empty database and its own emulator (`test/e2e/kit.ts`),
