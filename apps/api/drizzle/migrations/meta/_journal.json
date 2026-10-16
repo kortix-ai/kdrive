@@ -99,6 +99,13 @@
       "when": 1792147980877,
       "tag": "0013_comments_labels",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1792182356176,
+      "tag": "0014_app_settings",
+      "breakpoints": true
     }
   ]
 }

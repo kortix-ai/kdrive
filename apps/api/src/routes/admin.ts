@@ -4,6 +4,7 @@ import {
   AdminAuditFilter,
   AdminAuditListResponse,
   AdminAuditQuery,
+  AdminBillingResponse,
   AdminDomainsResponse,
   AdminEntryResponse,
   AdminListResponse,
@@ -16,6 +17,9 @@ import {
   AdminUsersQuery,
   AdminUsersResponse,
   formatBytes,
+  SetBillingKeyRequest,
+  SetBillingPricesRequest,
+  SetBillingWebhookSecretRequest,
   SetQuotaRequest,
 } from '@volumes/shared';
 import { getStore } from '../storage';
@@ -23,6 +27,14 @@ import { ok, parseJson, parseQuery } from '../lib/http';
 import { adminAuditCsv, listAdminAudit } from '../services/admin-audit';
 import { adminDomains, adminListUsers, adminOverview, adminSetQuota, adminUserDetail } from '../services/admin-panel';
 import { addAdmin, listAdmins, removeAdmin } from '../services/admins';
+import {
+  adminBillingView,
+  adminDisconnect,
+  adminRetryWebhook,
+  adminSetKey,
+  adminSetPrices,
+  adminSetWebhookSecret,
+} from '../services/billing-config';
 import { adminDismissStorageRequest, adminGrantStorageRequest, adminListStorageRequests } from '../services/storage-requests';
 import type { AppEnv } from '../types';
 
@@ -107,3 +119,26 @@ adminRoutes.post('/storage-requests/:id/grant', async (c) =>
 adminRoutes.post('/storage-requests/:id/dismiss', async (c) =>
   ok(c, AdminStorageRequestResponse, { request: await adminDismissStorageRequest(c, c.get('user'), c.req.param('id')) }),
 );
+
+// ── billing (Stripe): one key and two prices; KDRIVE sets up the rest. Responses never carry a secret. ──
+
+adminRoutes.get('/billing', async (c) => ok(c, AdminBillingResponse, await adminBillingView()));
+
+adminRoutes.put('/billing/key', async (c) => {
+  const req = await parseJson(c, SetBillingKeyRequest);
+  return ok(c, AdminBillingResponse, await adminSetKey(c, c.get('user'), req.secretKey));
+});
+
+adminRoutes.put('/billing/prices', async (c) => {
+  const req = await parseJson(c, SetBillingPricesRequest);
+  return ok(c, AdminBillingResponse, await adminSetPrices(c, c.get('user'), req));
+});
+
+adminRoutes.put('/billing/webhook-secret', async (c) => {
+  const req = await parseJson(c, SetBillingWebhookSecretRequest);
+  return ok(c, AdminBillingResponse, await adminSetWebhookSecret(c, c.get('user'), req.webhookSecret));
+});
+
+adminRoutes.post('/billing/webhook', async (c) => ok(c, AdminBillingResponse, await adminRetryWebhook(c, c.get('user'))));
+
+adminRoutes.delete('/billing', async (c) => ok(c, AdminBillingResponse, await adminDisconnect(c, c.get('user'))));

@@ -5,7 +5,7 @@
 // reload land on the same view. History entries are pushed on tab and user changes; filters replace.
 import { useCallback, useEffect, useState } from 'react';
 
-export const ADMIN_TABS = ['overview', 'users', 'domains', 'requests', 'audit', 'admins'] as const;
+export const ADMIN_TABS = ['overview', 'users', 'domains', 'requests', 'billing', 'audit', 'admins'] as const;
 export type AdminTab = (typeof ADMIN_TABS)[number];
 
 /** The audit log's time window: a preset back from now. */

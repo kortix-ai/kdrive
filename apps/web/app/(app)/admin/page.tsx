@@ -5,6 +5,7 @@
 //  - Users: searchable, sortable, paged; a row opens the user (drives, shared drives, quota, admin rights)
 //  - Domains: usage grouped by the domain of each address
 //  - Requests: storage requests (grant or dismiss)
+//  - Billing: Stripe (one key and the plan prices; KDRIVE sets up the webhook and Stripe Prices)
 //  - Audit: every user's events with filters and CSV export
 //  - Admins: who administers the server
 // The tab, the open user and the audit filters live in the URL (`?tab=requests` is the request email's link).
@@ -14,6 +15,7 @@ import type { AdminUser } from '@volumes/shared';
 import { Admins } from '@/components/admin/admins';
 import { EMPTY_AUDIT, useAdminRoute, type AdminRoute, type AdminTab } from '@/components/admin/admin-route';
 import { AuditTable } from '@/components/admin/audit-table';
+import { Billing } from '@/components/admin/billing';
 import { Domains } from '@/components/admin/domains';
 import { Overview } from '@/components/admin/overview';
 import { StorageRequests, useOpenStorageRequests } from '@/components/admin/storage-requests';
@@ -60,7 +62,7 @@ export default function AdminPage() {
 
   return (
     <Page>
-      <PageHeader eyebrow="Server" title="Admin" lead="Everyone on this server: storage, requests, the audit log and who administers it." />
+      <PageHeader eyebrow="Server" title="Admin" lead="Everyone on this server: storage, requests, billing, the audit log and who administers it." />
       <div className="mt-5 flex flex-wrap items-end justify-between gap-x-4 gap-y-3 border-b border-vx-hair">
         <Tabs
           className="-mb-px overflow-x-auto border-b-0"
@@ -71,6 +73,7 @@ export default function AdminPage() {
             { id: 'users', label: 'Users' },
             { id: 'domains', label: 'Domains' },
             { id: 'requests', label: 'Requests', count: open?.requests.length || undefined },
+            { id: 'billing', label: 'Billing' },
             { id: 'audit', label: 'Audit' },
             { id: 'admins', label: 'Admins' },
           ]}
@@ -105,6 +108,8 @@ export default function AdminPage() {
         <Domains onOpenUser={openUser} />
       ) : route.tab === 'requests' ? (
         <StorageRequests />
+      ) : route.tab === 'billing' ? (
+        <Billing />
       ) : route.tab === 'audit' ? (
         <AuditTable filter={route.audit} onFilter={(audit) => go({ ...route, audit }, 'replace')} />
       ) : (

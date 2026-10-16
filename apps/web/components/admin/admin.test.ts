@@ -3,6 +3,7 @@ import { AUDIT_KINDS, GiB } from '@volumes/shared';
 import { auditLabel, AUDIT_GROUPS } from '@/components/settings/audit-labels';
 import { adminRouteSearch, EMPTY_AUDIT, parseAdminRoute, rangeFrom } from './admin-route';
 import { looksLikeEmail } from './admins';
+import { parsePrice, priceInput } from './billing';
 import { auditParams, kindChips, toggleKinds } from './audit-table';
 import { MAX_QUOTA_GIB, parseGiB, toGiBInput } from './quota-editor';
 import { subscriptionLabel } from './storage-requests';
@@ -125,5 +126,31 @@ describe('subscription badge', () => {
     expect(subscriptionLabel({ ...sub, status: 'past_due' })).toBe('Plus · past due');
     expect(subscriptionLabel({ ...sub, cancelAtPeriodEnd: true })).toBe('Plus · ends 2 Nov');
     expect(subscriptionLabel({ ...sub, plan: 'pro', status: 'canceled', entitled: false })).toBe('Pro · canceled');
+  });
+});
+
+describe('billing', () => {
+  test('the Billing tab has its own URL', () => {
+    expect(parseAdminRoute('?tab=billing').tab).toBe('billing');
+    expect(adminRouteSearch({ ...parseAdminRoute(''), tab: 'billing' })).toBe('?tab=billing');
+  });
+
+  test('parsePrice: a monthly amount, at least 0.50, decimals by currency', () => {
+    expect(parsePrice('9', 'USD')).toEqual({ amount: 9, error: null });
+    expect(parsePrice(' 9.50 ', 'EUR')).toEqual({ amount: 9.5, error: null });
+    expect(parsePrice('1,200', 'JPY')).toEqual({ amount: 1200, error: null });
+    expect(parsePrice('9.5', 'JPY').error).toBe('JPY has no decimals.');
+    expect(parsePrice('9.999', 'USD').error).toBe('At most 2 decimals.');
+    expect(parsePrice('0.2', 'USD').error).toBe('At least 0.50.');
+    expect(parsePrice('-3', 'USD').error).toBeTruthy();
+    expect(parsePrice('abc', 'USD').error).toBeTruthy();
+    expect(parsePrice('', 'USD').error).toBe('Enter a monthly price.');
+    expect(parsePrice('200000', 'USD').error).toBe('At most 100,000.');
+  });
+
+  test('priceInput', () => {
+    expect(priceInput(9, 'USD')).toBe('9');
+    expect(priceInput(9.5, 'USD')).toBe('9.50');
+    expect(priceInput(1200, 'JPY')).toBe('1200');
   });
 });

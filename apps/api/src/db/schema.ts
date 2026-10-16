@@ -431,6 +431,18 @@ export const admins = pgTable('admins', {
 });
 
 /**
+ * Server settings an admin changes at runtime (Admin → Billing), one JSON value per key.
+ * Secrets inside a value are sealed with lib/secret-box.ts, never stored in the clear.
+ */
+export const appSettings = pgTable('app_settings', {
+  key: text('key').primaryKey(),
+  value: jsonb('value').$type<Record<string, unknown>>().notNull(),
+  updatedAt: timestamp('updated_at', tz).defaultNow().notNull(),
+  /** The admin who changed it last (an address, kept after their account is gone). */
+  updatedBy: text('updated_by'),
+});
+
+/**
  * Capacity promised to a mutation that is running now (a copy, a restore, a new
  * or duplicated workspace, a folder) and not yet visible in storage usage. Rows
  * are written and counted under a Postgres advisory lock (per user, or one for

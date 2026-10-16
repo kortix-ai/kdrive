@@ -1,13 +1,13 @@
 'use client';
 
-// The three plan cards (Free, Plus, Pro) from PLANS, and what each offers the person looking
-// (plan-actions.ts). Signed in, their current plan is marked and a request's status shows
+// The three plan cards (Free, Plus, Pro) from PLANS with the prices an admin set (/api/config),
+// and what each offers the person looking (plan-actions.ts). Signed in, their current plan is marked and a request's status shows
 // above the cards; with Stripe on, paid plans go to Checkout and subscribers to the portal.
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import useSWR from 'swr';
 import { Check } from 'lucide-react';
-import { formatBytes, formatPlanPrice, isPaidPlan, PLANS, planById, planForQuota, type Plan, type StorageRequest } from '@volumes/shared';
+import { formatBytes, formatPlanPrice, isPaidPlan, planById, planForQuota, withPrices, type Plan, type StorageRequest } from '@volumes/shared';
 import { SIGNUP_HREF } from '@/components/landing/cta';
 import { useConfig } from '@/lib/api/hooks';
 import { isApiError } from '@/lib/api/client';
@@ -28,12 +28,18 @@ function useCheckoutReturn(): 'success' | 'canceled' | null {
   return v;
 }
 
-function priceText(plan: Plan, billingEnabled: boolean): string {
-  return formatPlanPrice(plan) ?? (billingEnabled ? 'Price shown at checkout' : 'Price coming soon');
+/** The card's price line; null while /api/config (which carries the prices) is on its way. */
+export function priceText(plan: Plan, billingEnabled: boolean, loaded = true): string | null {
+  const text = formatPlanPrice(plan);
+  if (text) return text;
+  if (!loaded) return null;
+  return billingEnabled ? 'Price shown at checkout' : 'Price coming soon';
 }
 
 export function PricingPlans({ signedIn: signedInHint }: { signedIn: boolean }) {
-  const { data: config } = useConfig();
+  const { data: config, error: configError } = useConfig();
+  const plans = withPrices(config?.billing.prices);
+  const pricesLoaded = !!config || !!configError;
   const billing = useSWR(signedInHint ? 'billing' : null, () => api.billing.get(), quiet);
   const request = useSWR(signedInHint ? 'storage-request' : null, () => api.me.storageRequest(), quiet);
   const checkout = useCheckoutReturn();
@@ -118,7 +124,7 @@ export function PricingPlans({ signedIn: signedInHint }: { signedIn: boolean }) 
         </p>
       ) : null}
       <ol className="kd-plans" aria-label="Plans" aria-busy={loading || undefined}>
-        {PLANS.map((plan) => {
+        {plans.map((plan) => {
           const action = planAction(plan, viewer, SIGNUP_HREF);
           const current = action.kind === 'current';
           return (
@@ -128,7 +134,9 @@ export function PricingPlans({ signedIn: signedInHint }: { signedIn: boolean }) 
                 {current ? <span className="kd-plan__badge">Your plan</span> : null}
               </div>
               <p className="kd-plan__size kd-mono">{formatBytes(plan.storageBytes)}</p>
-              <p className={`kd-plan__price${plan.price ? '' : ' kd-plan__price--tbd'}`}>{priceText(plan, billingEnabled)}</p>
+              <p className={`kd-plan__price${plan.price || !pricesLoaded ? '' : ' kd-plan__price--tbd'}`} aria-busy={!pricesLoaded || undefined}>
+                {priceText(plan, billingEnabled, pricesLoaded) ?? '\u00a0'}
+              </p>
               <p className="kd-plan__tagline">{plan.tagline}</p>
               <ul className="kd-plan__features">
                 {plan.features.map((f) => (

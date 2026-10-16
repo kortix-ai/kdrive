@@ -12,6 +12,7 @@ import { newId } from '../src/lib/ids';
 import { resetRateLimits } from '../src/middleware/rate-limit';
 import { clearAdminUsageCache } from '../src/services/admin-panel';
 import { clearAdminCache } from '../src/services/admins';
+import { clearBillingConfigCache } from '../src/services/billing-config';
 import { clearTreeCache } from '../src/services/tree';
 
 export const ORIGIN = 'http://localhost:4100';
@@ -31,6 +32,7 @@ const TABLES = [
   'bauth_jwks',
   'audit_events',
   'admins',
+  'app_settings',
   'storage_requests',
   'billing_accounts',
   'billing_events',
@@ -63,6 +65,7 @@ export async function resetDb(): Promise<void> {
   clearTreeCache();
   clearAdminCache();
   clearAdminUsageCache();
+  clearBillingConfigCache();
 }
 
 let app: ReturnType<typeof createApp> | null = null;

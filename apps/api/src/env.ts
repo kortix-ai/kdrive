@@ -52,10 +52,14 @@ const Raw = z.object({
   VOLUMES_MCP_ENABLED: z.preprocess(emptyToUndefined, z.enum(['0', '1']).default('1')),
   /** Extra browser origins allowed to call /mcp, comma-separated. */
   VOLUMES_MCP_ORIGINS: opt(),
-  /** Paid plans through Stripe: all four or none (none: people request more storage instead). */
+  /**
+   * Paid plans through Stripe (services/billing-config.ts). The secret key alone is enough: Admin →
+   * Billing then creates the webhook and the plan Prices. When set it wins over a key saved there.
+   */
   STRIPE_SECRET_KEY: opt(),
+  /** Optional overrides, read only alongside STRIPE_SECRET_KEY: the webhook signing secret… */
   STRIPE_WEBHOOK_SECRET: opt(),
-  /** Stripe Price ids (price_…) of the monthly Plus and Pro prices. */
+  /** …and the Stripe Price ids (price_…) of the monthly Plus and Pro prices. */
   STRIPE_PRICE_PLUS: opt(),
   STRIPE_PRICE_PRO: opt(),
 });
@@ -126,18 +130,24 @@ export interface Env {
   mcpEnabled: boolean;
   /** Extra browser origins allowed to call /mcp (besides trustedOrigins). */
   mcpOrigins: string[];
-  /** Stripe billing, or null when it is not configured. Mutable so tests can switch it on. */
-  stripe: StripeConfig | null;
+  /** The STRIPE_* variables, or null without STRIPE_SECRET_KEY. Mutable so tests can switch it on. */
+  stripe: StripeEnv | null;
 }
 
+/** Stripe from the environment: the key, and optional overrides of what Admin → Billing sets up. */
+export interface StripeEnv {
+  secretKey: string;
+  webhookSecret?: string | null;
+  prices?: { plus?: string | null; pro?: string | null };
+}
+
+/** Everything Checkout and the webhook need (resolved by services/billing-config.ts). */
 export interface StripeConfig {
   secretKey: string;
   webhookSecret: string;
   /** Monthly Price id per paid plan. */
   prices: { plus: string; pro: string };
 }
-
-const STRIPE_KEYS = ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'STRIPE_PRICE_PLUS', 'STRIPE_PRICE_PRO'] as const;
 
 export function loadEnv(source: Record<string, string | undefined> = process.env): Env {
   const parsed = Raw.safeParse(source);
@@ -176,10 +186,9 @@ export function loadEnv(source: Record<string, string | undefined> = process.env
   if (requireEmailVerification && !emailProvider && !isLocalMode) {
     throw new Error('VOLUMES_REQUIRE_EMAIL_VERIFICATION=1 needs RESEND_API_KEY or MAILTRAP_API_TOKEN outside development.');
   }
-  // Half a Stripe setup takes money without granting storage (or the reverse): refuse to start.
-  const stripeSet = STRIPE_KEYS.filter((k) => r[k]);
-  if (stripeSet.length && stripeSet.length < STRIPE_KEYS.length) {
-    throw new Error(`Stripe billing needs all of ${STRIPE_KEYS.join(', ')} (missing: ${STRIPE_KEYS.filter((k) => !r[k]).join(', ')}).`);
+  // The overrides mean nothing without a key in the environment (a key saved in Admin → Billing uses its own setup).
+  if (!r.STRIPE_SECRET_KEY && (r.STRIPE_WEBHOOK_SECRET || r.STRIPE_PRICE_PLUS || r.STRIPE_PRICE_PRO) && r.NODE_ENV !== 'test') {
+    console.warn('[env] STRIPE_WEBHOOK_SECRET / STRIPE_PRICE_* are ignored without STRIPE_SECRET_KEY.');
   }
   const trusted = new Set<string>([authOrigin]);
   if (isLocalMode) trusted.add('http://localhost:4100');
@@ -234,14 +243,13 @@ export function loadEnv(source: Record<string, string | undefined> = process.env
       .split(',')
       .map((o) => o.trim().replace(/\/$/, ''))
       .filter(Boolean),
-    stripe:
-      r.STRIPE_SECRET_KEY && r.STRIPE_WEBHOOK_SECRET && r.STRIPE_PRICE_PLUS && r.STRIPE_PRICE_PRO
-        ? {
-            secretKey: r.STRIPE_SECRET_KEY,
-            webhookSecret: r.STRIPE_WEBHOOK_SECRET,
-            prices: { plus: r.STRIPE_PRICE_PLUS, pro: r.STRIPE_PRICE_PRO },
-          }
-        : null,
+    stripe: r.STRIPE_SECRET_KEY
+      ? {
+          secretKey: r.STRIPE_SECRET_KEY,
+          webhookSecret: r.STRIPE_WEBHOOK_SECRET ?? null,
+          prices: { plus: r.STRIPE_PRICE_PLUS ?? null, pro: r.STRIPE_PRICE_PRO ?? null },
+        }
+      : null,
   };
 }
 

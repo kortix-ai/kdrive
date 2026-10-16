@@ -1,61 +1,20 @@
-// End to end: paid plans through Stripe. A fake Stripe client stands in for the
-// network (customers, Checkout, the portal, subscriptions); webhook payloads are
-// signed for real with the SDK's test header, so signature checks run as in production.
+// End to end: paid plans through Stripe, configured entirely by the STRIPE_* variables
+// (Admin → Billing is billing-admin.test.ts). A fake Stripe client stands in for the network
+// (customers, Checkout, the portal, subscriptions); webhook payloads are signed for real with
+// the SDK's test header, so signature checks run as in production.
 import { afterAll, afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { asc, eq } from 'drizzle-orm';
-import Stripe from 'stripe';
 import { DEFAULT_QUOTA_BYTES, GiB, TiB } from '@volumes/shared';
 import { db } from '../../src/db/client';
 import { auditEvents, billingAccounts } from '../../src/db/schema';
 import { env } from '../../src/env';
-import { setStripeClientForTests, type StripeClient } from '../../src/services/billing';
+import { setStripeClientForTests } from '../../src/services/billing';
 import { makeApp } from '../helpers';
+import { FakeStripe, sdk } from './fake-stripe';
 import { endWorld, freshWorld, ls, upload, user, type User } from './kit';
 
 const SECRET = 'whsec_test_secret';
 const PRICES = { plus: 'price_plus_monthly', pro: 'price_pro_monthly' };
-const sdk = new Stripe('sk_test_not_a_real_key');
-
-/** Records what the API asked Stripe for, and holds the subscriptions Stripe "has". */
-class FakeStripe implements StripeClient {
-  customersMade: Stripe.CustomerCreateParams[] = [];
-  sessions: Stripe.Checkout.SessionCreateParams[] = [];
-  portals: Stripe.BillingPortal.SessionCreateParams[] = [];
-  cancelled: string[] = [];
-  subs = new Map<string, Stripe.Subscription>();
-  customers = { create: async (p: Stripe.CustomerCreateParams) => (this.customersMade.push(p), { id: `cus_${this.customersMade.length}` }) };
-  checkout = {
-    sessions: { create: async (p: Stripe.Checkout.SessionCreateParams) => (this.sessions.push(p), { id: 'cs_1', url: 'https://checkout.stripe.com/c/pay/cs_1' }) },
-  };
-  billingPortal = { sessions: { create: async (p: Stripe.BillingPortal.SessionCreateParams) => (this.portals.push(p), { url: 'https://billing.stripe.com/p/session/1' }) } };
-  subscriptions = {
-    retrieve: async (id: string) => {
-      const s = this.subs.get(id);
-      if (!s) throw new Error(`no such subscription: ${id}`);
-      return s;
-    },
-    cancel: async (id: string) => {
-      this.cancelled.push(id);
-      return {};
-    },
-  };
-  webhooks = sdk.webhooks;
-
-  /** Puts a subscription in the fake's store, as Stripe would hold it now. */
-  setSub(id: string, customer: string, plan: 'plus' | 'pro', status: Stripe.Subscription.Status, extra: { cancelAtPeriodEnd?: boolean; userId?: string } = {}) {
-    const sub = {
-      id,
-      object: 'subscription',
-      customer,
-      status,
-      cancel_at_period_end: !!extra.cancelAtPeriodEnd,
-      metadata: extra.userId ? { userId: extra.userId, plan } : {},
-      items: { object: 'list', data: [{ price: { id: PRICES[plan] }, current_period_end: 1_900_000_000 }] },
-    } as unknown as Stripe.Subscription;
-    this.subs.set(id, sub);
-    return sub;
-  }
-}
 
 let stripe: FakeStripe;
 let n = 0;
@@ -100,7 +59,7 @@ describe('billing off', () => {
   test('config says so, and checkout, portal and the webhook answer 404', async () => {
     env.stripe = null;
     const ada = await user('off@test.local');
-    expect((await ada.client.get('/api/config')).body.billing).toEqual({ enabled: false });
+    expect((await ada.client.get('/api/config')).body.billing).toEqual({ enabled: false, prices: { plus: null, pro: null } });
     expect((await ada.client.get('/api/billing')).body).toMatchObject({ enabled: false, plan: 'free', subscription: null, hasBillingAccount: false });
     expect((await ada.client.post('/api/billing/checkout', { plan: 'plus' })).status).toBe(404);
     expect((await ada.client.post('/api/billing/portal')).status).toBe(404);
@@ -111,7 +70,7 @@ describe('billing off', () => {
 describe('checkout and portal', () => {
   test('a Checkout Session for the plan price, one Stripe customer per user, success and cancel back to /pricing', async () => {
     const ada = await user('ada@test.local');
-    expect((await ada.client.get('/api/config')).body.billing).toEqual({ enabled: true });
+    expect((await ada.client.get('/api/config')).body.billing).toEqual({ enabled: true, prices: { plus: null, pro: null } });
     const r = await ada.client.post('/api/billing/checkout', { plan: 'plus' });
     expect(r.status).toBe(200);
     expect(r.body.url).toBe('https://checkout.stripe.com/c/pay/cs_1');

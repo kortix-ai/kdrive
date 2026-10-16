@@ -9,6 +9,8 @@ import {
   type MemberRole,
   AcceptProposalResponse,
   AdminAuditListResponse,
+  AdminBillingResponse,
+  type SetBillingPricesRequest,
   AdminDomainsResponse,
   AdminEntryResponse,
   AdminListResponse,
@@ -316,6 +318,14 @@ export const api = {
       apiFetch(`/api/admin/storage-requests/${encodeURIComponent(id)}/grant`, { method: 'POST', json: {} }, AdminStorageRequestResponse),
     dismissStorageRequest: (id: string) =>
       apiFetch(`/api/admin/storage-requests/${encodeURIComponent(id)}/dismiss`, { method: 'POST', json: {} }, AdminStorageRequestResponse),
+    /** Admin → Billing: the Stripe configuration (never a secret). */
+    billing: () => apiFetch('/api/admin/billing', {}, AdminBillingResponse),
+    setBillingKey: (secretKey: string) => apiFetch('/api/admin/billing/key', { method: 'PUT', json: { secretKey } }, AdminBillingResponse),
+    setBillingPrices: (req: SetBillingPricesRequest) => apiFetch('/api/admin/billing/prices', { method: 'PUT', json: req }, AdminBillingResponse),
+    setBillingWebhookSecret: (webhookSecret: string) =>
+      apiFetch('/api/admin/billing/webhook-secret', { method: 'PUT', json: { webhookSecret } }, AdminBillingResponse),
+    retryBillingWebhook: () => apiFetch('/api/admin/billing/webhook', { method: 'POST', json: {} }, AdminBillingResponse),
+    disconnectBilling: () => apiFetch('/api/admin/billing', { method: 'DELETE' }, AdminBillingResponse),
   },
 };
 
