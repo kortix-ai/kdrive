@@ -24,7 +24,7 @@ export default function NotFound() {
         <main className="flex flex-col items-center">
           <GlassFolder ghost hue={HUES.cobalt} size={150} tag="404" />
           <h1 className="mt-7 text-[32px] font-semibold leading-[38px] tracking-[-0.03em] text-vx-text-1 max-[720px]:text-[28px] max-[720px]:leading-[34px]">
-            Nothing <em className="font-[family-name:var(--vx-font-display)] font-normal italic tracking-[-0.01em]">here.</em>
+            Nothing <span>here.</span>
           </h1>
           <p className="mt-2 max-w-[320px] text-[16px] leading-6 text-vx-text-2">This page does not exist. Your files are safe in your drive.</p>
           <div className="mt-7 flex w-full flex-col gap-2.5">

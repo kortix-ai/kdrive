@@ -1,5 +1,5 @@
 // The section head: a mono eyebrow `NN · NAME` led by the glass object's 16 × 13 dot in the section's hue, a
-// balanced H2 whose last phrase sets in Instrument Serif italic (pass it as `em`), and an optional lead. With a
+// balanced sans-serif H2 with an optional ending phrase (pass it as `em`), and an optional lead. With a
 // lead the head splits 1:1 (H2 left, lead right, bottom-aligned). Server component.
 export function SectionHead({
   id,
@@ -34,7 +34,7 @@ export function SectionHead({
           {em && (
             <>
               {' '}
-              <em className="kd-serif">{em}</em>
+              <span>{em}</span>
             </>
           )}
         </Tag>

@@ -15,6 +15,7 @@
 
 /* back + tab: the fill sits 2px off the ink stroke, a slight misregistration */
 .vx-folder__back {
+  z-index: 0;
   left: 3%; right: 3%; top: 13%; bottom: 7%;
   border-radius: 0 6.5cqw 6cqw 6cqw;
   transform: translate(2px, 2px);
@@ -31,10 +32,11 @@
 
 /* papers peeking out */
 .vx-folder__paper {
-  left: 13%; width: 44%; top: 5%; height: 64%;
+  z-index: 2;
+  left: 15%; width: 42%; top: 18%; height: 56%;
   border-radius: 3cqw;
   background-color: var(--vx-paper);
-  transform: rotate(-6deg);
+  transform: rotate(-4deg);
   transform-origin: 50% 100%;
   box-shadow: 0 1px 2px oklch(0 0 0 / .12), 0 6px 14px -6px oklch(0 0 0 / .22);
   background-image:
@@ -46,7 +48,7 @@
   background-repeat: no-repeat;
   transition: transform var(--vx-dur-5) var(--vx-ease);
 }
-.vx-folder__paper.is-p2 { left: 42%; top: 8%; transform: rotate(7deg); filter: brightness(.985); }
+.vx-folder__paper.is-p2 { left: 41%; top: 20%; transform: rotate(4deg); filter: brightness(.985); }
 .vx-folder__paper.is-photo { background: linear-gradient(180deg, oklch(0.84 0.07 230) 0 55%, oklch(0.72 0.10 150) 55%); }
 .vx-folder__paper.is-photo::after {
   content: ""; position: absolute; right: 18%; top: 14%;
@@ -91,11 +93,12 @@
   background-position: 7% 0, 93% 0, 50% 50%;
   background-repeat: repeat-y, repeat-y, no-repeat;
 }
-.vx-folder.is-lift:hover .vx-folder__paper { transform: translateY(-6%) rotate(-8deg); }
-.vx-folder.is-lift:hover .vx-folder__paper.is-p2 { transform: translateY(-9%) rotate(9deg); }
+.vx-folder.is-lift:hover .vx-folder__paper { transform: translateY(-3%) rotate(-5deg); }
+.vx-folder.is-lift:hover .vx-folder__paper.is-p2 { transform: translateY(-3%) rotate(5deg); }
 
 /* the frosted front: the papers blur through it */
 .vx-folder__front {
+  z-index: 3;
   left: 0; right: 0; top: 38%; bottom: 0;
   display: flex; align-items: flex-end; justify-content: space-between;
   padding: 0 5.5cqw 5cqw;
@@ -150,8 +153,8 @@
 }
 .vx-folder__face + .vx-folder__face { margin-left: -3cqw; }
 
-/* one ink line over the back and tab */
-.vx-folder__ink { inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+/* The back's outline stays behind the inserts and front, never crossing the paper. */
+.vx-folder__ink { z-index: 1; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
 .vx-folder__ink path {
   fill: none;
   stroke: var(--vx-ink-line);

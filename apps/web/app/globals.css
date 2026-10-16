@@ -332,7 +332,7 @@
 :root {
   --vx-font-sans: var(--font-geist), 'Geist', ui-sans-serif, system-ui, sans-serif;          /* one-line swap from Inter */
   --vx-font-mono: var(--font-kd-mono), 'Geist Mono', ui-monospace, 'SF Mono', monospace;       /* one-line swap from JetBrains Mono */
-  --vx-font-display: var(--font-kd-display), 'Instrument Serif', Georgia, serif;                    /* NEW: one emphasised word only */
+  --vx-font-display: var(--vx-font-sans);
   --vx-r-xs: 4px; --vx-r-sm: 8px; --vx-r-md: 12px; --vx-r-lg: 16px; --vx-r-xl: 22px; --vx-r-pill: 999px;
   --vx-ease: cubic-bezier(0.2, 0.8, 0.2, 1); --vx-ease-io: cubic-bezier(0.6, 0, 0.2, 1); --vx-ease-exit: cubic-bezier(0.4, 0, 1, 1);
   --vx-dur-1: 120ms; --vx-dur-2: 160ms; --vx-dur-3: 200ms; --vx-dur-4: 240ms; --vx-dur-5: 500ms;

@@ -1,7 +1,7 @@
 import { ImageResponse } from 'next/og';
 
 // The landing's share card: the hero in miniature. Oat paper with the dot grid, the pixel K and the KDRIVE
-// wordmark in ink, the tagline with its serif word, and six glass folders (three above, three below) in the
+// wordmark in ink, the sans-serif tagline, and six glass folders (three above, three below) in the
 // object hues. The image renderer has no CSS variables or oklch, so the light theme's token values
 // (app/globals.css) are written out here.
 export const alt = 'KDRIVE · The drive that remembers.';
@@ -14,7 +14,6 @@ const H = size.height;
 // --vx-bg, --vx-text-1, --vx-text-2, --vx-dot, --vx-paper (light)
 const BG = '#ECE8E0';
 const INK = '#1B1A17';
-const INK_2 = '#45423C';
 const DOT = 'rgba(28,26,23,0.10)';
 const PAPER = '#FFFEFB';
 
@@ -79,13 +78,13 @@ function Folder({ back, glass, x, y, r }: (typeof FOLDERS)[number]) {
 }
 
 export default async function OpengraphImage() {
-  const [sans, serif] = await Promise.all([
-    font('Geist', 'wght@600', 'KDRIVEThe drive that'),
-    font('Instrument+Serif', 'ital@1', 'remembers.'),
+  const [sans, brand] = await Promise.all([
+    font('Geist', 'wght@600', 'KDRIVEThe drive that remembers.'),
+    font('Sora', 'wght@800', 'KDRIVE'),
   ]);
   const fonts = [
     ...(sans ? [{ name: 'Geist', data: sans, weight: 600 as const, style: 'normal' as const }] : []),
-    ...(serif ? [{ name: 'Instrument Serif', data: serif, weight: 400 as const, style: 'italic' as const }] : []),
+    ...(brand ? [{ name: 'Sora', data: brand, weight: 800 as const, style: 'normal' as const }] : []),
   ];
   return new ImageResponse(
     (
@@ -110,11 +109,11 @@ export default async function OpengraphImage() {
           <div style={{ display: 'flex', alignItems: 'center' }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={MARK_SVG} width={104} height={104} alt="" style={{ marginRight: 26 }} />
-            <div style={{ fontSize: 150, fontWeight: 600, letterSpacing: 4, lineHeight: 1, color: INK }}>KDRIVE</div>
+            <div style={{ fontFamily: brand ? 'Sora' : 'Geist', fontSize: 150, fontWeight: brand ? 800 : 600, letterSpacing: -6, lineHeight: 1, color: INK }}>KDRIVE</div>
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', marginTop: 22, fontSize: 46, fontWeight: 600, letterSpacing: -1, color: INK }}>
             <span>The drive that</span>
-            <span style={{ marginLeft: 12, fontFamily: 'Instrument Serif', fontStyle: 'italic', fontWeight: 400, fontSize: 54, color: INK_2 }}>
+            <span style={{ marginLeft: 12 }}>
               remembers.
             </span>
           </div>

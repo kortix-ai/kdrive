@@ -41,7 +41,7 @@ function Reset() {
 
   return (
     <OAuthShell width={440}>
-      <h1 className="text-[28px] font-semibold leading-[34px] tracking-[-0.03em] text-vx-text-1">Choose a new <em className="font-[family-name:var(--vx-font-display)] font-normal italic tracking-[-0.01em]">password.</em></h1>
+      <h1 className="text-[28px] font-semibold leading-[34px] tracking-[-0.03em] text-vx-text-1">Choose a new <span>password.</span></h1>
       {done ? (
         <>
           <NoticeRow>Your password is changed and every session is signed out. We emailed you a note about it.</NoticeRow>

@@ -115,14 +115,6 @@ html:has(.kd) body {
   color: var(--kd-text-3);
 }
 
-/* the one emphasised word or phrase: Instrument Serif italic */
-.kd-serif {
-  font-family: var(--kd-font-display);
-  font-style: italic;
-  font-weight: 400;
-  letter-spacing: -.01em;
-}
-
 .kd-sr-only {
   position: absolute;
   width: 1px;
