@@ -11,6 +11,8 @@ import { cx } from '@/components/ui/cx';
 import { Dialog } from '@/components/ui/dialog';
 import { FileIcon } from '@/components/ui/file-icon';
 import { DateTimePicker, roundUpToSlot } from '@/components/ui/date-time-picker';
+import { Input } from '@/components/ui/input';
+import { Tabs } from '@/components/ui/tabs';
 import { ApiError } from '@/lib/api/client';
 import { api } from '@/lib/api/endpoints';
 import { useStat } from '@/lib/api/hooks';
@@ -21,6 +23,7 @@ import { AccessFields } from './access-fields';
 import { copyText, CopyButton } from './copy-button';
 import { expiryToIso, linkStatus, sortLinks, toLocalInput, type ExpiryChoice } from './expiry';
 import { LinkRow } from './link-row';
+import { useUploadLinkTab } from './upload-link-tab';
 
 const noRetry = { revalidateOnFocus: false, shouldRetryOnError: false } as const;
 
@@ -89,7 +92,7 @@ const EXPIRY: { value: ExpiryChoice; label: string }[] = [
   { value: 'custom', label: 'Custom…' },
 ];
 
-function ShareBody({ ws, path, onClose }: { ws: string; path: string; onClose: () => void }) {
+function ShareBody({ ws, path, tab: initialTab, onClose }: { ws: string; path: string; tab?: 'upload'; onClose: () => void }) {
   const timeTravel = useVx((s) => s.timeTravel);
   const past = !!timeTravel;
   const at = timeTravel?.commitId ?? null;
@@ -121,9 +124,15 @@ function ShareBody({ ws, path, onClose }: { ws: string; path: string; onClose: (
   const b = budget.data?.budget;
   const max = b?.max ?? TAG_BUDGET;
   const full = mode === 'pinned' && !!b && b.used >= b.max;
-  const sorted = useMemo(() => sortLinks(links.data?.links ?? []), [links.data]);
+  const sorted = useMemo(() => sortLinks((links.data?.links ?? []).filter((l) => l.kind !== 'upload')), [links.data]);
   const activeCount = sorted.filter((l) => linkStatus(l) === 'active').length;
   const name = basename(path) || 'My Drive';
+
+  // Folders in the present also get an Upload link tab (people send files in).
+  const [tab, setTab] = useState<'link' | 'upload'>(initialTab ?? 'link');
+  const canUpload = isDir && !past;
+  const upload = useUploadLinkTab({ ws, path, name, onClose });
+  const onUpload = canUpload && tab === 'upload';
 
   const pinnedAt = past ? timeTravel!.createdAt : head.data?.createdAt;
   const pinnedCommit = past ? timeTravel!.commitId : head.data?.id;
@@ -196,7 +205,7 @@ function ShareBody({ ws, path, onClose }: { ws: string; path: string; onClose: (
       open
       onClose={onClose}
       width={560}
-      busy={busy}
+      busy={busy || upload.busy}
       icon={<FileIcon name={name} type={isDir ? 'dir' : 'file'} size={32} />}
       title={
         <span className="block truncate" title={path}>
@@ -205,7 +214,7 @@ function ShareBody({ ws, path, onClose }: { ws: string; path: string; onClose: (
       }
       description={description}
       footer={
-        <>
+        onUpload ? upload.footer : <>
           <Button variant="outline" onClick={onClose} disabled={busy}>
             Done
           </Button>
@@ -215,7 +224,7 @@ function ShareBody({ ws, path, onClose }: { ws: string; path: string; onClose: (
         </>
       }
       note={
-        <>
+        onUpload ? upload.note : <>
           <Lock size={16} strokeWidth={1.75} className="shrink-0" aria-hidden />
           <span>
             Unless you limit it, anyone with a link can view and download without signing in. Nobody can change your files through it.
@@ -223,7 +232,18 @@ function ShareBody({ ws, path, onClose }: { ws: string; path: string; onClose: (
         </>
       }
     >
-      <div className="flex flex-col gap-5 pb-2">
+      {canUpload ? (
+        <Tabs
+          className="mb-4"
+          items={[
+            { id: 'link', label: 'Share link' },
+            { id: 'upload', label: 'Upload link' },
+          ]}
+          value={tab}
+          onChange={setTab}
+        />
+      ) : null}
+      {onUpload ? upload.body : <div className="flex flex-col gap-5 pb-2">
         <div>
           <span className={label} id="share-type">
             Link type
@@ -371,7 +391,7 @@ function ShareBody({ ws, path, onClose }: { ws: string; path: string; onClose: (
             </ul>
           )}
         </section>
-      </div>
+      </div>}
     </Dialog>
   );
 }
@@ -385,5 +405,5 @@ export default function ShareDialog() {
   const ws = useVx((s) => s.workspaceId);
   const close = useVx((s) => s.closeShare);
   if (!share || !ws) return null;
-  return <ShareBody key={`${ws}:${share.path}`} ws={ws} path={share.path} onClose={close} />;
+  return <ShareBody key={`${ws}:${share.path}:${share.tab ?? ''}`} ws={ws} path={share.path} tab={share.tab} onClose={close} />;
 }

@@ -267,6 +267,17 @@ export const shareLinks = pgTable(
     allowDownload: boolean('allow_download').notNull().default(true),
     allowedEmails: text('allowed_emails').array().notNull().default(sql`'{}'::text[]`),
     createdAt: timestamp('created_at', tz).defaultNow().notNull(),
+    // 'upload': a live folder link people send files into. They never list or
+    // read the folder; each file lands as one action charged to the drive owner.
+    kind: text('kind').$type<'view' | 'upload'>().notNull().default('view'),
+    maxFileBytes: bigint('max_file_bytes', { mode: 'number' }), // upload only; null = the server cap
+    maxFiles: integer('max_files'), // upload only; null = no limit
+    uploadCount: integer('upload_count').notNull().default(0),
+    uploadBytes: bigint('upload_bytes', { mode: 'number' }).notNull().default(0),
+    // The per-day cap: bytes and files received on `upload_day` (UTC).
+    uploadDay: text('upload_day'),
+    uploadDayBytes: bigint('upload_day_bytes', { mode: 'number' }).notNull().default(0),
+    uploadDayFiles: integer('upload_day_files').notNull().default(0),
   },
   (t) => [index('share_links_ws_idx').on(t.workspaceId)],
 );

@@ -315,6 +315,7 @@ export default function FileBrowser({ path }: { path: string }) {
     comparePrevious: (e) => ws && void compareWithPrevious(ws, e.path, (href) => router.push(href)),
     compareWithNow: (e) => at && router.push(compareHref(e.path, at, nowListing.data?.commitId ?? 'head')),
     share: (e) => (viewOnly ? readOnly() : vx().openShare(e.path)),
+    requestFiles: (e) => (viewOnly ? readOnly() : vx().openShare(e.path, 'upload')),
     checkpoint: () => (viewOnly ? readOnly() : vx().openCheckpoint(null)),
     remove: (es) => {
       if (locked) return readOnly();
@@ -704,6 +705,7 @@ export default function FileBrowser({ path }: { path: string }) {
     past,
     cmd,
     share: () => vx().openShare(path),
+    requestFiles: () => vx().openShare(path, 'upload'),
     history: () => vx().toggleTimeline(true),
     downloadZip: () => ws && downloadEntries(ws, [{ path, name: path === '/' ? rootName : basename(path), type: 'dir', size: 0, mtime: 0 }], at),
     renameDrive: path === '/' && role === 'owner' ? () => vx().openRenameDrive() : undefined,

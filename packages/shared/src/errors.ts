@@ -36,6 +36,8 @@ export const ERROR_CODES = [
   'read_only',
   'already_member',
   'too_many_people',
+  'folder_full',
+  'upload_limit',
   'internal',
 ] as const;
 

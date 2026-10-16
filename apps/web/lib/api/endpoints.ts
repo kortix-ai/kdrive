@@ -5,6 +5,7 @@ import {
   InvitationListResponse,
   InviteResponse,
   type InviteRequest,
+  type LinkKind,
   type MemberRole,
   AcceptProposalResponse,
   AdminAuditListResponse,
@@ -44,6 +45,7 @@ import {
   MutationResponse,
   PublicListResponse,
   PublicShareMeta,
+  PublicUploadMeta,
   RedirectResponse,
   RestoreResponse,
   SearchResponse,
@@ -174,9 +176,11 @@ export const api = {
     meta: (token: string) => apiFetch(`/api/public/s/${encodeURIComponent(token)}`, {}, PublicShareMeta),
     list: (token: string, q: { path?: string } = {}) =>
       apiFetch(`/api/public/s/${encodeURIComponent(token)}/files${qs({ path: q.path })}`, {}, PublicListResponse),
-    /** A right password sets this link's unlock cookie (204). */
-    unlock: (token: string, password: string) =>
-      apiFetch<void>(`/api/public/s/${encodeURIComponent(token)}/unlock`, { method: 'POST', json: { password } }),
+    /** A right password sets this link's unlock cookie (204). `upload`: an upload link (`/u/<token>`). */
+    unlock: (token: string, password: string, kind: LinkKind = 'view') =>
+      apiFetch<void>(`/api/public/${kind === 'upload' ? 'u' : 's'}/${encodeURIComponent(token)}/unlock`, { method: 'POST', json: { password } }),
+    /** An upload link's page (counts an open). Files go up with `sendFile` (lib/upload/link-send.ts). */
+    uploadMeta: (token: string) => apiFetch(`/api/public/u/${encodeURIComponent(token)}`, {}, PublicUploadMeta),
   },
 
   workspaces: {
