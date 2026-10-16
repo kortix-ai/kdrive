@@ -383,8 +383,8 @@ function DrivePeople({ drive }: { drive: SharedDrive }) {
 function ShareBar({ bytes, total, muted }: { bytes: number; total: number; muted?: boolean }) {
   const pct = total > 0 ? (bytes / total) * 100 : 0;
   return (
-    <span aria-hidden className="block h-1.5 overflow-hidden rounded-vx-xs bg-vx-meter-track max-[520px]:order-last max-[520px]:col-span-3 max-[520px]:ml-9">
-      <span className={cx('block h-full rounded-vx-xs', muted ? 'bg-vx-tick' : 'bg-vx-accent')} style={{ width: bytes > 0 ? `max(2px, ${pct}%)` : 0 }} />
+    <span aria-hidden className="block h-1.5 overflow-hidden rounded-vx-pill bg-vx-meter-track max-[520px]:order-last max-[520px]:col-span-3 max-[520px]:ml-9">
+      <span className={cx('block h-full rounded-vx-pill', muted ? 'bg-vx-tick' : 'bg-vx-text-2')} style={{ width: bytes > 0 ? `max(2px, ${pct}%)` : 0 }} />
     </span>
   );
 }

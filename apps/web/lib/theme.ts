@@ -13,7 +13,7 @@ export const THEME_KEY = 'vx-theme';
 export const THEME_EVENT = 'vx-theme';
 export const THEME_PREFS: readonly ThemePref[] = ['dark', 'light', 'system'];
 /** The painted ground per theme, mirrored into <meta name="theme-color">. */
-export const THEME_COLOR: Record<ResolvedTheme, string> = { dark: '#0a0a0b', light: '#f4f4f6' };
+export const THEME_COLOR: Record<ResolvedTheme, string> = { dark: '#1a1917', light: '#ece8e0' };
 
 /** Missing or unknown values mean dark. */
 export function parseThemePref(v: string | null | undefined): ThemePref {

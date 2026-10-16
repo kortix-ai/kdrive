@@ -179,9 +179,9 @@ export function DateTimePicker({
                 className={cx(
                   'vx-inset-focus mx-auto flex h-8 w-8 items-center justify-center rounded-vx-sm font-mono text-[12.5px] tabular-nums transition-colors duration-[120ms] ease-vx disabled:cursor-not-allowed disabled:opacity-[.38]',
                   selected
-                    ? 'bg-vx-accent font-semibold text-vx-on-accent'
+                    ? 'bg-vx-primary font-semibold text-vx-on-primary'
                     : cx(
-                        outside ? 'text-vx-text-4' : 'text-vx-text-1',
+                        outside ? 'text-vx-text-3' : 'text-vx-text-1',
                         isToday && 'shadow-[inset_0_0_0_1px_var(--vx-hair-strong)]',
                         'enabled:hover:bg-vx-raise',
                       ),
@@ -214,7 +214,7 @@ export function DateTimePicker({
                 onClick={() => onChange(s)}
                 className={cx(
                   'vx-inset-focus flex h-8 w-full items-center rounded-vx-sm px-2.5 font-mono text-[12.5px] tabular-nums transition-colors duration-[120ms] ease-vx disabled:cursor-not-allowed disabled:opacity-[.38]',
-                  on ? 'bg-vx-accent font-semibold text-vx-on-accent' : 'text-vx-text-1 enabled:hover:bg-vx-raise',
+                  on ? 'bg-vx-primary font-semibold text-vx-on-primary' : 'text-vx-text-1 enabled:hover:bg-vx-hover',
                 )}
               >
                 {format(s, 'HH:mm')}

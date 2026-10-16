@@ -56,14 +56,14 @@ function EmailsField({ emails, onChange }: { emails: string[]; onChange: (emails
           {emails.map((e) => (
             <li
               key={e}
-              className="inline-flex h-6 max-w-full items-center gap-1 rounded-vx-xs bg-vx-surface-3 pl-2 pr-0.5 text-[12.5px] leading-4 text-vx-text-1"
+              className="inline-flex h-7 max-w-full items-center gap-1 rounded-vx-pill bg-vx-surface-3 pl-2.5 pr-1 text-[13px] leading-4 text-vx-text-1"
             >
               <span className="truncate">{e}</span>
               <button
                 type="button"
                 aria-label={`Remove ${e}`}
                 onClick={() => onChange(emails.filter((x) => x !== e))}
-                className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-vx-xs text-vx-text-3 transition-colors duration-[120ms] hover:bg-vx-raise hover:text-vx-text-1"
+                className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-vx-text-3 transition-colors duration-[120ms] hover:bg-vx-raise hover:text-vx-text-1"
               >
                 <X size={12} strokeWidth={2} aria-hidden />
               </button>

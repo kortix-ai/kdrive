@@ -49,7 +49,7 @@ function Sessions() {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <span className="text-[13px] font-medium leading-5 text-vx-text-2">Sessions</span>
+        <span className="text-[14px] font-medium leading-5 text-vx-text-2">Sessions</span>
         {sessions.data !== undefined ? (
           <span className="vx-body text-vx-text-3">{sessionsCopy(sessions.data)}</span>
         ) : sessions.error ? (

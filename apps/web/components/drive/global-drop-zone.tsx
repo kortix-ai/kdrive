@@ -4,7 +4,7 @@
 // dashed accent-edge ring with a light accent-wash tint on the drive sheet, or on the folder
 // row / card / crumb under the pointer, with one centred float label (r4, shadow-3):
 //   Drop 3 items → q3-report · 1 version
-// Danger when storage is already full, amber in the past (uploads are refused).
+// Danger when storage is already full, cobalt in the past (uploads are refused).
 // Drops keep the folder tree, empty folders included.
 import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';

@@ -1,4 +1,4 @@
-import { Folder, Link2 } from 'lucide-react';
+import { Link2 } from 'lucide-react';
 import { extname, previewKind } from '@volumes/shared';
 import { cx } from './cx';
 
@@ -96,12 +96,39 @@ function Glyph({ kind }: { kind: FileKind }) {
   }
 }
 
+/** The seven object hues (oklch hue angles, mirrored by --hue-* in globals.css). No violet. */
+export const OBJECT_HUES = [32, 72, 118, 162, 205, 262, 352] as const;
+
+/** A stable hue for a named object (a folder, a drive): the same name always gets the same colour. */
+export function objectHue(name: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < name.length; i++) {
+    h ^= name.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return OBJECT_HUES[(h >>> 0) % OBJECT_HUES.length];
+}
+
 /**
- * File-type icon (UNIFY-SPEC §2.5): a tinted r2 tile (`--vx-ft-*` at `--vx-ft-tint`) with a glyph in the
- * kind's colour, drawn in a `size` px box (24 default: rows 24, panel heads 24–32, mats 48/64, which add
- * a 1 px hair border). Folders are
- * an outline folder in `--vx-ft-folder`; `shared` adds a small person badge.
- * `muted` dims the icon (ghost rows, unrestorable items).
+ * The folder at list scale: the glass object flattened to a solid back + tab and a lighter front, in the
+ * folder's own hue (objectHue), so a row, a crumb and its card agree.
+ */
+function FolderGlyph({ name, size, muted }: { name: string; size: number; muted?: boolean }) {
+  const h = objectHue(name);
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden data-kind="folder" className={cx('inline-block shrink-0', muted && 'opacity-50')}>
+      <path d="M3 7.2a2 2 0 0 1 2-2h4.6l2 2.2H19a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" style={{ fill: `oklch(0.60 0.11 ${h})` }} />
+      <rect x="3" y="9.6" width="18" height="9.4" rx="2" style={{ fill: `oklch(0.76 0.105 ${h})` }} />
+      <rect x="3.6" y="10.1" width="16.8" height="1" rx=".5" fill="rgba(255,255,255,.45)" />
+    </svg>
+  );
+}
+
+/**
+ * File-type icon: a flat tinted tile (the kind's `--vx-ft-*` mixed into the surface, a faint ring of the same
+ * hue) with the glyph in the kind's colour, drawn in a `size` px box (rows 28, cards 20–24, mats 48/64).
+ * Folders are the flattened glass folder in their own hue; links an outline link; `shared` adds a small
+ * person badge. `muted` dims the icon (ghost rows, unrestorable items).
  */
 export function FileIcon({
   name,
@@ -120,14 +147,13 @@ export function FileIcon({
 }) {
   const kind = fileKind(name, type);
   const cls = cx('inline-block shrink-0', muted && 'opacity-50', className);
-  if (kind === 'folder' || kind === 'link') {
-    const Icon = kind === 'folder' ? Folder : Link2;
+  if (kind === 'folder') {
     return (
-      <span className={cx('relative inline-flex items-center justify-center', cls)} style={{ width: size, height: size, color: fileKindColor(kind) }} aria-hidden>
-        <Icon size={Math.round(size * 0.84)} strokeWidth={1.75} />
+      <span className={cx('relative inline-flex items-center justify-center', className)} style={{ width: size, height: size }} aria-hidden>
+        <FolderGlyph name={name} size={size} muted={muted} />
         {shared ? (
           <svg className="absolute" style={{ right: 0, bottom: 0 }} width={Math.max(9, size * 0.4)} height={Math.max(9, size * 0.4)} viewBox="0 0 10 10">
-            <circle cx="5" cy="5" r="5" fill="var(--vx-ft-folder)" />
+            <circle cx="5" cy="5" r="5" fill="var(--vx-text-1)" />
             <circle cx="5" cy="3.9" r="1.5" fill="var(--vx-surface)" />
             <path d="M2.6 7.8a2.4 2.4 0 0 1 4.8 0z" fill="var(--vx-surface)" />
           </svg>
@@ -135,21 +161,31 @@ export function FileIcon({
       </span>
     );
   }
+  if (kind === 'link') {
+    return (
+      <span className={cx('relative inline-flex items-center justify-center', cls)} style={{ width: size, height: size, color: fileKindColor(kind) }} aria-hidden>
+        <Link2 size={Math.round(size * 0.7)} strokeWidth={1.75} />
+      </span>
+    );
+  }
+  const c = fileKindColor(kind);
   return (
-    <svg className={cls} width={size} height={size} viewBox="0 0 24 24" aria-hidden data-kind={kind} style={{ color: fileKindColor(kind) }}>
+    <svg className={cls} width={size} height={size} viewBox="0 0 24 24" aria-hidden data-kind={kind} style={{ color: c }}>
       <rect
-        x="2.5"
-        y="2.5"
-        width="19"
-        height="19"
-        rx="2"
+        x="0.5"
+        y="0.5"
+        width="23"
+        height="23"
+        rx="6.5"
         style={{
-          fill: `color-mix(in srgb, ${fileKindColor(kind)} var(--vx-ft-tint), transparent)`,
-          stroke: size >= 40 ? 'var(--vx-hair)' : 'none',
+          fill: `color-mix(in oklab, ${c} 13%, var(--vx-surface))`,
+          stroke: `color-mix(in oklab, ${c} 26%, transparent)`,
         }}
-        strokeWidth={size >= 40 ? 24 / size : 0}
+        strokeWidth={24 / size}
       />
-      <Glyph kind={kind} />
+      <g transform="translate(12 12) scale(1.18) translate(-12 -12)">
+        <Glyph kind={kind} />
+      </g>
     </svg>
   );
 }

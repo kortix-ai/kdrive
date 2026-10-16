@@ -1,16 +1,18 @@
 'use client';
 
-// Drive sheet head (UNIFY-SPEC §14.2): 52 px, breadcrumbs as r4 crumbs (the current one
-// opens the folder menu), then the list/grid segmented control (`v`) and the Details (i)
-// button for the current folder. Search and + New live in the shell.
-// Phones (≤ 720 px, §7): an up button when not at the root, the current folder name
-// 20/600 + ▾, and the list/grid toggle on the right.
+// Drive sheet head (UNIFY-SPEC §14.2): a crumb row (ancestors, 15 px) with the shared badge, tag
+// filter, the list/grid segmented control (`v`) and the Details (i) button on the right; then the
+// folder's name as the page title (32/600, ▾ opens the folder menu) and a meta line
+// ("8 files · 4 folders · updated 2 h ago"). Search and + New live in the shell.
+// Phones (≤ 720 px, §7): an up button when not at the root, the title 24/600 + ▾, the list/grid
+// toggle on the right, and the meta line under it.
 import { ArrowLeft, ChevronDown, Info, LayoutGrid, List, Users } from 'lucide-react';
 import { basename, dirname } from '@volumes/shared';
 import { IconButton } from '@/components/ui/icon-button';
 import { Menu, type MenuItem } from '@/components/ui/menu';
 import { Segmented } from '@/components/ui/segmented';
 import { Tooltip } from '@/components/ui/tooltip';
+import { cx } from '@/components/ui/cx';
 import { useVx } from '@/lib/store';
 import Breadcrumbs from './breadcrumbs';
 import LabelFilter from '@/components/labels/label-filter';
@@ -53,6 +55,7 @@ export default function Toolbar({
   onDetails,
   phone,
   missing,
+  summary,
 }: {
   path: string;
   rootName: string;
@@ -68,6 +71,8 @@ export default function Toolbar({
   phone?: boolean;
   /** The folder is not there: no folder menu, no view toggle, no details. */
   missing?: boolean;
+  /** The meta line under the title. */
+  summary?: string;
 }) {
   const here = path === '/' ? rootName : basename(path);
   const viewToggle = (
@@ -82,57 +87,51 @@ export default function Toolbar({
     />
   );
 
+  const title = (size: 'lg' | 'md') => {
+    const cls =
+      size === 'lg'
+        ? 'text-[32px] leading-[38px] tracking-[-0.024em]'
+        : 'text-[24px] leading-[30px] tracking-[-0.02em]';
+    if (missing) return <h1 className={cx('truncate font-semibold text-vx-text-1', cls)}>{here}</h1>;
+    return (
+      <Menu
+        items={folderMenu}
+        trigger={(p) => (
+          <button
+            type="button"
+            {...p}
+            aria-label={`${here}: folder actions`}
+            title={path === '/' ? rootName : path}
+            className="-ml-2 inline-flex max-w-full items-center gap-1.5 rounded-vx-sm px-2 text-left text-vx-text-1 transition-colors duration-[120ms] hover:bg-vx-raise aria-expanded:bg-vx-raise"
+          >
+            <h1 className={cx('truncate font-semibold', cls)}>{here}</h1>
+            <ChevronDown size={size === 'lg' ? 20 : 18} strokeWidth={2} className="mt-1 shrink-0 text-vx-text-3" aria-hidden />
+          </button>
+        )}
+      />
+    );
+  };
+
   if (phone) {
     const up = dirname(path) === '/' ? rootName : basename(dirname(path));
     return (
-      <header className="flex h-[52px] shrink-0 items-center gap-1 pl-1.5 pr-3">
-        {path !== '/' ? (
-          <IconButton label={`Up to ${up}`} onClick={() => onNavigate(dirname(path))}>
-            <ArrowLeft size={18} strokeWidth={1.75} aria-hidden />
-          </IconButton>
-        ) : (
-          <span className="w-0.5" aria-hidden />
-        )}
-        <div className="min-w-0 flex-1">
-          {missing ? (
-            <span className="block truncate px-2 text-[20px] font-semibold leading-[26px] tracking-[-0.02em] text-vx-text-1">{here}</span>
-          ) : (
-            <Menu
-              items={folderMenu}
-              trigger={(p) => (
-                <button
-                  type="button"
-                  {...p}
-                  aria-label={`${here}: folder actions`}
-                  title={path === '/' ? rootName : path}
-                  className="inline-flex h-9 max-w-full items-center gap-1 rounded-vx-sm px-2 text-[20px] font-semibold leading-[26px] tracking-[-0.02em] text-vx-text-1 hover:bg-vx-raise"
-                >
-                  <span className="truncate">{here}</span>
-                  <ChevronDown size={16} strokeWidth={2} className="shrink-0 text-vx-text-3" aria-hidden />
-                </button>
-              )}
-            />
-          )}
+      <header className="shrink-0 px-4 pb-1 pt-3">
+        <div className="flex items-center gap-1">
+          {path !== '/' ? (
+            <IconButton label={`Up to ${up}`} onClick={() => onNavigate(dirname(path))} className="-ml-2">
+              <ArrowLeft size={18} strokeWidth={1.75} aria-hidden />
+            </IconButton>
+          ) : null}
+          <div className="min-w-0 flex-1">{title('md')}</div>
+          {missing ? null : viewToggle}
         </div>
-        {missing ? null : viewToggle}
+        {summary ? <p className="mt-0.5 truncate text-[14px] leading-5 text-vx-text-3">{summary}</p> : null}
       </header>
     );
   }
 
-  return (
-    <header className="flex h-[52px] shrink-0 items-center gap-2 pl-2 pr-3">
-      <div className="min-w-0 flex-1">
-        <Breadcrumbs
-          path={path}
-          rootName={rootName}
-          past={past}
-          onNavigate={onNavigate}
-          onDropItems={onDropItems}
-          canDropInto={canDropInto}
-          folderMenu={folderMenu}
-          missing={missing}
-        />
-      </div>
+  const tools = (
+    <>
       <SharedBadge />
       {past ? null : <LabelFilter />}
       {missing ? null : (
@@ -145,6 +144,33 @@ export default function Toolbar({
           </Tooltip>
         </>
       )}
+    </>
+  );
+  // At the root there is nothing above the title: the tools share its row.
+  const root = path === '/';
+  return (
+    <header className={cx('shrink-0 px-6 pb-1', root ? 'pt-5' : 'pt-3.5')}>
+      {root ? null : (
+        <div className="flex h-9 items-center gap-2">
+          <div className="-ml-2 min-w-0 flex-1">
+            <Breadcrumbs
+              path={path}
+              rootName={rootName}
+              past={past}
+              onNavigate={onNavigate}
+              onDropItems={onDropItems}
+              canDropInto={canDropInto}
+              missing={missing}
+            />
+          </div>
+          {tools}
+        </div>
+      )}
+      <div className={cx('flex min-w-0 items-center gap-2', !root && 'mt-1')}>
+        <div className="min-w-0 flex-1">{title('lg')}</div>
+        {root ? tools : null}
+      </div>
+      {summary ? <p className="mt-0.5 truncate text-[15px] leading-[22px] text-vx-text-3">{summary}</p> : null}
     </header>
   );
 }

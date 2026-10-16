@@ -45,7 +45,7 @@ const COUNTS: { value: number | null; label: string }[] = [
   { value: 200, label: '200' },
 ];
 
-const label = 'mb-2 block text-[13px] font-medium leading-5 text-vx-text-2';
+const label = 'mb-2 block text-[14px] font-medium leading-5 text-vx-text-2';
 
 function ChipGroup<T>({ id, title, options, value, onChange }: { id: string; title: string; options: { value: T; label: string }[]; value: T; onChange: (v: T) => void }) {
   return (
@@ -185,7 +185,7 @@ export function useUploadLinkTab({ ws, path, name, onClose }: { ws: string; path
       </div>
 
       {error ? (
-        <div role="alert" className="flex items-start gap-2 rounded-vx-sm bg-vx-danger-wash px-3 py-2 text-[13px] leading-5 text-vx-danger">
+        <div role="alert" className="flex items-start gap-2 rounded-vx-sm bg-vx-danger-wash px-3 py-2.5 text-[14px] leading-5 text-vx-danger">
           <CircleAlert size={16} strokeWidth={1.75} className="mt-0.5 shrink-0" aria-hidden />
           <span className="min-w-0">{error}</span>
         </div>

@@ -1,7 +1,7 @@
 'use client';
 
-// Sidebar storage block (UNIFY-SPEC §11): eyebrow `STORAGE`, a 4 px meter (accent;
-// --vx-warn ≥ 80 %; danger ≥ 95 %), Mono "3.2 GB of 10 GB", "Over by …" past
+// Sidebar storage block (UNIFY-SPEC §11): "Storage" with Mono "3.2 GB of 10 GB" on one line over a
+// meter (--vx-warn ≥ 80 %; danger ≥ 95 %), "Over by …" past
 // the quota. Hover or focus shows the split per workspace. Refreshes after every
 // mutation (store.refresh → swr revalidate) and keeps the last reading while it refetches.
 import { useRef, useState } from 'react';
@@ -58,30 +58,32 @@ export default function StorageMeter() {
       tabIndex={data ? 0 : -1}
       aria-describedby={hover && data ? 'vx-storage-split' : undefined}
     >
-      <div className="vx-eyebrow">Storage</div>
-      <Meter className="mt-2.5" value={ratio} level={level} loading={!data && !error} />
-      <div
-        className="vx-meta mt-2 text-vx-text-3"
-        role="meter"
-        aria-valuemin={0}
-        aria-valuemax={quota || 1}
-        aria-valuenow={Math.min(used, quota || used)}
-        aria-label="Storage used"
-        aria-valuetext={data ? `${formatBytes(used)} of ${formatBytes(quota)} used` : 'Loading'}
-      >
-        {!data ? (
-          error ? (
-            <span>Usage unavailable</span>
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-[14px] font-medium leading-5 text-vx-text-1">Storage</span>
+        <span
+          className="vx-meta truncate text-vx-text-3"
+          role="meter"
+          aria-valuemin={0}
+          aria-valuemax={quota || 1}
+          aria-valuenow={Math.min(used, quota || used)}
+          aria-label="Storage used"
+          aria-valuetext={data ? `${formatBytes(used)} of ${formatBytes(quota)} used` : 'Loading'}
+        >
+          {!data ? (
+            error ? (
+              <span>Usage unavailable</span>
+            ) : (
+              <span className="skeleton skel-line inline-block w-20 align-middle" />
+            )
           ) : (
-            <span className="skeleton skel-line inline-block w-28 align-middle" />
-          )
-        ) : (
-          <>
-            {formatBytes(used)} of {formatBytes(quota)}
-            {over ? <span className="block font-medium text-vx-danger">Over by {formatBytes(over)}</span> : null}
-          </>
-        )}
+            <>
+              {formatBytes(used)} of {formatBytes(quota)}
+            </>
+          )}
+        </span>
       </div>
+      <Meter className="mt-2.5" value={ratio} level={level} loading={!data && !error} />
+      {over ? <span className="vx-meta mt-1.5 block font-medium text-vx-danger">Over by {formatBytes(over)}</span> : null}
       {hover && data ? (
         <div id="vx-storage-split">
           <Split data={data} />

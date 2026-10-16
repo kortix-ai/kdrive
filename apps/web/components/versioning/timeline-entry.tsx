@@ -87,7 +87,7 @@ export function useEntryActions(headCommitId: string | null) {
 
 /**
  * Node on the rail's spine, drawn like the strip's marks (UNIFY-SPEC §12.3): a tick-dot (normal), ◆ (checkpoint),
- * the accent head disc, a hollow ring (restore / undo); the viewed version is the brass grip ring.
+ * the accent head disc, a hollow ring (restore / undo); the viewed version is the cobalt grip ring.
  * Each node sits on a 3 px surface gap so the spine never runs through it.
  */
 export function EntryNode({ e, viewed, className }: { e: Pick<Entry, 'checkpoints' | 'isHead' | 'kind'>; viewed?: boolean; className?: string }) {

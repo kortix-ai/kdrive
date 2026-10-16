@@ -10,7 +10,7 @@ type Side = 'top' | 'bottom' | 'right' | 'left';
 let warmUntil = 0;
 
 /**
- * Small tooltip (UNIFY-SPEC §10): inverse fill, r4, 12/16, padding 5 8, optional Mono key hint at .7.
+ * Small tooltip: inverse fill, 8 px corners, 12.5/16, padding 6 10, optional Mono key hint at .7.
  * 400 ms delay, instant between siblings, portalled so sheets never clip it.
  */
 export function Tooltip({
@@ -82,10 +82,10 @@ export function Tooltip({
               ref={tip}
               role="tooltip"
               style={pos ? { left: pos.left, top: pos.top } : { left: 0, top: 0, opacity: 0 }}
-              className="dlg-fade pointer-events-none fixed z-[90] flex max-w-[320px] items-center gap-2 rounded-vx-sm bg-vx-inverse px-2 py-[5px] text-[12px] leading-4 text-vx-on-inverse"
+              className="dlg-fade pointer-events-none fixed z-[90] flex max-w-[320px] items-center gap-2 rounded-vx-sm bg-vx-inverse px-2.5 py-1.5 text-[12.5px] leading-4 text-vx-on-inverse shadow-vx-2"
             >
               <span className="min-w-0">{label}</span>
-              {kbd ? <span className="shrink-0 rounded-vx-xs border border-current/50 px-1 font-mono text-[11px] font-medium opacity-70">{kbd}</span> : null}
+              {kbd ? <span className="shrink-0 rounded-[5px] border border-current/50 px-1 font-mono text-[11px] font-medium opacity-70">{kbd}</span> : null}
             </span>,
             document.body,
           )

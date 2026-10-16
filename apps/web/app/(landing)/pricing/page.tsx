@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { Nav } from '@/components/landing/nav';
 import { Footer } from '@/components/landing/sections/footer';
+import { SectionHead } from '@/components/landing/sections/head';
 import { PricingPlans } from '@/components/pricing/pricing-plans';
 import './pricing.css';
 
@@ -37,13 +38,16 @@ export default async function PricingPage() {
         <section id="top" className="kd-pricing" aria-labelledby="pricing-title">
           <div className="kd-pricing__atmos" aria-hidden="true" />
           <div className="kd-container">
-            <header className="kd-head kd-head--large kd-pricing__head">
-              <p className="kd-eyebrow">Pricing</p>
-              <h1 id="pricing-title" className="kd-h2">
-                Room for everything <span className="kd-metal">you keep.</span>
-              </h1>
-              <p className="kd-lead">Start with 10 GB free. Every plan keeps every version, every checkpoint and every share link.</p>
-            </header>
+            <SectionHead
+              as="h1"
+              id="pricing-title"
+              eyebrow="Pricing"
+              hue={352}
+              title="Room for everything"
+              em="you keep."
+              lead="Start with 10 GB free. Every plan keeps every version, every checkpoint and every share link."
+              className="kd-pricing__head"
+            />
             <PricingPlans signedIn={signedIn} />
             <dl className="kd-pricing__notes">
               {NOTES.map((n) => (

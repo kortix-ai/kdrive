@@ -49,8 +49,8 @@ export function ConfirmLink({ step, token }: { step: LinkStep; token: string }) 
   return (
     <>
       <MailCheck size={28} strokeWidth={1.5} className="text-vx-text-2" aria-hidden />
-      <h1 className="vx-h2 mt-5">{copy.title}</h1>
-      <p className="vx-body mt-2 text-vx-text-2">{copy.body}</p>
+      <h1 className="text-[28px] font-semibold leading-[34px] tracking-[-0.03em] text-vx-text-1 mt-5">{copy.title}</h1>
+      <p className="mt-2 text-[16px] leading-6 text-vx-text-2">{copy.body}</p>
       {me && step !== 'verify' ? (
         <p className="vx-meta mt-2 text-vx-text-3">
           Signed in as <span className="font-medium text-vx-text-2">{me.user.email}</span>.
@@ -62,7 +62,7 @@ export function ConfirmLink({ step, token }: { step: LinkStep; token: string }) 
             <Link href={signIn} className={buttonClass('primary', 'lg', { block: true })}>
               Sign in to confirm
             </Link>
-            <p className="vx-meta text-center text-vx-text-3">Sign in with your current email. You come back here afterwards.</p>
+            <p className="text-center text-[13px] leading-5 text-vx-text-3">Sign in with your current email. You come back here afterwards.</p>
           </>
         ) : (
           <Button variant="primary" size="lg" block onClick={() => void go()} loading={busy}>

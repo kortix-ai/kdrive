@@ -23,14 +23,19 @@
 @keyframes vxvBannerIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 .vxv-banner { animation: vxvBannerIn var(--vx-dur-2) var(--vx-ease); }
 
-/* The past band (§12.2): past wash under the brass hatch, a past-edge rule below. */
+/* The past banner: a cobalt-wash card with a hatched 6 px left edge. */
 .vxv-band {
+  position: relative; overflow: hidden;
   background-color: var(--vx-past-wash);
-  background-image: var(--vx-past-hatch);
-  border-bottom: 1px solid var(--vx-past-edge);
+  border: 1px solid var(--vx-past-edge);
+  border-radius: var(--vx-r-md);
+}
+.vxv-band::before {
+  content: ''; position: absolute; inset: 0 auto 0 0; width: 6px;
+  background: repeating-linear-gradient(-45deg, var(--vx-past-dot) 0 2px, transparent 2px 5px);
 }
 
-/* 2 px brass indeterminate bar along the sheet's top edge while the next frame loads. */
+/* 2 px cobalt indeterminate bar along the sheet's top edge while the next frame loads. */
 @keyframes vxvIndeterminate { 0% { transform: translateX(-100%); } 100% { transform: translateX(250%); } }
 .vxv-progress { position: absolute; left: 0; right: 0; top: 0; height: 2px; overflow: hidden; pointer-events: none; z-index: 2; }
 .vxv-progress::after {
@@ -38,27 +43,51 @@
   animation: vxvIndeterminate 900ms linear infinite;
 }
 
-/* The strip's grip on the viewed version: 14 px, surface centre, 3 px past-dot ring, shadow-2. */
+/* The strip's grip on the viewed version: 20 px, surface centre, 3 px cobalt ring, a cobalt halo. */
 .vxv-grip {
   background: var(--vx-surface);
   border-radius: 999px;
-  box-shadow: inset 0 0 0 3px var(--vx-past-dot), var(--vx-shadow-2);
+  box-shadow: inset 0 0 0 3px var(--vx-past-dot), 0 0 0 4px var(--vx-past-halo), var(--vx-shadow-2);
   cursor: grab;
 }
 .vxv-grip:active { cursor: grabbing; }
 .vxv-grip:focus-visible, .vxv-head-target:focus-visible { outline: 2px solid var(--vx-focus); outline-offset: 3px; }
 
-/* Strip marks (§12.3): ticks by size bucket, ◆ checkpoints, the head disc, hollow restore rings. */
-.vxv-tick { position: absolute; left: 50%; width: 1px; transform: translate(-50%, -50%); background: var(--vx-tick); }
+/* Strip marks (§12.3): 2 px ticks by size bucket (agents in cobalt), ◆ checkpoints, the ember head, hollow restore rings. */
+.vxv-tick { position: absolute; left: 50%; width: 2px; border-radius: 2px; transform: translate(-50%, -50%); background: var(--vx-tick); }
+.vxv-tick[data-agent='true'] { background: var(--vx-past); opacity: .75; }
 .vxv-diamond {
-  position: absolute; left: 50%; width: 8px; height: 8px;
+  position: absolute; left: 50%; width: 10px; height: 10px; border-radius: 1.5px;
   transform: translate(-50%, -50%) rotate(45deg);
   background: var(--vx-surface);
-  box-shadow: inset 0 0 0 1px var(--vx-text-1);
+  box-shadow: inset 0 0 0 1.5px var(--vx-text-1), 0 0 0 3px var(--vx-surface);
 }
 .vxv-diamond[data-filled='true'] { background: var(--vx-text-1); }
-.vxv-head { position: absolute; left: 50%; width: 12px; height: 12px; border-radius: 999px; transform: translate(-50%, -50%); background: var(--vx-accent); box-shadow: 0 0 0 3px var(--vx-surface); }
-.vxv-ring { position: absolute; left: 50%; width: 8px; height: 8px; border-radius: 999px; transform: translate(-50%, -50%); background: var(--vx-surface); box-shadow: inset 0 0 0 1.5px var(--vx-text-2); }
+/* Now: an ember disc with a surface gap, an ember-edge ring and a slow ripple. */
+.vxv-head {
+  position: absolute; left: 50%; width: 14px; height: 14px; border-radius: 999px; transform: translate(-50%, -50%);
+  background: var(--vx-accent); box-shadow: 0 0 0 3px var(--vx-surface), 0 0 0 5px var(--vx-accent-edge);
+}
+.vxv-head::after {
+  content: ''; position: absolute; inset: -8px; border-radius: 999px; border: 1.5px solid var(--vx-accent-edge);
+  animation: vxvRipple 2.4s var(--vx-ease) infinite;
+}
+@keyframes vxvRipple { from { transform: scale(.6); opacity: 1; } to { transform: scale(1.5); opacity: 0; } }
+.vxv-ring { position: absolute; left: 50%; width: 10px; height: 10px; border-radius: 999px; transform: translate(-50%, -50%); background: var(--vx-surface); box-shadow: inset 0 0 0 1.5px var(--vx-text-2); }
+/* The future you are "before": cobalt hatch from the grip to now, a cobalt edge at the grip. */
+.vxv-future {
+  background: repeating-linear-gradient(-45deg, var(--vx-past-hatch) 0 2px, transparent 2px 7px);
+  border-left: 1px solid var(--vx-past-edge);
+}
+/* The viewed version's bubble over the grip: white on cobalt. */
+.vxv-bubble {
+  background: var(--vx-past-fill); color: var(--vx-on-past);
+  font-family: var(--vx-font-mono); font-size: 11.5px; line-height: 18px; font-weight: 500;
+  padding: 1px 8px; border-radius: 7px; white-space: nowrap;
+}
+/* The readout's status dot: ember at now, cobalt in the past. */
+.vxv-dot { width: 8px; height: 8px; border-radius: 999px; flex: none; background: var(--vx-accent); box-shadow: 0 0 0 3px var(--vx-accent-wash-2); }
+.vxv-dot[data-past='true'] { background: var(--vx-past-dot); box-shadow: 0 0 0 3px var(--vx-past-halo); }
 
 /* Image swipe handle (§14.3): a 28 px surface disc with a hair-strong ring, Mono "A | B". */
 .vxv-handle {
@@ -107,7 +136,7 @@
 .group:hover .vxv-reveal, .group:focus-within .vxv-reveal { opacity: 1; }
 @media (hover: none) { .vxv-reveal { opacity: 1; } }
 
-/* Phones: the strip becomes a floating 56 px bar (surface, hair, r6, shadow-2; §11). */
+/* Phones: the strip becomes a floating 64 px bar (surface, hair, r16, shadow-2; §11). */
 @media (max-width: 720px) {
   .vx-content > .vx-strip { border-radius: var(--vx-r-lg); background: var(--vx-surface); box-shadow: var(--vx-shadow-2); }
   .vx-content > .vx-strip.is-past { box-shadow: 0 0 0 3px var(--vx-past-halo), var(--vx-shadow-2); }

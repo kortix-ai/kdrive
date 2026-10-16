@@ -2,8 +2,8 @@ import Link from 'next/link';
 import { DRIVE_HREF, SIGNIN_HREF, sectionHref } from '../cta';
 import { LogoMark } from '../logo-mark';
 
-// The footer (LANDING-SPEC §6.9): brand block, two link columns, copyright.
-// No giant wordmark, and no links to pages that don't exist yet.
+// The footer: brand block, two link columns, then the copyright line. No giant wordmark, and no links to
+// pages that don't exist yet.
 export function Footer({ signedIn, home = true }: { signedIn: boolean; home?: boolean }) {
   const s = (href: string) => sectionHref(href, home);
   return (
@@ -12,11 +12,10 @@ export function Footer({ signedIn, home = true }: { signedIn: boolean; home?: bo
         <div className="kd-footer__top">
           <div className="kd-footer__brand">
             <a href={home ? '#top' : '/'} className="kd-nav__brand" aria-label={home ? 'KDRIVE, back to top' : 'KDRIVE home'}>
-              <LogoMark />
+              <LogoMark size={22} />
               <span>KDRIVE</span>
             </a>
-            <p className="kd-footer__tag">The drive that remembers.</p>
-            <p className="kd-footer__built">Built on Platinum volumes.</p>
+            <p className="kd-footer__tag">The drive that remembers. Every change is a version, and every version can come back.</p>
           </div>
           <nav className="kd-footer__cols" aria-label="Footer">
             <div>
@@ -52,7 +51,10 @@ export function Footer({ signedIn, home = true }: { signedIn: boolean; home?: bo
             </div>
           </nav>
         </div>
-        <p className="kd-footer__copy">© 2026 KDRIVE</p>
+        <div className="kd-footer__copy">
+          <span>© 2026 KDRIVE</span>
+          <span>Built on Platinum volumes.</span>
+        </div>
       </div>
     </footer>
   );
