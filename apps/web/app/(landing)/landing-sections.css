@@ -475,13 +475,18 @@
 .kd-sh__opt[aria-checked="true"] { background: var(--kd-raise); color: var(--kd-text-1); box-shadow: inset 0 0 0 1px var(--kd-hair-strong); }
 .kd-sh__field { display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 5px 0 12px; border-radius: var(--kd-r-2); background: var(--kd-bg); box-shadow: inset 0 0 0 1px var(--kd-hair-strong); }
 .kd-sh__link { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; color: var(--kd-text-1); }
-.kd-sh__expiry { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13px; color: var(--kd-text-2); }
-.kd-sh__select, .kd-field {
+.kd-sh__expiry { display: flex; flex-direction: column; gap: 8px; font-size: 13px; color: var(--kd-text-2); }
+.kd-sh__chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.kd-sh__chip { height: 28px; padding: 0 10px; border-radius: 999px; font: 500 12.5px/1 var(--kd-font-sans); color: var(--kd-text-2); background: var(--kd-bg); box-shadow: inset 0 0 0 1px var(--kd-hair-strong); transition: color var(--kd-t-fast), background-color var(--kd-t-fast); }
+.kd-sh__chip:hover { color: var(--kd-text-1); }
+.kd-sh__chip[aria-checked="true"] { background: var(--kd-raise); color: var(--kd-text-1); box-shadow: inset 0 0 0 1px var(--kd-text-3); }
+.kd-sh__when { display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px; border-radius: var(--kd-r-2); background: var(--kd-bg); box-shadow: inset 0 0 0 1px var(--kd-hair-strong); color: var(--kd-text-1); font-size: 12.5px; }
+.kd-sh__ago { margin-left: auto; color: var(--kd-text-3); }
+.kd-field {
   height: 32px; padding: 0 10px; border-radius: var(--kd-r-2);
   background: var(--kd-bg); color: var(--kd-text-1); border: 0; box-shadow: inset 0 0 0 1px var(--kd-hair-strong);
   font: 13px/1 var(--kd-font-sans);
 }
-.kd-sh__select { padding-right: 28px; appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--kd-text-3) 50%), linear-gradient(-45deg, transparent 50%, var(--kd-text-3) 50%); background-size: 4px 4px; background-position: calc(100% - 15px) 14px, calc(100% - 11px) 14px; background-repeat: no-repeat; }
 .kd-sh__help { padding-top: 12px; border-top: 1px solid var(--kd-hair); font-size: 13px; color: var(--kd-text-2); }
 
 /* duplicate */

@@ -1,5 +1,6 @@
 'use client';
 
+import { CalendarClock } from 'lucide-react';
 import { useState } from 'react';
 import { CopyButton, FileIcon } from './bits';
 
@@ -11,12 +12,13 @@ const EXPIRY = [
   { id: '1d', label: '1 day' },
   { id: '7d', label: '7 days' },
   { id: '30d', label: '30 days' },
-  { id: 'custom', label: 'Custom date' },
+  { id: 'custom', label: 'Custom' },
 ];
 const LINK = { live: 'k7Qm2xR9', pinned: 'p4Vt8cL2' };
 
 export function ShareMock() {
   const [mode, setMode] = useState<Mode>('live');
+  const [expiry, setExpiry] = useState('7d');
   return (
     <div className="kd-inset kd-sh">
       <p className="kd-sh__file">
@@ -60,16 +62,30 @@ export function ShareMock() {
         </span>
         <CopyButton text={`/s/${LINK[mode]}`} />
       </div>
-      <label className="kd-sh__expiry">
-        <span>Expires</span>
-        <select defaultValue="never" className="kd-sh__select">
+      <div className="kd-sh__expiry">
+        <span id="kd-sh-expiry">Expires</span>
+        <div className="kd-sh__chips" role="radiogroup" aria-labelledby="kd-sh-expiry">
           {EXPIRY.map((o) => (
-            <option key={o.id} value={o.id}>
+            <button
+              key={o.id}
+              type="button"
+              role="radio"
+              aria-checked={expiry === o.id}
+              onClick={() => setExpiry(o.id)}
+              className="kd-sh__chip"
+            >
               {o.label}
-            </option>
+            </button>
           ))}
-        </select>
-      </label>
+        </div>
+        {expiry === 'custom' ? (
+          <p className="kd-sh__when">
+            <CalendarClock size={14} strokeWidth={1.75} aria-hidden />
+            <span className="kd-mono">Thu, Oct 22 · 6:00 PM</span>
+            <span className="kd-sh__ago">in 7 days</span>
+          </p>
+        ) : null}
+      </div>
       <p className="kd-sh__help" aria-live="polite">
         {mode === 'live' ? 'Shows launch.pdf as it is now, every time.' : 'Always shows launch.pdf as it was at v44.'}
       </p>
