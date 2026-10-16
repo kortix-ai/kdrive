@@ -44,8 +44,8 @@ export function rendererFor(name: string, size: number): Renderer {
 export interface FilePreviewProps {
   /** inline content URL (the API serves active content as text/plain) */
   src: string;
-  /** attachment URL */
-  downloadHref: string;
+  /** attachment URL; null when downloads are off (a view-only share link) */
+  downloadHref: string | null;
   name: string;
   size: number;
   /** optional extras for the unknown-type specimen block */
@@ -71,10 +71,10 @@ export function FilePreview({ src, downloadHref, name, size, version, mime, keys
       body = <PdfView key={src} src={src} name={name} />;
       break;
     case 'video':
-      body = <VideoView key={src} src={src} name={name} />;
+      body = <VideoView key={src} src={src} name={name} viewOnly={!downloadHref} />;
       break;
     case 'audio':
-      body = <AudioView key={src} src={src} name={name} />;
+      body = <AudioView key={src} src={src} name={name} viewOnly={!downloadHref} />;
       break;
     case 'markdown':
       body = <MarkdownView key={src} src={src} />;

@@ -6,7 +6,7 @@ import { PreviewError } from './states';
 import { formatDuration } from './video-view';
 
 /** Native audio player over a specimen block (Range requests make seeking work). */
-export function AudioView({ src, name }: { src: string; name: string }) {
+export function AudioView({ src, name, viewOnly }: { src: string; name: string; /** hides the player's own Download */ viewOnly?: boolean }) {
   const [state, setState] = useState<'loading' | 'ok' | 'error'>('loading');
   const [duration, setDuration] = useState<number | null>(null);
   const [nonce, setNonce] = useState(0);
@@ -33,6 +33,7 @@ export function AudioView({ src, name }: { src: string; name: string }) {
           key={nonce}
           src={src}
           controls
+          controlsList={viewOnly ? 'nodownload' : undefined}
           preload="metadata"
           aria-label={name}
           onLoadedMetadata={(e) => {

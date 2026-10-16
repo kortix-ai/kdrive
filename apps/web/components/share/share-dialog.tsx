@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import useSWR from 'swr';
 import { CircleAlert, Link2, Lock, Pin } from 'lucide-react';
-import { TAG_BUDGET, basename, formatBytes, previewKind, shortId, type ShareLink } from '@volumes/shared';
+import { TAG_BUDGET, basename, formatBytes, previewKind, shortId, type ShareLink, type UpdateLinkRequest } from '@volumes/shared';
 import { kindLabel } from '@/components/preview/names';
 import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
@@ -16,6 +16,8 @@ import { api } from '@/lib/api/endpoints';
 import { useStat } from '@/lib/api/hooks';
 import { formatAgo, formatMoment, isoTitle } from '@/lib/format';
 import { useVx } from '@/lib/store';
+import { accessRequest, OPEN_ACCESS, type AccessDraft } from './access';
+import { AccessFields } from './access-fields';
 import { copyText, CopyButton } from './copy-button';
 import { expiryToIso, linkStatus, sortLinks, toLocalInput, type ExpiryChoice } from './expiry';
 import { LinkRow } from './link-row';
@@ -94,6 +96,7 @@ function ShareBody({ ws, path, onClose }: { ws: string; path: string; onClose: (
   const [mode, setMode] = useState<'live' | 'pinned'>(past ? 'pinned' : 'live');
   const [expiry, setExpiry] = useState<ExpiryChoice>('never');
   const [custom, setCustom] = useState(() => roundUpToSlot(new Date(Date.now() + 7 * 24 * 3600_000)));
+  const [access, setAccess] = useState<AccessDraft>(OPEN_ACCESS);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<{ code: string; message: string } | null>(null);
   const [created, setCreated] = useState<ShareLink | null>(null);
@@ -141,8 +144,10 @@ function ShareBody({ ws, path, onClose }: { ws: string; path: string; onClose: (
     if (busy) return;
     setError(null);
     let expiresAt: string | null;
+    let accessFields: ReturnType<typeof accessRequest>;
     try {
       expiresAt = expiryToIso(expiry, toLocalInput(custom));
+      accessFields = accessRequest(access);
     } catch (e) {
       setError({ code: 'bad_request', message: (e as Error).message });
       return;
@@ -158,7 +163,9 @@ function ShareBody({ ws, path, onClose }: { ws: string; path: string; onClose: (
         mode,
         ...(mode === 'pinned' && past ? { at: timeTravel!.commitId } : {}),
         expiresAt,
+        ...accessFields,
       });
+      setAccess((a) => ({ ...a, password: '' }));
       setAutoCopied(await copyText(link.url));
       setCreated(link);
       await Promise.all([links.mutate(), mode === 'pinned' ? budget.mutate() : null]);
@@ -168,6 +175,12 @@ function ShareBody({ ws, path, onClose }: { ws: string; path: string; onClose: (
     } finally {
       setBusy(false);
     }
+  };
+
+  const update = async (link: ShareLink, req: UpdateLinkRequest) => {
+    const { link: next } = await api.links.update(ws, link.id, req);
+    if (created?.id === link.id) setCreated(next);
+    await links.mutate();
   };
 
   const revoke = async (link: ShareLink) => {
@@ -204,7 +217,9 @@ function ShareBody({ ws, path, onClose }: { ws: string; path: string; onClose: (
       note={
         <>
           <Lock size={16} strokeWidth={1.75} className="shrink-0" aria-hidden />
-          <span>Anyone with a link can view and download without signing in. Nobody can change your files through it.</span>
+          <span>
+            Unless you limit it, anyone with a link can view and download without signing in. Nobody can change your files through it.
+          </span>
         </>
       }
     >
@@ -293,6 +308,21 @@ function ShareBody({ ws, path, onClose }: { ws: string; path: string; onClose: (
           ) : null}
         </div>
 
+        <div>
+          <span className={label} id="share-access">
+            Access
+          </span>
+          <div role="group" aria-labelledby="share-access" className="-my-2.5">
+            <AccessFields
+              value={access}
+              onChange={(a) => {
+                setAccess(a);
+                setError(null);
+              }}
+            />
+          </div>
+        </div>
+
         {full || error?.code === 'tag_budget_exceeded' ? (
           <ErrorRow>
             All {max} checkpoint slots are used ({b?.used ?? max} of {max}). Remove a checkpoint or a pinned link first.
@@ -336,7 +366,7 @@ function ShareBody({ ws, path, onClose }: { ws: string; path: string; onClose: (
           ) : (
             <ul>
               {sorted.map((l) => (
-                <LinkRow key={l.id} link={l} onRevoke={revoke} />
+                <LinkRow key={l.id} link={l} onRevoke={revoke} onUpdate={update} />
               ))}
             </ul>
           )}
@@ -346,7 +376,10 @@ function ShareBody({ ws, path, onClose }: { ws: string; path: string; onClose: (
   );
 }
 
-/** Share dialog (560): create live or pinned links with an expiry, copy, list and revoke. Opened by `openShare(path)`. */
+/**
+ * Share dialog (560): create live or pinned links with an expiry and access (people, password, downloads),
+ * copy, list, edit access and revoke. Opened by `openShare(path)`.
+ */
 export default function ShareDialog() {
   const share = useVx((s) => s.share);
   const ws = useVx((s) => s.workspaceId);

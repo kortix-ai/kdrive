@@ -174,6 +174,9 @@ export const api = {
     meta: (token: string) => apiFetch(`/api/public/s/${encodeURIComponent(token)}`, {}, PublicShareMeta),
     list: (token: string, q: { path?: string } = {}) =>
       apiFetch(`/api/public/s/${encodeURIComponent(token)}/files${qs({ path: q.path })}`, {}, PublicListResponse),
+    /** A right password sets this link's unlock cookie (204). */
+    unlock: (token: string, password: string) =>
+      apiFetch<void>(`/api/public/s/${encodeURIComponent(token)}/unlock`, { method: 'POST', json: { password } }),
   },
 
   workspaces: {

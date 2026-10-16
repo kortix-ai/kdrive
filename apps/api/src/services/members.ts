@@ -69,6 +69,11 @@ async function access(userId: string, wsId: string): Promise<{ row: WorkspaceRow
   return role ? { row, role } : null;
 }
 
+/** The user's role in a live drive, or null. Cheap: never opens the volume. */
+export async function driveRole(userId: string, wsId: string): Promise<DriveRole | null> {
+  return (await access(userId, wsId))?.role ?? null;
+}
+
 /**
  * The workspace `wsId` if the user owns it or is a member, with their role; opens its volume.
  * Null for anything else, so other people's drives look the same as missing ones.

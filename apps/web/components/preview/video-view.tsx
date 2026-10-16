@@ -14,7 +14,7 @@ export function formatDuration(seconds: number): string {
 }
 
 /** Native video player. The API answers Range requests (206), so seeking works without downloading the file. */
-export function VideoView({ src, name }: { src: string; name: string }) {
+export function VideoView({ src, name, viewOnly }: { src: string; name: string; /** hides the player's own Download */ viewOnly?: boolean }) {
   const [state, setState] = useState<'loading' | 'ok' | 'error'>('loading');
   const [meta, setMeta] = useState<{ w: number; h: number; d: number } | null>(null);
   const [nonce, setNonce] = useState(0);
@@ -37,6 +37,7 @@ export function VideoView({ src, name }: { src: string; name: string }) {
           key={nonce}
           src={src}
           controls
+          controlsList={viewOnly ? 'nodownload' : undefined}
           playsInline
           preload="metadata"
           aria-label={name}
