@@ -3,9 +3,8 @@ import { cx } from './cx';
 export type MeterLevel = 'ok' | 'amber' | 'red';
 
 /**
- * Thin meter (UNIFY-SPEC §10): an r2 track in --vx-meter-track with an
- * accent fill; amber level → --vx-warn, red → --vx-danger. `height` 4 (sidebar) or 6 (tray,
- * settings, dialogs). Purely visual: give the surrounding text the numbers.
+ * Thin meter: a pill track in --vx-meter-track with an ink fill; amber level → --vx-warn, red → --vx-danger.
+ * `height` 4 (sidebar) or 6 (tray, settings, dialogs). Purely visual: give the surrounding text the numbers.
  */
 export function Meter({
   value,
@@ -22,10 +21,10 @@ export function Meter({
   loading?: boolean;
 }) {
   const pct = Math.max(0, Math.min(1, value)) * 100;
-  const fill = level === 'red' ? 'bg-vx-danger' : level === 'amber' ? 'bg-vx-warn' : 'bg-vx-accent';
+  const fill = level === 'red' ? 'bg-vx-danger' : level === 'amber' ? 'bg-vx-warn' : 'bg-vx-text-2';
   return (
-    <span aria-hidden className={cx('block w-full overflow-hidden rounded-vx-xs bg-vx-meter-track', loading && 'skeleton', className)} style={{ height }}>
-      {loading ? null : <span className={cx('vx-progress block h-full rounded-vx-xs transition-[width] duration-[200ms] ease-vx', fill)} style={{ width: `${pct}%` }} />}
+    <span aria-hidden className={cx('block w-full overflow-hidden rounded-vx-pill bg-vx-meter-track', loading && 'skeleton', className)} style={{ height }}>
+      {loading ? null : <span className={cx('vx-progress block h-full rounded-vx-pill transition-[width] duration-[200ms] ease-vx', fill)} style={{ width: `${pct}%` }} />}
     </span>
   );
 }

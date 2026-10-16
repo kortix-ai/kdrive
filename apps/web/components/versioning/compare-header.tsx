@@ -23,9 +23,9 @@ export interface CompareModes {
 }
 
 /**
- * 16 px side disc (UNIFY-SPEC §12.4): brass "A" (the past side), platinum / graphite "B" (the accent ink).
+ * 16 px side disc (UNIFY-SPEC §12.4): cobalt "A" (the past side), ember "B" (the accent, now).
  * `tone="neutral"` is for a side that is not the past (a proposal's "Now"): surface-3, 1 px hair-strong, text-2,
- * so amber keeps meaning the past only.
+ * so cobalt keeps meaning the past only.
  */
 export function SideDisc({ which, size = 16, tone, className }: { which: 'A' | 'B'; size?: number; tone?: SideTone; className?: string }) {
   const t = tone ?? (which === 'A' ? 'past' : 'accent');
@@ -33,7 +33,7 @@ export function SideDisc({ which, size = 16, tone, className }: { which: 'A' | '
     <span
       aria-hidden
       className={cx(
-        'inline-flex shrink-0 items-center justify-center rounded-full font-mono text-[10px] font-medium leading-none',
+        'inline-flex shrink-0 items-center justify-center rounded-full font-mono text-[11px] font-medium leading-none',
         t === 'past' ? 'bg-vx-past text-vx-on-past' : t === 'neutral' ? 'border border-vx-hair-strong bg-vx-surface-3 text-vx-text-2' : 'bg-vx-accent text-vx-on-accent',
         className,
       )}
@@ -45,7 +45,7 @@ export function SideDisc({ which, size = 16, tone, className }: { which: 'A' | '
 }
 
 export type SideTone = 'past' | 'neutral' | 'accent';
-/** How a compare view names its sides. Omitted: the side's date, a brass A and a platinum B. */
+/** How a compare view names its sides. Omitted: the side's date, a cobalt A and an ink B. */
 export interface CompareSides {
   a?: { label: string; tone?: SideTone };
   b?: { label: string; tone?: SideTone };

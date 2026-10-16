@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { createPortal } from 'react-dom';
 import { Check } from 'lucide-react';
 import { cx } from './cx';
+import { Kbd } from './kbd';
 
 export type MenuItem =
   | {
@@ -12,12 +13,12 @@ export type MenuItem =
       label: React.ReactNode;
       /** 18 px lucide icon. */
       icon?: React.ReactNode;
-      /** Key hint on the right (11 px text-4). */
+      /** Key hint on the right (a Mono 11 keycap). */
       kbd?: string;
       onSelect: () => void;
       /** Destructive: del-fg text and icon. */
       danger?: boolean;
-      /** `past` colours the icon amber (restore items). */
+      /** `past` colours the icon cobalt (restore items). */
       tone?: 'danger' | 'past';
       disabled?: boolean;
       /** Why it is disabled (tooltip). */
@@ -43,7 +44,7 @@ interface MenuListProps {
 }
 
 /** The floating list (DESIGN-v2 §5 Menu): ↑ ↓ Home End ↵ Esc and type-ahead. */
-function MenuList({ items, onClose, style, className, onMeasure, minWidth = 240 }: MenuListProps) {
+function MenuList({ items, onClose, style, className, onMeasure, minWidth = 248 }: MenuListProps) {
   const ref = useRef<HTMLDivElement>(null);
   const actionable = items.map((it, i) => ({ it, i })).filter(({ it }) => (it.type ?? 'item') === 'item' && !(it as ActionItem).disabled);
   const [active, setActive] = useState(0);
@@ -125,15 +126,15 @@ function MenuList({ items, onClose, style, className, onMeasure, minWidth = 240 
       tabIndex={-1}
       style={{ minWidth, ...style }}
       className={cx(
-        'vx-pop fixed z-[70] max-h-[calc(100dvh-16px)] max-w-[calc(100vw-16px)] overflow-y-auto rounded-vx-md bg-vx-float p-1 shadow-vx-3 outline-none',
+        'vx-pop fixed z-[70] max-h-[calc(100dvh-16px)] max-w-[calc(100vw-16px)] overflow-y-auto rounded-[14px] border border-vx-hair bg-vx-float p-1.5 shadow-vx-3 outline-none',
         className,
       )}
     >
       {items.map((it) => {
-        if (it.type === 'separator') return <div key={it.id} role="separator" className="-mx-1 my-1 h-px bg-vx-hair" />;
+        if (it.type === 'separator') return <div key={it.id} role="separator" className="mx-1 my-1.5 h-px bg-vx-hair" />;
         if (it.type === 'label')
           return (
-            <div key={it.id} className="vx-meta px-2.5 pb-1 pt-1.5 text-vx-text-3">
+            <div key={it.id} className="vx-meta px-2.5 pb-1 pt-2 text-vx-text-3">
               {it.label}
             </div>
           );
@@ -154,16 +155,16 @@ function MenuList({ items, onClose, style, className, onMeasure, minWidth = 240 
               it.onSelect();
             }}
             className={cx(
-              'flex w-full items-center gap-2.5 rounded-vx-sm px-2.5 text-left text-[14px] leading-5 transition-colors duration-[120ms] disabled:cursor-not-allowed disabled:opacity-[.38]',
-              it.hint ? 'min-h-10 py-1.5' : 'h-8',
+              'flex w-full items-center gap-2.5 rounded-[9px] px-2.5 text-left text-[14.5px] leading-5 transition-colors duration-[120ms] disabled:cursor-not-allowed disabled:opacity-[.38]',
+              it.hint ? 'min-h-11 py-1.5' : 'h-[38px]',
               danger ? 'text-vx-danger' : 'text-vx-text-1',
-              isActive && 'bg-vx-raise',
+              isActive && 'bg-vx-hover',
             )}
           >
             <span
               className={cx(
-                'flex w-4 shrink-0 items-center justify-center [&>svg]:h-4 [&>svg]:w-4',
-                it.checked && !it.icon ? 'text-vx-text-1' : danger ? 'text-vx-danger' : it.tone === 'past' ? 'text-vx-past' : 'text-vx-text-2',
+                'flex w-[18px] shrink-0 items-center justify-center [&>svg]:h-[18px] [&>svg]:w-[18px]',
+                it.checked && !it.icon ? 'text-vx-text-1' : danger ? 'text-vx-danger' : it.tone === 'past' ? 'text-vx-past' : 'text-vx-text-3',
               )}
               aria-hidden
             >
@@ -176,7 +177,7 @@ function MenuList({ items, onClose, style, className, onMeasure, minWidth = 240 
               </span>
               {it.hint ? <span className="vx-meta block truncate text-vx-text-3">{it.hint}</span> : null}
             </span>
-            {it.kbd ? <span className="shrink-0 pl-2 font-mono text-[11px] text-vx-text-3">{it.kbd}</span> : null}
+            {it.kbd ? <Kbd className="ml-2">{it.kbd}</Kbd> : null}
             {it.checked && it.icon ? <Check size={16} strokeWidth={2} aria-label="Selected" className="shrink-0 text-vx-text-1" /> : null}
           </button>
         );

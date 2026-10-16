@@ -58,7 +58,8 @@ export interface VxState {
   toasts: Toast[];
   /** newest last, max 20 */
   undoStack: UndoEntry[];
-  share: { path: string } | null;
+  /** `tab: 'upload'` opens the Upload link tab (a folder people send files into). */
+  share: { path: string; tab?: 'upload' } | null;
   restore: RestoreTarget;
   checkpoint: { at: string | null } | null;
   duplicate: { at: string | null } | null;
@@ -94,7 +95,7 @@ export interface VxState {
   undo(toastIdOrActionId: string): Promise<void>;
   /** ⌘Z: newest undoStack entry for the current workspace */
   undoLast(): Promise<void>;
-  openShare(path: string): void;
+  openShare(path: string, tab?: 'upload'): void;
   closeShare(): void;
   openRestore(t: NonNullable<RestoreTarget>): void;
   closeRestore(): void;
@@ -362,8 +363,8 @@ export const useVx = create<VxState>()((set, get) => ({
     await s.undo(entry.actionId);
   },
 
-  openShare(path) {
-    set({ share: { path } });
+  openShare(path, tab) {
+    set({ share: tab ? { path, tab } : { path } });
   },
   closeShare() {
     set({ share: null });

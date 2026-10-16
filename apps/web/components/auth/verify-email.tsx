@@ -134,10 +134,10 @@ export function VerifyHold({ me, onVerified }: { me: MeResponse; onVerified: () 
   };
   return (
     <AuthFrame>
-      <AuthCard className="max-w-[440px] p-10 max-[720px]:px-6 max-[720px]:py-8">
+      <AuthCard className="max-w-[440px] px-[34px] pb-7 pt-[34px] max-[720px]:px-5 max-[720px]:pb-[22px] max-[720px]:pt-[26px]">
         <MailCheck size={28} strokeWidth={1.5} className="text-vx-text-2" aria-hidden />
-        <h1 className="vx-h2 mt-5">Check your inbox</h1>
-        <p className="vx-body mt-2 text-vx-text-2">
+        <h1 className="text-[28px] font-semibold leading-[34px] tracking-[-0.03em] text-vx-text-1 mt-5">Check your inbox</h1>
+        <p className="mt-2 text-[16px] leading-6 text-vx-text-2">
           We sent a verification link to <span className="font-medium text-vx-text-1">{me.user.email}</span>. Open it to start using KDRIVE.
         </p>
         <div className="mt-6 flex flex-col gap-3">
@@ -146,7 +146,7 @@ export function VerifyHold({ me, onVerified }: { me: MeResponse; onVerified: () 
             I have verified it
           </Button>
         </div>
-        <p className="vx-meta mt-6 text-vx-text-3">Wrong address? Sign out and create the account again with the right one.</p>
+        <p className="mt-6 text-[14px] leading-5 text-vx-text-3">Wrong address? Sign out and create the account again with the right one.</p>
         <Button size="sm" variant="text" className="mt-2 -ml-2" icon={<LogOut size={14} strokeWidth={1.75} aria-hidden />} onClick={() => void out()} loading={leaving}>
           Sign out
         </Button>

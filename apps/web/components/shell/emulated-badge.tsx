@@ -9,7 +9,7 @@ export function EmulatedBadge({ className }: { className?: string }) {
   const { data } = useConfig();
   if (data?.storageMode !== 'emulated') return null;
   return (
-    <Badge tone="dashed" className={cx('h-4 px-1 text-[10px] font-medium', className)} title="Files are kept by the local storage emulator (VOLUMES_STORAGE=emulated).">
+    <Badge tone="dashed" className={cx('h-5 px-1.5 text-[11px] font-medium', className)} title="Files are kept by the local storage emulator (VOLUMES_STORAGE=emulated).">
       Emulated storage
     </Badge>
   );

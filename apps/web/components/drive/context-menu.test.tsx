@@ -52,3 +52,24 @@ describe('view only', () => {
     expect(member.find((i) => i.id === 'nf')).toMatchObject({ disabled: true });
   });
 });
+
+describe('starred', () => {
+  const a = { path: '/a.txt', name: 'a.txt', type: 'file' as const, size: 1, mtime: 0 };
+  const b = { path: '/b', name: 'b', type: 'dir' as const, size: 0, mtime: 0 };
+  const cmd = new Proxy({}, { get: () => noop }) as unknown as Parameters<typeof buildDriveMenu>[0]['cmd'];
+  const star = (targets: (typeof a | typeof b)[], starred: string[], viewOnly = false) =>
+    buildDriveMenu({ targets, past: false, drift: null, cmd, starred: new Set(starred), viewOnly }).find((i) => i.id === 'star') as
+      | { label: string; disabled?: boolean }
+      | undefined;
+
+  test('removes only when every target is starred; a viewer can star too', () => {
+    expect(star([a], [])?.label).toBe('Add to Starred');
+    expect(star([a], ['/a.txt'])?.label).toBe('Remove from Starred');
+    expect(star([a, b], ['/a.txt'])?.label).toBe('Add to Starred');
+    expect(star([a], [], true)?.disabled).toBeFalsy();
+  });
+
+  test('there is no star in the past', () => {
+    expect(buildDriveMenu({ targets: [a], past: true, drift: null, cmd }).some((i) => i.id === 'star')).toBe(false);
+  });
+});

@@ -224,7 +224,7 @@ function Swipe({ a, b, sides, onDims }: { a: FileSide; b: FileSide; sides?: Comp
             }
           }}
           className={cx(
-            'vxv-handle absolute top-1/2 flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center gap-[3px] text-[10px] font-medium leading-none transition-transform duration-[120ms]',
+            'vxv-handle absolute top-1/2 flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center gap-[3px] text-[11px] font-medium leading-none transition-transform duration-[120ms]',
             active && 'scale-110',
           )}
           style={{ left: `${pos}%` }}

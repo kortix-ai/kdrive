@@ -10,7 +10,7 @@ import type { FileEntry, FileStat } from '../storage/types';
 import type { WorkspaceCtx } from '../types';
 import { DIR_BYTES, logicalSize, peakGrowth, Projection } from './footprint';
 import { exactBlockLists, withPreparedAction, type ActionCtx, type PathChange } from './ledger';
-import { detachLiveLinks, moveLiveLinks } from './links';
+import { detachFollowers, moveFollowers } from './follow';
 import { Hold } from './reservations';
 import { listTree, statOrNull } from './tree';
 
@@ -226,8 +226,8 @@ export async function movePaths(ctx: ActionCtx, items: TransferItem[], overwrite
       for (const i of checked) {
         await rec.commit(await store.move(ctx.ws.volumeId, i.from, i.to, { overwrite }));
         // Live links follow the item; links to an item the move replaced are detached.
-        if (i.dest) await detachLiveLinks(ctx.ws.id, i.to, rec.actionId);
-        await moveLiveLinks(ctx.ws.id, i.from, i.to);
+        if (i.dest) await detachFollowers(ctx.ws.id, i.to, rec.actionId);
+        await moveFollowers(ctx.ws.id, i.from, i.to);
       }
     },
   );
@@ -273,7 +273,7 @@ export async function copyPaths(ctx: ActionCtx, items: TransferItem[], overwrite
       const store = getStore();
       for (const i of checked) {
         await rec.commit(await store.copy(ctx.ws.volumeId, i.from, i.to, { recursive: i.st.type === 'dir', overwrite }));
-        if (i.dest) await detachLiveLinks(ctx.ws.id, i.to, rec.actionId);
+        if (i.dest) await detachFollowers(ctx.ws.id, i.to, rec.actionId);
       }
     },
   );
@@ -321,7 +321,7 @@ export async function deletePaths(ctx: ActionCtx, paths: string[]): Promise<Acti
       for (const p of tops) {
         await rec.commit(await store.remove(ctx.ws.volumeId, p, { recursive: true }));
         // Whatever is created at this path later is not what was shared.
-        await detachLiveLinks(ctx.ws.id, p, rec.actionId);
+        await detachFollowers(ctx.ws.id, p, rec.actionId);
       }
     },
   );

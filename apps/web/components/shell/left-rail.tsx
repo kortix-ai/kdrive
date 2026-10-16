@@ -1,13 +1,13 @@
 'use client';
 
 // Sidebar (UNIFY-SPEC §11): on the page ground with a 1px hair right rule. Top to bottom:
-// + New (primary), the DRIVES eyebrow + workspace switcher, 32 px nav items (chord hints
+// + New (primary), the DRIVES eyebrow + the drive card, 38 px nav items (chord hints
 // on hover, Mono counts), a flexible gap, then storage, "Get more storage" and (emulated
 // storage only) a small badge on a hair rule. 64 px icon column at 720–1023 px, or wider when collapsed (lib/side.ts); a drawer on phones (AppShell opens it).
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
-import { Diamond, Files, Inbox, Settings, Shield, Trash } from 'lucide-react';
+import { Clock, Diamond, Files, Inbox, Settings, Shield, Star, Trash } from 'lucide-react';
 import StorageMeter from '@/components/drive/storage-meter';
 import WorkspaceSwitcher from '@/components/workspaces/workspace-switcher';
 import { ProposalsNavCount } from '@/components/proposals/proposals-nav-count';
@@ -22,6 +22,8 @@ type NavItem = { href: string; label: string; short: string; icon: typeof Files;
 
 const NAV_MAIN: NavItem[] = [
   { href: '/drive', label: 'Files', short: 'Files', icon: Files, chord: 'g d' },
+  { href: '/recent', label: 'Recent', short: 'Recent', icon: Clock, chord: 'g r' },
+  { href: '/starred', label: 'Starred', short: 'Starred', icon: Star, chord: 'g s' },
   { href: '/checkpoints', label: 'Checkpoints', short: 'Saved', icon: Diamond, chord: 'g c' },
   { href: '/recently-deleted', label: 'Recently deleted', short: 'Deleted', icon: Trash, chord: 'g x' },
   { href: '/proposals', label: 'Proposals', short: 'Review', icon: Inbox, chord: 'g p' },
@@ -75,8 +77,8 @@ export function LeftRail({ open, onNavigate }: { open?: boolean; onNavigate?: ()
       <div className="pb-4">
         <NewButton />
       </div>
-      <div className="vx-eyebrow vx-side-full px-2.5 pb-1.5">Drives</div>
-      <div className="pb-2">
+      <div className="vx-eyebrow vx-side-full px-2.5 pb-2">Drives</div>
+      <div className="pb-3.5">
         <WorkspaceSwitcher />
       </div>
       <ul className="flex flex-col gap-0.5">
@@ -102,10 +104,14 @@ export function LeftRail({ open, onNavigate }: { open?: boolean; onNavigate?: ()
         ) : null}
       </ul>
       <div className="min-h-6 flex-1" />
-      <div className={cx('vx-side-full -mx-3 border-t border-vx-hair px-4 pt-3')}>
+      <div className={cx('vx-side-full -mx-3 border-t border-vx-hair-soft px-[22px] pb-1 pt-3.5')}>
         <StorageMeter />
-        <GetMoreStorage className="mt-3" onNavigate={onNavigate} />
-        <EmulatedBadge className="mt-2" />
+        <div className="mt-2.5">
+          <GetMoreStorage onNavigate={onNavigate} />
+        </div>
+        <div className="mt-2 flex">
+          <EmulatedBadge />
+        </div>
       </div>
     </nav>
   );

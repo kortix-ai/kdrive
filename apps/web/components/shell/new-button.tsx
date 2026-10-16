@@ -46,7 +46,7 @@ function useNewItems(): { past: boolean; reason: string; items: MenuItem[] } {
   return { past, reason, items };
 }
 
-/** The sidebar button: primary, 36 px, r4, full width; a 40 × 40 plus in the 64 px sidebar. */
+/** The sidebar button: primary ink, 40 px, r10, full width; a 40 × 40 plus in the 64 px sidebar. */
 export function NewButton() {
   const { past, reason, items } = useNewItems();
   const button = (p: Record<string, unknown>) => (
@@ -57,11 +57,11 @@ export function NewButton() {
       data-testid="new-button"
       aria-label={past ? `New. ${reason}` : 'New'}
       className={cx(
-        'inline-flex h-9 w-full shrink-0 items-center justify-center gap-2 rounded-vx-sm bg-vx-primary px-3.5 text-[14px] font-medium text-vx-on-primary transition-[background-color,opacity] duration-[120ms] ease-vx',
+        'inline-flex h-10 w-full shrink-0 items-center justify-center gap-2 rounded-[10px] bg-vx-primary px-4 text-[15px] font-medium text-vx-on-primary shadow-[inset_0_1px_0_rgba(255,255,255,.12),0_1px_2px_rgba(0,0,0,.16)] transition-[background-color,opacity] duration-[120ms] ease-vx',
         'hover:bg-vx-primary-hover aria-expanded:bg-vx-primary-hover',
         // Unavailable in the past: a quiet surface slab with a hair edge, not a faded fill that looks broken.
         'disabled:cursor-not-allowed disabled:bg-vx-surface-3 disabled:text-vx-text-4 disabled:shadow-[inset_0_0_0_1px_var(--vx-hair)] disabled:hover:bg-vx-surface-3',
-        'max-[1023px]:h-10 max-[1023px]:w-10 max-[1023px]:p-0 max-[720px]:h-9 max-[720px]:w-full max-[720px]:px-3.5',
+        'max-[1023px]:h-10 max-[1023px]:w-10 max-[1023px]:p-0 max-[720px]:h-10 max-[720px]:w-full max-[720px]:px-4',
         'side-collapsed:h-10 side-collapsed:w-10 side-collapsed:p-0',
       )}
     >
@@ -80,7 +80,7 @@ export function NewButton() {
   return <Menu matchWidth minWidth={216} items={items} trigger={(p) => button(p)} />;
 }
 
-/** Phone FAB (≤ 720 px, /drive only): primary, 48 px, r4, bottom-right above the strip pill. */
+/** Phone FAB (≤ 720 px, /drive only): primary, 48 px, r14, bottom-right above the strip pill. */
 export function NewFab() {
   const { past, reason, items } = useNewItems();
   return (
@@ -95,7 +95,7 @@ export function NewFab() {
             {...p}
             disabled={past}
             title={past ? reason : undefined}
-            className="inline-flex h-12 items-center gap-2 rounded-vx-sm bg-vx-primary pl-4 pr-5 text-[14px] font-medium text-vx-on-primary shadow-vx-3 hover:bg-vx-primary-hover disabled:cursor-not-allowed disabled:bg-vx-surface-3 disabled:text-vx-text-4 disabled:shadow-[inset_0_0_0_1px_var(--vx-hair)]"
+            className="inline-flex h-12 items-center gap-2 rounded-[14px] bg-vx-primary pl-4 pr-5 text-[15px] font-medium text-vx-on-primary shadow-vx-3 hover:bg-vx-primary-hover disabled:cursor-not-allowed disabled:bg-vx-surface-3 disabled:text-vx-text-4 disabled:shadow-[inset_0_0_0_1px_var(--vx-hair)]"
           >
             <Plus size={18} strokeWidth={2} aria-hidden />
             New

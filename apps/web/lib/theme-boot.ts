@@ -13,7 +13,7 @@
  */
 const src = function boot() {
   var d = document.documentElement;
-  var C: Record<string, string> = { dark: '#0a0a0b', light: '#f4f4f6' };
+  var C: Record<string, string> = { dark: '#1a1917', light: '#ece8e0' };
   function fallback() {
     try {
       return /^\/(pricing\/?)?$/.test(window.location.pathname) ? 'light' : 'dark';

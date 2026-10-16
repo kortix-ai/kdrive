@@ -1,7 +1,7 @@
 'use client';
 
 // Inline rename (UNIFY-SPEC §14.2 "renaming"): a 28 px r4 field (field fill, hair-strong
-// border, the violet inset focus ring) in place of
+// border, the inset focus ring) in place of
 // the name, base name preselected (extension excluded). ↵ saves, Esc cancels,
 // blur saves when the name changed and is valid.
 import { useLayoutEffect, useRef, useState } from 'react';

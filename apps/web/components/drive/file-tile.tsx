@@ -1,9 +1,11 @@
 'use client';
 
-// Grid cards (UNIFY-SPEC §12.1, §14.2; DESIGN-v2 §6.2). File card: r6 on `--vx-surface-2`
+// Cards (UNIFY-SPEC §12.1, §14.2; DESIGN-v2 §6.2). File card: r12 on `--vx-surface-2`
 // with a 1 px hair, a 6 px inset, a 40 px head (type icon that swaps to the checkbox on hover,
-// name, ⋮), a 4:3 r4 mat and a Mono `size · modified` caption. Folder card: 44 px, r6, hair,
-// outline folder + name + ⋮. Same states as rows; past mode filters thumbnails.
+// name, ☆, ⋮), a 4:3 r8 mat and a Mono `size · modified` caption. Folder card: r16, no frame at rest,
+// the 150 px glass folder in the folder's hue, its name 16/600 and a meta line; the checkbox (top left)
+// and ☆ ⋮ (top right) show on hover. The star stays (filled) while starred. Same states as rows; past
+// mode quiets the glass and filters thumbnails.
 import { memo } from 'react';
 import { MoreVertical } from 'lucide-react';
 import { formatBytes, type FileEntry } from '@volumes/shared';
@@ -11,10 +13,12 @@ import { FileIcon } from '@/components/ui/file-icon';
 import { IconButton } from '@/components/ui/icon-button';
 import { cx } from '@/components/ui/cx';
 import { CAPTION_H, FOLDER_TILE_H, HEAD_H } from '@/lib/drive/layout';
+import { GlassObject } from './glass-object';
 import { formatRelative, isoTitle } from '@/lib/format';
 import { useDriveCtx } from './drive-context';
-import { DriftChip, GoneRestore, MiddleName, RowCheck, itemTone } from './file-row';
+import { DriftChip, GoneRestore, MiddleName, RowCheck, StarButton, itemTone } from './file-row';
 import { RenameInput } from './rename-dialog';
+import { ItemAnnotations } from '@/components/labels/label-chip';
 import Thumbnail from './thumbnail';
 import s from './drive.module.css';
 
@@ -61,11 +65,31 @@ function cardTone(st: ReturnType<typeof useItemState>) {
     s.item,
     'group relative cursor-default select-none rounded-vx-md border transition-[background-color,border-color,box-shadow] duration-[120ms] ease-vx',
     !selected && !dropTarget && 'border-vx-hair bg-vx-surface-2 hover:border-vx-hair-strong',
-    selected && !dropTarget && 'border-vx-accent-edge',
+    selected && !dropTarget && 'border-vx-hair-strong',
     dropTarget && 'border-transparent',
     itemTone({ selected, focused, dropTarget, dragging }),
     removing && s.removing,
   );
+}
+
+/** Folder cards sit on the sheet without a frame; hover lays a surface-2 card under them, selection the selection fill. */
+function folderTone(st: ReturnType<typeof useItemState>) {
+  const { selected, focused, dropTarget, dragging, removing } = st;
+  return cx(
+    s.item,
+    'group relative cursor-default select-none rounded-vx-lg border transition-[background-color,border-color,box-shadow] duration-[160ms] ease-vx',
+    dropTarget ? cx('border-transparent bg-vx-accent-wash', s.dropOn) : selected ? 'border-vx-hair-strong bg-vx-selection' : 'border-transparent hover:bg-vx-surface-2',
+    dragging && 'opacity-40',
+    removing && s.removing,
+  );
+}
+
+/** The card's star toggle: revealed on hover like the ⋮, always shown while starred (now only). */
+function CardStar({ entry }: { entry: FileEntry }) {
+  const ctx = useDriveCtx();
+  if (ctx.past) return null;
+  const on = ctx.starred.has(entry.path);
+  return <StarButton entry={entry} className={cx(!on && s.reveal, 'group-aria-selected:text-vx-on-selection')} />;
 }
 
 function MenuDots({ entry }: { entry: FileEntry }) {
@@ -120,6 +144,7 @@ function FileTileImpl({ entry, style }: { entry: FileEntry; style?: React.CSSPro
             <MiddleName name={entry.name} className={cx('text-[14px] font-medium leading-5', selected ? 'text-vx-on-selection' : 'text-vx-text-1')} />
           )}
         </span>
+        <CardStar entry={entry} />
         <MenuDots entry={entry} />
       </div>
       <Thumbnail ws={ctx.ws} entry={entry} at={ctx.at} past={ctx.past}>
@@ -138,6 +163,7 @@ function FileTileImpl({ entry, style }: { entry: FileEntry; style?: React.CSSPro
         <span className="shrink-0">{formatBytes(entry.size)}</span>
         <span aria-hidden>·</span>
         <span className="min-w-0 truncate">{entry.mtime ? formatRelative(entry.mtime) : '—'}</span>
+        {ctx.past ? null : <ItemAnnotations path={entry.path} lit={selected} dots className="ml-auto" />}
       </div>
       {pending && pending !== 'delete' ? <span className={s.pendingLine} aria-hidden /> : null}
     </div>
@@ -148,25 +174,44 @@ function FolderTileImpl({ entry, style }: { entry: FileEntry; style?: React.CSSP
   const st = useItemState(entry);
   const { ctx, selected, focused, drift, pending, dropTarget, renaming } = st;
   const moving = ctx.dragging.size;
+  const phone = ctx.density === 'phone';
   return (
     <div
       {...itemProps(ctx, entry, renaming, pending, focused)}
       aria-selected={selected}
-      style={{ ...style, height: FOLDER_TILE_H }}
-      className={cx(cardTone(st), 'flex items-center gap-2.5 pl-3 pr-1')}
+      style={{ height: FOLDER_TILE_H, ...style }}
+      className={cx(folderTone(st), 'flex min-w-0 flex-col items-center px-3 text-center', phone ? 'pb-2.5 pt-3.5' : 'pb-3 pt-4')}
       title={isoTitle(entry.mtime)}
     >
-      <IconOrCheck entry={entry} selected={selected} />
-      <div className="flex min-w-0 flex-1 items-center gap-2">
+      <span className="absolute left-3 top-3 z-[1] inline-flex max-[720px]:hidden">
+        <RowCheck on={selected} onToggle={() => ctx.onCheck(entry)} label={`Select ${entry.name}`} className={cx(!selected && s.reveal, s.revealCheck)} />
+      </span>
+      <span className="absolute right-1.5 top-1.5 z-[1] flex items-center">
+        <CardStar entry={entry} />
+        <MenuDots entry={entry} />
+      </span>
+      <GlassObject name={entry.name} past={ctx.past} className={phone ? 'max-w-[138px]' : 'max-w-[150px]'} />
+      <div className={cx('flex w-full min-w-0 items-center justify-center gap-1.5', phone ? 'mt-2.5' : 'mt-3')}>
         {renaming ? (
           <RenameInput entry={entry} siblings={ctx.siblings} onSubmit={(n) => ctx.onRenameSubmit(entry, n)} onCancel={ctx.onRenameCancel} />
         ) : (
-          <MiddleName name={entry.name} className={cx('text-[14px] font-medium leading-5', selected ? 'text-vx-on-selection' : 'text-vx-text-1')} />
+          <MiddleName
+            name={entry.name}
+            className={cx('min-w-0 justify-center font-semibold tracking-[-0.01em]', phone ? 'text-[15px] leading-5' : 'text-[16px] leading-[22px]', 'text-vx-text-1')}
+          />
         )}
-        {drift && !renaming ? <DriftChip drift={drift} /> : null}
+        {!ctx.past && !renaming ? <ItemAnnotations path={entry.path} lit={selected} dots /> : null}
       </div>
-      {drift === 'gone' ? <GoneRestore entry={entry} className="shrink-0" /> : null}
-      <MenuDots entry={entry} />
+      <div className={cx('flex min-h-5 w-full min-w-0 items-center justify-center gap-1.5 text-vx-text-3', phone ? 'text-[13px] leading-5' : 'text-[13.5px] leading-5')}>
+        {drift && !renaming ? (
+          <>
+            <DriftChip drift={drift} />
+            {drift === 'gone' ? <GoneRestore entry={entry} className="shrink-0" /> : null}
+          </>
+        ) : (
+          <span className="truncate">{entry.mtime ? `Modified ${formatRelative(entry.mtime)}` : 'Folder'}</span>
+        )}
+      </div>
       {dropTarget && moving ? (
         <span
           role="status"
@@ -182,32 +227,31 @@ function FolderTileImpl({ entry, style }: { entry: FileEntry; style?: React.CSSP
 
 export function GhostTile({ entry, style }: { entry: FileEntry; style?: React.CSSProperties }) {
   const isDir = entry.type === 'dir';
+  if (isDir) {
+    return (
+      <div
+        style={style}
+        className="flex min-w-0 flex-col items-center rounded-vx-lg border-[1.5px] border-dashed border-vx-hair-dash px-3 pb-3 pt-4 text-center"
+        aria-disabled
+      >
+        <GlassObject name={entry.name} ghost className="max-w-[150px] max-[720px]:max-w-[138px]" />
+        <MiddleName name={entry.name} className="mt-3 min-w-0 justify-center text-[16px] font-semibold leading-[22px] text-vx-text-3 max-[720px]:text-[15px]" />
+        <span className="text-[13.5px] font-medium leading-5 text-vx-past">Not created yet</span>
+      </div>
+    );
+  }
   return (
-    <div
-      style={{ ...style, ...(isDir ? { height: FOLDER_TILE_H } : {}) }}
-      className="flex flex-col rounded-vx-md border border-dashed border-vx-hair-dash px-1.5 text-vx-text-4"
-      aria-disabled
-    >
-      {isDir ? (
-        <div className="flex h-full items-center gap-2.5 pl-1.5">
-          <FileIcon name={entry.name} type="dir" size={20} muted />
-          <MiddleName name={entry.name} className="min-w-0 flex-1 text-[14px] font-medium leading-5" />
-          <DriftChip drift="ghost" className="mr-1" />
-        </div>
-      ) : (
-        <>
-          <div className="flex shrink-0 items-center gap-2.5 pl-2" style={{ height: HEAD_H }}>
-            <FileIcon name={entry.name} type={entry.type} size={20} muted />
-            <MiddleName name={entry.name} className="min-w-0 flex-1 text-[14px] font-medium leading-5" />
-          </div>
-          <div className="relative flex min-h-0 flex-1 items-center justify-center rounded-vx-sm">
-            <FileIcon name={entry.name} type={entry.type} size={48} muted />
-          </div>
-          <div className="flex shrink-0 items-center px-1.5" style={{ height: CAPTION_H }}>
-            <DriftChip drift="ghost" />
-          </div>
-        </>
-      )}
+    <div style={style} className="flex flex-col rounded-vx-md border border-dashed border-vx-hair-dash px-1.5 text-vx-text-3" aria-disabled>
+      <div className="flex shrink-0 items-center gap-2.5 pl-2" style={{ height: HEAD_H }}>
+        <FileIcon name={entry.name} type={entry.type} size={20} muted />
+        <MiddleName name={entry.name} className="min-w-0 flex-1 text-[14px] font-medium leading-5" />
+      </div>
+      <div className="relative flex min-h-0 flex-1 items-center justify-center rounded-vx-sm">
+        <FileIcon name={entry.name} type={entry.type} size={48} muted />
+      </div>
+      <div className="flex shrink-0 items-center px-1.5" style={{ height: CAPTION_H }}>
+        <DriftChip drift="ghost" />
+      </div>
     </div>
   );
 }

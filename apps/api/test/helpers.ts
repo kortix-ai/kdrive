@@ -21,6 +21,8 @@ import { clearTreeCache } from '../src/services/tree';
 export const ORIGIN = 'http://localhost:4100';
 
 const TABLES = [
+  'stars',
+  'recent_opens',
   'proposal_blocks',
   'proposal_files',
   'proposals',

@@ -150,10 +150,19 @@ describe('grid layout', () => {
     const tops = l.rows.map((r) => r.top);
     expect(tops).toEqual([...tops].sort((a, b) => a - b));
   });
-  test('phones get two file columns and one folder column', () => {
+  test('phones get two file columns and two folder columns', () => {
     const l = computeGridLayout({ width: 390, folders: mk(2, 'dir'), files: mk(3, 'file'), creating: false, ghosts: [], addedLaterCount: 0, phone: true });
     expect(l.cols).toBe(2);
-    expect(l.folderCols).toBe(1);
+    expect(l.folderCols).toBe(2);
+  });
+  test('the list view: folder cards, then a header and one row per file', () => {
+    const l = computeGridLayout({ width: 1000, folders: mk(2, 'dir'), files: mk(3, 'file'), creating: false, ghosts: mk(1, 'file'), addedLaterCount: 1, listRowH: 42 });
+    expect(l.cols).toBe(1);
+    expect(l.rows.map((r) => r.kind)).toEqual(['label', 'folders', 'label', 'listhead', 'filerow', 'filerow', 'filerow', 'footer', 'label', 'listhead', 'filerow']);
+    // ghosts are not hit-testable
+    expect(l.itemRects).toHaveLength(5);
+    expect(l.rowOf.get('/file2')).toBe(6);
+    expect(new Set(l.rows.map((r) => r.key)).size).toBe(l.rows.length);
   });
   test('1,000 items lay out in one pass', () => {
     const t0 = performance.now();

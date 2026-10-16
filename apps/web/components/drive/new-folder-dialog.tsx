@@ -9,6 +9,7 @@ import { cx } from '@/components/ui/cx';
 import { FileIcon } from '@/components/ui/file-icon';
 import { useDriveCtx } from './drive-context';
 import { listCols } from './file-row';
+import { GlassObject } from './glass-object';
 import s from './drive.module.css';
 import { NameInput, nameError } from './rename-dialog';
 
@@ -30,10 +31,11 @@ export function NewFolderEditor({ variant, style }: { variant: 'row' | 'tile'; s
     />
   );
   if (variant === 'tile') {
+    // The new folder as a card: the glass object (in the default name's hue) over the name field.
     return (
-      <div style={style} className="flex h-11 items-center gap-2.5 rounded-vx-md border border-vx-accent-edge bg-vx-selection pl-3 pr-2">
-        <FileIcon name="" type="dir" size={20} />
-        {input}
+      <div style={style} className="flex min-w-0 flex-col items-center rounded-vx-lg border border-vx-hair-strong bg-vx-selection px-3 pb-3 pt-4">
+        <GlassObject name={initial} className="max-w-[150px] max-[720px]:max-w-[138px]" />
+        <div className="mt-3 flex w-full min-w-0 items-center">{input}</div>
       </div>
     );
   }
@@ -46,7 +48,7 @@ export function NewFolderEditor({ variant, style }: { variant: 'row' | 'tile'; s
       {phone ? null : <span />}
       {phone ? <FileIcon name="" type="dir" size={28} /> : null}
       <span className={cx('flex min-w-0 items-center gap-3', !phone && 'pr-4')}>
-        {phone ? null : <FileIcon name="" type="dir" size={20} />}
+        {phone ? null : <FileIcon name="" type="dir" size={28} />}
         {input}
       </span>
       {phone ? null : (

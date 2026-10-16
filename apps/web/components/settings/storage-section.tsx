@@ -10,6 +10,9 @@ import { cx } from '@/components/ui/cx';
 import { Meter } from '@/components/ui/meter';
 import { Section, SectionError } from './section';
 
+/** Each drive's bar takes the next object hue, so the split reads like the drives themselves. */
+const BAR_HUES = [352, 262, 205, 72, 162, 32, 118];
+
 export function percent(used: number, quota: number): number {
   if (quota <= 0) return used > 0 ? 100 : 0;
   return Math.round((used / quota) * 1000) / 10;
@@ -63,17 +66,17 @@ export function StorageSection({ fallback }: { fallback?: UsageResponse }) {
 
       {data.byWorkspace.length > 0 ? (
         <ul className="mt-5 flex flex-col gap-3" aria-label="Storage by drive">
-          {data.byWorkspace.map((w) => (
+          {data.byWorkspace.map((w, i) => (
             <li key={w.workspaceId} className="grid grid-cols-[minmax(0,160px)_minmax(0,1fr)_80px] items-center gap-3 max-[480px]:grid-cols-[minmax(0,1fr)_72px]">
               <span className="truncate text-[14px] font-medium leading-5 text-vx-text-1" title={w.name}>
                 {w.name}
                 {w.workspaceId === current ? <span className="vx-meta ml-1.5 font-normal text-vx-text-3">current</span> : null}
               </span>
-              <span className="block h-1 overflow-hidden rounded-vx-xs bg-vx-accent-wash max-[480px]:order-last max-[480px]:col-span-2">
+              <span className="block h-1.5 overflow-hidden rounded-vx-pill bg-vx-meter-track max-[480px]:order-last max-[480px]:col-span-2">
                 {/* Each bar is that workspace's share of the quota (the meter above), with a 2 px sliver for any data at all. */}
                 <span
-                  className="block h-full rounded-vx-xs bg-vx-accent"
-                  style={{ width: w.bytes > 0 ? `max(2px, ${Math.min(100, data.quotaBytes > 0 ? (w.bytes / data.quotaBytes) * 100 : 100)}%)` : 0 }}
+                  className="block h-full rounded-vx-pill"
+                  style={{ background: `oklch(0.66 0.12 ${BAR_HUES[i % BAR_HUES.length]})`, width: w.bytes > 0 ? `max(2px, ${Math.min(100, data.quotaBytes > 0 ? (w.bytes / data.quotaBytes) * 100 : 100)}%)` : 0 }}
                 />
               </span>
               <span className="vx-meta-row text-right text-vx-text-3">{formatBytes(w.bytes)}</span>

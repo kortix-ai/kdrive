@@ -3,29 +3,34 @@
 import { useEffect, useMemo, useState } from 'react';
 import useSWR from 'swr';
 import { CircleAlert, Link2, Lock, Pin } from 'lucide-react';
-import { TAG_BUDGET, basename, formatBytes, previewKind, shortId, type ShareLink } from '@volumes/shared';
+import { TAG_BUDGET, basename, formatBytes, previewKind, shortId, type ShareLink, type UpdateLinkRequest } from '@volumes/shared';
 import { kindLabel } from '@/components/preview/names';
 import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
 import { cx } from '@/components/ui/cx';
 import { Dialog } from '@/components/ui/dialog';
 import { FileIcon } from '@/components/ui/file-icon';
+import { DateTimePicker, roundUpToSlot } from '@/components/ui/date-time-picker';
 import { Input } from '@/components/ui/input';
+import { Tabs } from '@/components/ui/tabs';
 import { ApiError } from '@/lib/api/client';
 import { api } from '@/lib/api/endpoints';
 import { useStat } from '@/lib/api/hooks';
-import { formatMoment, isoTitle } from '@/lib/format';
+import { formatAgo, formatMoment, isoTitle } from '@/lib/format';
 import { useVx } from '@/lib/store';
+import { accessRequest, OPEN_ACCESS, type AccessDraft } from './access';
+import { AccessFields } from './access-fields';
 import { copyText, CopyButton } from './copy-button';
 import { expiryToIso, linkStatus, sortLinks, toLocalInput, type ExpiryChoice } from './expiry';
 import { LinkRow } from './link-row';
+import { useUploadLinkTab } from './upload-link-tab';
 
 const noRetry = { revalidateOnFocus: false, shouldRetryOnError: false } as const;
 
 /** A danger row inside the dialog body (budget full, create errors). */
 function ErrorRow({ children }: { children: React.ReactNode }) {
   return (
-    <div role="alert" className="flex items-start gap-2 rounded-vx-sm bg-vx-danger-wash px-3 py-2 text-[13px] leading-5 text-vx-danger">
+    <div role="alert" className="flex items-start gap-2 rounded-vx-sm bg-vx-danger-wash px-3 py-2.5 text-[14px] leading-5 text-vx-danger">
       <CircleAlert size={16} strokeWidth={1.75} className="mt-0.5 shrink-0" aria-hidden />
       <span className="min-w-0">{children}</span>
     </div>
@@ -58,7 +63,7 @@ function OptionCard({
       className={cx(
         'vx-inset-focus flex min-h-[60px] min-w-0 items-center gap-3 rounded-vx-md px-3.5 py-3 text-left transition-colors duration-[120ms] ease-vx disabled:cursor-not-allowed disabled:opacity-[.38]',
         on
-          ? 'bg-vx-selection shadow-[inset_0_0_0_1px_var(--vx-accent-edge)]'
+          ? 'bg-vx-surface shadow-[inset_0_0_0_1.5px_var(--vx-text-1),var(--vx-shadow-1)]'
           : 'shadow-[inset_0_0_0_1px_var(--vx-hair-strong)] enabled:hover:bg-vx-raise',
       )}
     >
@@ -66,13 +71,13 @@ function OptionCard({
         aria-hidden
         className={cx(
           'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-vx-sm',
-          on ? 'bg-vx-accent text-vx-on-accent' : 'bg-vx-surface-3 text-vx-text-2',
+          on ? 'bg-vx-primary text-vx-on-primary' : 'bg-vx-surface-3 text-vx-text-2',
         )}
       >
         {icon}
       </span>
       <span className="min-w-0">
-        <span className={cx('block text-[14px] font-semibold leading-5', on ? 'text-vx-on-selection' : 'text-vx-text-1')}>{title}</span>
+        <span className="block text-[14.5px] font-semibold leading-5 text-vx-text-1">{title}</span>
         <span className="mt-0.5 block text-[13px] leading-[18px] text-vx-text-3">{body}</span>
       </span>
     </button>
@@ -87,13 +92,14 @@ const EXPIRY: { value: ExpiryChoice; label: string }[] = [
   { value: 'custom', label: 'Custom…' },
 ];
 
-function ShareBody({ ws, path, onClose }: { ws: string; path: string; onClose: () => void }) {
+function ShareBody({ ws, path, tab: initialTab, onClose }: { ws: string; path: string; tab?: 'upload'; onClose: () => void }) {
   const timeTravel = useVx((s) => s.timeTravel);
   const past = !!timeTravel;
   const at = timeTravel?.commitId ?? null;
   const [mode, setMode] = useState<'live' | 'pinned'>(past ? 'pinned' : 'live');
   const [expiry, setExpiry] = useState<ExpiryChoice>('never');
-  const [custom, setCustom] = useState(() => toLocalInput(new Date(Date.now() + 7 * 24 * 3600_000)));
+  const [custom, setCustom] = useState(() => roundUpToSlot(new Date(Date.now() + 7 * 24 * 3600_000)));
+  const [access, setAccess] = useState<AccessDraft>(OPEN_ACCESS);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<{ code: string; message: string } | null>(null);
   const [created, setCreated] = useState<ShareLink | null>(null);
@@ -118,9 +124,15 @@ function ShareBody({ ws, path, onClose }: { ws: string; path: string; onClose: (
   const b = budget.data?.budget;
   const max = b?.max ?? TAG_BUDGET;
   const full = mode === 'pinned' && !!b && b.used >= b.max;
-  const sorted = useMemo(() => sortLinks(links.data?.links ?? []), [links.data]);
+  const sorted = useMemo(() => sortLinks((links.data?.links ?? []).filter((l) => l.kind !== 'upload')), [links.data]);
   const activeCount = sorted.filter((l) => linkStatus(l) === 'active').length;
   const name = basename(path) || 'My Drive';
+
+  // Folders in the present also get an Upload link tab (people send files in).
+  const [tab, setTab] = useState<'link' | 'upload'>(initialTab ?? 'link');
+  const canUpload = isDir && !past;
+  const upload = useUploadLinkTab({ ws, path, name, onClose });
+  const onUpload = canUpload && tab === 'upload';
 
   const pinnedAt = past ? timeTravel!.createdAt : head.data?.createdAt;
   const pinnedCommit = past ? timeTravel!.commitId : head.data?.id;
@@ -141,8 +153,10 @@ function ShareBody({ ws, path, onClose }: { ws: string; path: string; onClose: (
     if (busy) return;
     setError(null);
     let expiresAt: string | null;
+    let accessFields: ReturnType<typeof accessRequest>;
     try {
-      expiresAt = expiryToIso(expiry, custom);
+      expiresAt = expiryToIso(expiry, toLocalInput(custom));
+      accessFields = accessRequest(access);
     } catch (e) {
       setError({ code: 'bad_request', message: (e as Error).message });
       return;
@@ -158,7 +172,9 @@ function ShareBody({ ws, path, onClose }: { ws: string; path: string; onClose: (
         mode,
         ...(mode === 'pinned' && past ? { at: timeTravel!.commitId } : {}),
         expiresAt,
+        ...accessFields,
       });
+      setAccess((a) => ({ ...a, password: '' }));
       setAutoCopied(await copyText(link.url));
       setCreated(link);
       await Promise.all([links.mutate(), mode === 'pinned' ? budget.mutate() : null]);
@@ -170,20 +186,26 @@ function ShareBody({ ws, path, onClose }: { ws: string; path: string; onClose: (
     }
   };
 
+  const update = async (link: ShareLink, req: UpdateLinkRequest) => {
+    const { link: next } = await api.links.update(ws, link.id, req);
+    if (created?.id === link.id) setCreated(next);
+    await links.mutate();
+  };
+
   const revoke = async (link: ShareLink) => {
     await api.links.revoke(ws, link.id);
     if (created?.id === link.id) setCreated(null);
     await Promise.all([links.mutate(), link.mode === 'pinned' ? budget.mutate() : null]);
   };
 
-  const label = 'mb-2 block text-[13px] font-medium leading-5 text-vx-text-2';
+  const label = 'mb-2 block text-[14px] font-medium leading-5 text-vx-text-2';
 
   return (
     <Dialog
       open
       onClose={onClose}
       width={560}
-      busy={busy}
+      busy={busy || upload.busy}
       icon={<FileIcon name={name} type={isDir ? 'dir' : 'file'} size={32} />}
       title={
         <span className="block truncate" title={path}>
@@ -192,7 +214,7 @@ function ShareBody({ ws, path, onClose }: { ws: string; path: string; onClose: (
       }
       description={description}
       footer={
-        <>
+        onUpload ? upload.footer : <>
           <Button variant="outline" onClick={onClose} disabled={busy}>
             Done
           </Button>
@@ -202,13 +224,26 @@ function ShareBody({ ws, path, onClose }: { ws: string; path: string; onClose: (
         </>
       }
       note={
-        <>
+        onUpload ? upload.note : <>
           <Lock size={16} strokeWidth={1.75} className="shrink-0" aria-hidden />
-          <span>Anyone with a link can view and download without signing in. Nobody can change your files through it.</span>
+          <span>
+            Unless you limit it, anyone with a link can view and download without signing in. Nobody can change your files through it.
+          </span>
         </>
       }
     >
-      <div className="flex flex-col gap-5 pb-2">
+      {canUpload ? (
+        <Tabs
+          className="mb-4"
+          items={[
+            { id: 'link', label: 'Share link' },
+            { id: 'upload', label: 'Upload link' },
+          ]}
+          value={tab}
+          onChange={setTab}
+        />
+      ) : null}
+      {onUpload ? upload.body : <div className="flex flex-col gap-5 pb-2">
         <div>
           <span className={label} id="share-type">
             Link type
@@ -276,17 +311,36 @@ function ShareBody({ ws, path, onClose }: { ws: string; path: string; onClose: (
             ))}
           </div>
           {expiry === 'custom' ? (
-            <div className="mt-3 w-full max-w-[260px]">
-              <Input
-                type="datetime-local"
-                size="sm"
-                aria-label="Expires at"
+            <div className="mt-3">
+              <DateTimePicker
+                label="Expires at"
                 value={custom}
-                min={toLocalInput(new Date())}
-                onChange={(e) => setCustom(e.target.value)}
+                min={new Date(Date.now() + 60_000)}
+                onChange={(d) => {
+                  setCustom(d);
+                  setError(null);
+                }}
               />
+              <p className="vx-meta mt-2 text-vx-text-3" title={isoTitle(custom)}>
+                Expires <span className="text-vx-text-2">{formatMoment(custom)}</span> · {formatAgo(custom)}
+              </p>
             </div>
           ) : null}
+        </div>
+
+        <div>
+          <span className={label} id="share-access">
+            Access
+          </span>
+          <div role="group" aria-labelledby="share-access" className="-my-2.5">
+            <AccessFields
+              value={access}
+              onChange={(a) => {
+                setAccess(a);
+                setError(null);
+              }}
+            />
+          </div>
         </div>
 
         {full || error?.code === 'tag_budget_exceeded' ? (
@@ -332,21 +386,24 @@ function ShareBody({ ws, path, onClose }: { ws: string; path: string; onClose: (
           ) : (
             <ul>
               {sorted.map((l) => (
-                <LinkRow key={l.id} link={l} onRevoke={revoke} />
+                <LinkRow key={l.id} link={l} onRevoke={revoke} onUpdate={update} />
               ))}
             </ul>
           )}
         </section>
-      </div>
+      </div>}
     </Dialog>
   );
 }
 
-/** Share dialog (560): create live or pinned links with an expiry, copy, list and revoke. Opened by `openShare(path)`. */
+/**
+ * Share dialog (560): create live or pinned links with an expiry and access (people, password, downloads),
+ * copy, list, edit access and revoke. Opened by `openShare(path)`.
+ */
 export default function ShareDialog() {
   const share = useVx((s) => s.share);
   const ws = useVx((s) => s.workspaceId);
   const close = useVx((s) => s.closeShare);
   if (!share || !ws) return null;
-  return <ShareBody key={`${ws}:${share.path}`} ws={ws} path={share.path} onClose={close} />;
+  return <ShareBody key={`${ws}:${share.path}:${share.tab ?? ''}`} ws={ws} path={share.path} tab={share.tab} onClose={close} />;
 }

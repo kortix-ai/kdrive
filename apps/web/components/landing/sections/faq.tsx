@@ -1,7 +1,6 @@
 import { SectionHead } from './head';
 
-// FAQ (LANDING-SPEC §6.7): native <details>, works without JS; the first item
-// is open. The head is sticky on desktop.
+// FAQ: native <details>, works without JS; the first item is open. The head is sticky on desktop.
 const QA = [
   {
     q: 'What counts as a version?',
@@ -43,7 +42,7 @@ export function Faq() {
     <section id="faq" className="kd-section kd-faq-section" aria-labelledby="faq-title">
       <div className="kd-container kd-faq">
         <div className="kd-faq__head">
-          <SectionHead id="faq-title" eyebrow="06 · FAQ" title="Questions, answered plainly." size="compact" />
+          <SectionHead id="faq-title" eyebrow="06 · FAQ" hue={72} title="Questions," em="answered plainly." />
         </div>
         <div className="kd-faq__list">
           {QA.map((item, i) => (

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import useSWR from 'swr';
-import { ChevronDown, ChevronLeft, ChevronRight, Clock, Download, ExternalLink, Share2, WrapText } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, Clock, Download, ExternalLink, Share2, Star, WrapText } from 'lucide-react';
 import { setCodeWrap, useCodeWrap } from '@/lib/code-wrap';
 import { RETENTION_COPY, basename, dirname, formatBytes, isActiveContent, mimeFor, previewKind, shortId, type FileStat } from '@volumes/shared';
 import { Badge } from '@/components/ui/badge';
@@ -17,11 +17,14 @@ import { api } from '@/lib/api/endpoints';
 import { useStat } from '@/lib/api/hooks';
 import { formatDate, formatMoment, isoTitle } from '@/lib/format';
 import { useHotkeys } from '@/lib/keys';
+import { recordOpen, toggleStars, useDriveStars } from '@/lib/drive/stars';
 import { useVx } from '@/lib/store';
 import { contentUrl, zipUrl } from '@/lib/urls';
 import { FilePreview, rendererFor } from './file-preview';
 import { compareEntries, formatWhen, kindLabel, middleTruncate, stepSibling } from './names';
 import { PreviewError, PreviewSkeleton } from './states';
+import CommentsSection from '@/components/comments/comments-section';
+import { PreviewCommentsButton, PreviewLabels, PreviewTagButton } from '@/components/labels/preview-labels';
 
 const noRetry = { revalidateOnFocus: false, shouldRetryOnError: false } as const;
 
@@ -182,6 +185,13 @@ export default function PreviewPanel() {
   const next = path ? stepSibling(siblings, path, 1) : null;
 
   const wrapOn = useCodeWrap();
+  const starred = useDriveStars();
+
+  // Opening a file now (not a past version) counts for Recent.
+  const openedFile = !at && stat?.type === 'file' && stat.path === path ? path : null;
+  useEffect(() => {
+    if (ws && openedFile) recordOpen(ws, openedFile);
+  }, [ws, openedFile]);
 
   const go = (p: string | null) => {
     if (!p) return;
@@ -229,12 +239,27 @@ export default function PreviewPanel() {
             ) : null}
             {stat.type !== 'dir' ? (
               <Tooltip label="Download" kbd={selected ? 'D' : undefined}>
-                <a href={contentUrl(ws, path, { at, download: true })} className={iconLink} aria-label="Download">
+                <a href={contentUrl(ws, path, { at, download: true })} className={iconLink} aria-label="Download" onClick={() => !at && recordOpen(ws, path)}>
                   <Download size={16} strokeWidth={1.75} aria-hidden />
                 </a>
               </Tooltip>
             ) : null}
-            <Tooltip label="Share" kbd={selected ? 'S' : undefined}>
+            {at ? null : (
+              <Tooltip label={starred.has(path) ? 'Remove from Starred' : 'Add to Starred'} kbd={selected ? 'S' : undefined}>
+                <IconButton
+                  label={starred.has(path) ? 'Unstar' : 'Star'}
+                  nativeTitle={false}
+                  size="sm"
+                  aria-pressed={starred.has(path)}
+                  onClick={() => void toggleStars(ws, [{ path, name }], starred)}
+                >
+                  <Star size={16} strokeWidth={1.75} fill={starred.has(path) ? 'currentColor' : 'none'} aria-hidden />
+                </IconButton>
+              </Tooltip>
+            )}
+            {at || path === '/' ? null : <PreviewTagButton path={path} />}
+            {stat.type !== 'dir' ? <PreviewCommentsButton path={path} /> : null}
+            <Tooltip label="Share" kbd={selected ? '⇧S' : undefined}>
               <IconButton label="Share" nativeTitle={false} size="sm" onClick={() => openShare(path)}>
                 <Share2 size={16} strokeWidth={1.75} aria-hidden />
               </IconButton>
@@ -280,6 +305,7 @@ export default function PreviewPanel() {
           </div>
         ) : null}
       </div>
+      <PreviewLabels path={path} past={!!at} />
     </div>
   );
 
@@ -344,6 +370,7 @@ export default function PreviewPanel() {
         </>
       )}
       <div className="flex-1" />
+      {stat && stat.type !== 'dir' ? <CommentsSection ws={ws} path={path} at={at} /> : null}
       {/* A folder's summary already is its details; only files get the collapsible list. */}
       {stat && stat.type !== 'dir' ? <Details stat={stat} at={at} /> : null}
     </div>

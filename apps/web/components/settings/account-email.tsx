@@ -50,7 +50,7 @@ export function AccountEmail({ me, canMail }: { me: MeResponse; canMail: boolean
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <span className="text-[13px] font-medium leading-5 text-vx-text-2">Email</span>
+        <span className="text-[14px] font-medium leading-5 text-vx-text-2">Email</span>
         <span className="vx-body min-w-0 truncate text-vx-text-1">{me.user.email}</span>
         {verified ? <Badge>Verified</Badge> : <Badge tone="dashed">Not verified</Badge>}
         <span className="flex-1" />

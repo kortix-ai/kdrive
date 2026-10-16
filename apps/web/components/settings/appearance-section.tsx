@@ -46,7 +46,7 @@ function ThemePreview({ pref, on }: { pref: ThemePref; on: boolean }) {
         className={cx(
           'relative block h-20 w-[120px] overflow-hidden rounded-vx-sm transition-shadow duration-[120ms] ease-vx max-[520px]:aspect-[3/2] max-[520px]:h-auto max-[520px]:w-full',
           on
-            ? 'shadow-[0_0_0_1px_var(--vx-accent-edge),0_0_0_3px_var(--vx-surface),0_0_0_4px_var(--vx-accent-edge)]'
+            ? 'shadow-[0_0_0_1px_var(--vx-text-1),0_0_0_3px_var(--vx-surface),0_0_0_4.5px_var(--vx-text-1)]'
             : 'shadow-[0_0_0_1px_var(--vx-hair-strong)] group-hover:shadow-[0_0_0_1px_var(--vx-outline)]',
         )}
       >
@@ -60,12 +60,12 @@ function ThemePreview({ pref, on }: { pref: ThemePref; on: boolean }) {
           <MiniShell theme={pref} />
         )}
         {on ? (
-          <span aria-hidden className="absolute right-1.5 top-1.5 inline-flex h-4 w-4 items-center justify-center rounded-vx-xs bg-vx-accent text-vx-on-accent">
+          <span aria-hidden className="absolute right-1.5 top-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-vx-primary text-vx-on-primary">
             <Check size={12} strokeWidth={2.5} />
           </span>
         ) : null}
       </span>
-      <span className={cx('text-[13px] font-medium leading-5', on ? 'text-vx-text-1' : 'text-vx-text-2 group-hover:text-vx-text-1')}>
+      <span className={cx('text-[14px] font-medium leading-5', on ? 'text-vx-text-1' : 'text-vx-text-2 group-hover:text-vx-text-1')}>
         {THEME_LABEL[pref]}
         {pref === 'dark' ? <span className="vx-meta ml-1.5 font-normal text-vx-text-3">default</span> : null}
       </span>

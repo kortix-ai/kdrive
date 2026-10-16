@@ -60,7 +60,7 @@ export function providerButtonLabel(id: string, mode: 'signin' | 'signup'): stri
 /** Inline error row (no toasts on auth pages). */
 export function ErrorRow({ children }: { children: React.ReactNode }) {
   return (
-    <p role="alert" className="mt-4 flex items-start gap-2 rounded-vx-sm bg-vx-danger-wash px-3 py-2 text-[13px] leading-5 text-vx-danger">
+    <p role="alert" className="mt-4 flex items-start gap-2 rounded-vx-sm bg-vx-danger-wash px-3 py-2.5 text-[14px] leading-5 text-vx-danger">
       <CircleAlert size={16} strokeWidth={1.75} className="mt-0.5 shrink-0" aria-hidden />
       <span className="min-w-0">{children}</span>
     </p>
@@ -70,19 +70,19 @@ export function ErrorRow({ children }: { children: React.ReactNode }) {
 /** Inline confirmation row. */
 export function NoticeRow({ children }: { children: React.ReactNode }) {
   return (
-    <p role="status" className="mt-4 flex items-start gap-2 rounded-vx-sm bg-vx-surface-2 px-3 py-2 text-[13px] leading-5 text-vx-text-2">
+    <p role="status" className="mt-4 flex items-start gap-2 rounded-vx-sm bg-vx-surface-2 px-3 py-2.5 text-[14px] leading-5 text-vx-text-2">
       <CircleCheck size={16} strokeWidth={1.75} className="mt-0.5 shrink-0 text-vx-text-3" aria-hidden />
       <span className="min-w-0">{children}</span>
     </p>
   );
 }
 
-/** The "or" rule between providers and the email form. */
-export function OrRule() {
+/** The "or" rule between providers and the email form: a mono 12 label between two hairlines. */
+export function OrRule({ label = 'or' }: { label?: string }) {
   return (
-    <div className="my-6 flex items-center gap-3 font-mono text-[11px] uppercase tracking-[.14em] text-vx-text-3" aria-hidden>
+    <div className="my-[18px] flex items-center gap-3.5 font-mono text-[12px] leading-4 text-vx-text-3" aria-hidden>
       <span className="h-px flex-1 bg-vx-hair" />
-      or
+      {label}
       <span className="h-px flex-1 bg-vx-hair" />
     </div>
   );
@@ -171,7 +171,7 @@ export function StrengthMeter({ password, min }: { password: string; min?: numbe
     <div className="mt-2" aria-live="polite">
       <div className="flex gap-1" aria-hidden>
         {[1, 2, 3, 4].map((i) => (
-          <span key={i} className={`h-1 flex-1 rounded-full ${i <= s.score ? tone : 'bg-vx-hair'}`} />
+          <span key={i} className={`h-1 flex-1 rounded-full ${i <= s.score ? tone : 'bg-vx-meter-track'}`} />
         ))}
       </div>
       <p className="vx-meta mt-1.5 text-vx-text-3">

@@ -14,15 +14,20 @@ import {
   FolderOpen,
   FolderPlus,
   FolderUp,
+  Inbox,
   GitCompareArrows,
   Pencil,
   RotateCcw,
   Share2,
+  Star,
+  StarOff,
   Trash,
   Upload,
   Users,
   Clock,
   ArrowRight,
+  MessageSquare,
+  Tag,
 } from 'lucide-react';
 import type { FileEntry } from '@volumes/shared';
 import { ContextMenu, type MenuItem } from '@/components/ui/menu';
@@ -41,6 +46,10 @@ export interface DriveCommands {
   comparePrevious(e: FileEntry): void;
   compareWithNow(e: FileEntry): void;
   share(e: FileEntry): void;
+  /** Stars the items, or unstars them when every one already is. */
+  star(es: FileEntry[]): void;
+  /** A folder: the share dialog on its Upload link tab (people send files in). */
+  requestFiles(e: FileEntry): void;
   checkpoint(): void;
   remove(es: FileEntry[]): void;
   restore(e: FileEntry): void;
@@ -48,13 +57,17 @@ export interface DriveCommands {
   uploadFiles(): void;
   uploadFolder(): void;
   newFolder(): void;
+  /** Opens the file's comments. */
+  comments?(e: FileEntry): void;
+  /** Opens the Tags picker for the items (at the menu, or `at`). */
+  tags?(es: FileEntry[], at?: { x: number; y: number; flipY?: number }): void;
 }
 
 const I = 16;
 const W = 1.75;
 
 /** Items that change the drive (or share it): a viewer sees them disabled, with the reason. */
-const WRITE_ITEMS = new Set(['up', 'upd', 'nf', 'rename', 'mv', 'cp', 'share', 'cpt', 'del', 'restore']);
+const WRITE_ITEMS = new Set(['up', 'upd', 'nf', 'rename', 'mv', 'cp', 'share', 'req', 'cpt', 'del', 'restore', 'tags']);
 
 function lockForViewer(items: MenuItem[], viewOnly: boolean | undefined): MenuItem[] {
   if (!viewOnly) return items;
@@ -66,13 +79,33 @@ export function buildDriveMenu(o: {
   past: boolean;
   drift: ReadonlyMap<string, Drift> | null;
   cmd: DriveCommands;
+  /** The user's starred paths in this drive (stars are personal, so a viewer can star too). */
+  starred?: ReadonlySet<string>;
   /** A viewer of someone else's drive: write items stay visible but disabled. */
   viewOnly?: boolean;
 }): MenuItem[] {
   return lockForViewer(driveMenuItems(o), o.viewOnly);
 }
 
-function driveMenuItems(o: { targets: FileEntry[]; past: boolean; drift: ReadonlyMap<string, Drift> | null; cmd: DriveCommands }): MenuItem[] {
+/** Add to / Remove from Starred: removes only when every target already is starred. */
+function starItem(targets: FileEntry[], starred: ReadonlySet<string> | undefined, cmd: DriveCommands): MenuItem {
+  const all = !!starred && targets.every((t) => starred.has(t.path));
+  return {
+    id: 'star',
+    label: all ? 'Remove from Starred' : 'Add to Starred',
+    icon: all ? <StarOff size={I} strokeWidth={W} /> : <Star size={I} strokeWidth={W} />,
+    kbd: 'S',
+    onSelect: () => cmd.star(targets),
+  };
+}
+
+function driveMenuItems(o: {
+  targets: FileEntry[];
+  past: boolean;
+  drift: ReadonlyMap<string, Drift> | null;
+  cmd: DriveCommands;
+  starred?: ReadonlySet<string>;
+}): MenuItem[] {
   const { targets, past, cmd } = o;
   if (!targets.length) {
     return [
@@ -107,7 +140,7 @@ function driveMenuItems(o: { targets: FileEntry[]; past: boolean; drift: Readonl
       items.push({ id: 'versions', label: 'Versions', icon: <Clock size={I} strokeWidth={W} />, kbd: '⇧H', onSelect: () => cmd.versions(one) });
       items.push({ id: 'cmp', label: 'Compare with now', icon: <GitCompareArrows size={I} strokeWidth={W} />, kbd: 'C', onSelect: () => cmd.compareWithNow(one) });
     }
-    if (one) items.push({ id: 'share', label: 'Share pinned link…', icon: <Share2 size={I} strokeWidth={W} />, kbd: 'S', onSelect: () => cmd.share(one) });
+    if (one) items.push({ id: 'share', label: 'Share pinned link…', icon: <Share2 size={I} strokeWidth={W} />, kbd: '⇧S', onSelect: () => cmd.share(one) });
     items.push({ id: 's2', type: 'separator' });
     if (one) items.push({ id: 'restore', label: 'Restore this…', icon: <RotateCcw size={I} strokeWidth={W} />, tone: 'past', kbd: 'R', onSelect: () => cmd.restore(one) });
     items.push({ id: 'mv', label: 'Move to…', icon: <FolderInput size={I} strokeWidth={W} />, onSelect: () => cmd.moveTo(targets), disabled: true, reason: READ_ONLY_REASON });
@@ -129,15 +162,21 @@ function driveMenuItems(o: { targets: FileEntry[]; past: boolean; drift: Readonl
   if (one) items.push({ id: 'rename', label: 'Rename', icon: <Pencil size={I} strokeWidth={W} />, kbd: 'F2', onSelect: () => cmd.rename(one) });
   items.push({ id: 'mv', label: 'Move to…', icon: <FolderInput size={I} strokeWidth={W} />, kbd: 'M', onSelect: () => cmd.moveTo(targets) });
   items.push({ id: 'cp', label: 'Copy to…', icon: <Copy size={I} strokeWidth={W} />, kbd: '⇧M', onSelect: () => cmd.copyTo(targets) });
+  items.push(starItem(targets, o.starred, cmd));
   if (one) {
     items.push({ id: 's2', type: 'separator' });
     if (isFile) {
       items.push({ id: 'versions', label: 'Versions', icon: <Clock size={I} strokeWidth={W} />, kbd: '⇧H', onSelect: () => cmd.versions(one) });
       items.push({ id: 'cmp', label: 'Compare with previous', icon: <GitCompareArrows size={I} strokeWidth={W} />, kbd: 'C', onSelect: () => cmd.comparePrevious(one) });
     }
-    items.push({ id: 'share', label: 'Share…', icon: <Share2 size={I} strokeWidth={W} />, kbd: 'S', onSelect: () => cmd.share(one) });
+    items.push({ id: 'share', label: 'Share…', icon: <Share2 size={I} strokeWidth={W} />, kbd: '⇧S', onSelect: () => cmd.share(one) });
+    if (isDir) items.push({ id: 'req', label: 'Request files…', icon: <Inbox size={I} strokeWidth={W} />, onSelect: () => cmd.requestFiles(one) });
     items.push({ id: 'cpt', label: 'Checkpoint…', icon: <Diamond size={I} strokeWidth={W} />, kbd: 'P', onSelect: cmd.checkpoint });
   }
+  // Comments and tags: anyone in the drive comments; tags change for editors only (WRITE_ITEMS).
+  if ((isFile && cmd.comments) || cmd.tags) items.push({ id: 's-notes', type: 'separator' });
+  if (one && isFile && cmd.comments) items.push({ id: 'comments', label: 'Comments', icon: <MessageSquare size={I} strokeWidth={W} />, onSelect: () => cmd.comments!(one) });
+  if (cmd.tags) items.push({ id: 'tags', label: 'Tags…', icon: <Tag size={I} strokeWidth={W} />, onSelect: () => cmd.tags!(targets) });
   items.push({ id: 's3', type: 'separator' });
   items.push({
     id: 'del',
@@ -159,6 +198,8 @@ export function buildFolderMenu(o: {
   past: boolean;
   cmd: Pick<DriveCommands, 'newFolder' | 'uploadFiles' | 'uploadFolder'>;
   share: () => void;
+  /** Opens the share dialog on its Upload link tab. */
+  requestFiles?: () => void;
   history: () => void;
   downloadZip: () => void;
   /** Set at the drive's top level for its owner: opens Rename drive. */
@@ -175,6 +216,9 @@ export function buildFolderMenu(o: {
     { id: 'upd', label: 'Upload folder', icon: <FolderUp size={I} strokeWidth={W} />, kbd: '⇧U', onSelect: cmd.uploadFolder, disabled: past, reason: READ_ONLY_REASON },
     { id: 's1', type: 'separator' },
     { id: 'share', label: past ? 'Share pinned link…' : 'Share…', icon: <Share2 size={I} strokeWidth={W} />, onSelect: o.share },
+    ...(o.requestFiles
+      ? [{ id: 'req', label: 'Request files…', icon: <Inbox size={I} strokeWidth={W} />, onSelect: o.requestFiles, disabled: past, reason: READ_ONLY_REASON }]
+      : []),
     { id: 'history', label: 'Versions', icon: <Clock size={I} strokeWidth={W} />, kbd: 'H', onSelect: o.history },
     { id: 'zip', label: 'Download .zip', icon: <Download size={I} strokeWidth={W} />, onSelect: o.downloadZip },
     ...(o.renameDrive || o.people ? [{ id: 's2', type: 'separator' } as const] : []),

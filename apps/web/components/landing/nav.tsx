@@ -2,15 +2,14 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { Menu, X } from 'lucide-react';
 import { ThemeToggle } from '@/components/shell/theme-toggle';
 import { PrimaryCta, SIGNIN_HREF, sectionHref } from './cta';
 import { LogoMark } from './logo-mark';
 import { useReveal } from './use-reveal';
 
-// The full-width fixed bar (LANDING-SPEC §4): transparent at the top, a
-// blurred solid bar with a hairline and a 24px scrim once scrolled. One passive
-// scroll listener, read once per frame. It also hosts the page's section
-// reveal observer, since it is the landing's one always-mounted client island.
+// The bar: sticky frosted paper with a hairline. Links centre on desktop and fold into a sheet under ≤960px.
+// It also hosts the page's section reveal observer, since it is the landing's one always-mounted client island.
 // Plain words in the bar; the section numbers live only on the eyebrows.
 const LINKS = [
   { href: '#how', label: 'How it works' },
@@ -23,67 +22,78 @@ const LINKS = [
 
 /** `home`: the bar sits on the landing itself (its anchors scroll); false on other public pages. */
 export function Nav({ signedIn, home = true }: { signedIn: boolean; home?: boolean }) {
-  const [scrolled, setScrolled] = useState(false);
-  // the CTA is a hairline ghost over the hero (whose own CTA leads) and turns solid once it scrolls out
-  const [past, setPast] = useState(false);
+  const [open, setOpen] = useState(false);
   useReveal();
 
   useEffect(() => {
-    let frame = 0;
-    const read = () => {
-      frame = 0;
-      setScrolled(window.scrollY >= 8);
-      const hero = document.getElementById('top');
-      setPast(!!hero && hero.getBoundingClientRect().bottom < 120);
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
     };
-    const onScroll = () => {
-      if (!frame) frame = requestAnimationFrame(read);
+    const onResize = () => {
+      if (window.innerWidth > 960) setOpen(false);
     };
-    read();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onScroll, { passive: true });
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('resize', onResize, { passive: true });
     return () => {
-      window.removeEventListener('scroll', onScroll);
-      window.removeEventListener('resize', onScroll);
-      if (frame) cancelAnimationFrame(frame);
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('resize', onResize);
     };
-  }, []);
+  }, [open]);
+
+  const link = (l: (typeof LINKS)[number], onClick?: () => void) =>
+    l.href.startsWith('/') ? (
+      <Link key={l.href} href={l.href} onClick={onClick} aria-current={!home && l.href === '/pricing' ? 'page' : undefined}>
+        {l.label}
+      </Link>
+    ) : (
+      <a key={l.href} href={sectionHref(l.href, home)} onClick={onClick}>
+        {l.label}
+      </a>
+    );
 
   return (
     <>
       <a href="#top" className="kd-skip">
         Skip to content
       </a>
-      <header className={`kd-nav${scrolled ? ' kd-nav--scrolled' : ''}${past ? ' kd-nav--past' : ''}`}>
+      <header className={`kd-nav${open ? ' is-open' : ''}`}>
         <div className="kd-container kd-nav__inner">
           <a href={home ? '#top' : '/'} className="kd-nav__brand" aria-label={home ? 'KDRIVE, back to top' : 'KDRIVE home'}>
-            <LogoMark />
+            <LogoMark size={22} />
             <span>KDRIVE</span>
           </a>
           <nav className="kd-nav__links" aria-label="Sections">
-            {LINKS.map((l) =>
-              l.href.startsWith('/') ? (
-                <Link key={l.href} href={l.href} aria-current={!home && l.href === '/pricing' ? 'page' : undefined}>
-                  {l.label}
-                </Link>
-              ) : (
-                <a key={l.href} href={sectionHref(l.href, home)}>
-                  {l.label}
-                </a>
-              ),
-            )}
+            {LINKS.map((l) => link(l))}
           </nav>
           <div className="kd-nav__right">
             <ThemeToggle className="kd-nav__theme" />
             {!signedIn && (
-              <Link href={SIGNIN_HREF} className="kd-nav__signin">
+              <Link href={SIGNIN_HREF} className="kd-btn kd-btn--plain kd-nav__signin">
                 Sign in
               </Link>
             )}
             <PrimaryCta signedIn={signedIn} className="kd-nav__cta" />
+            <button
+              type="button"
+              className="kd-nav__menu"
+              aria-label={open ? 'Close menu' : 'Menu'}
+              aria-expanded={open}
+              aria-controls="kd-nav-sheet"
+              onClick={() => setOpen((o) => !o)}
+            >
+              {open ? <X size={20} strokeWidth={1.7} aria-hidden /> : <Menu size={20} strokeWidth={1.7} aria-hidden />}
+            </button>
           </div>
         </div>
-        <div className="kd-nav__scrim" aria-hidden="true" />
+        <nav id="kd-nav-sheet" className="kd-sheet" aria-label="Menu" hidden={!open}>
+          {LINKS.map((l) => link(l, () => setOpen(false)))}
+          {!signedIn && (
+            <Link href={SIGNIN_HREF} onClick={() => setOpen(false)}>
+              Sign in
+            </Link>
+          )}
+        </nav>
       </header>
     </>
   );

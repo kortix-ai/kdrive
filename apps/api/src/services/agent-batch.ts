@@ -14,7 +14,7 @@ import type { WorkspaceCtx } from '../types';
 import { footprint, knownBlocks } from './files-ops';
 import { DIR_BYTES, logicalSize } from './footprint';
 import { withPreparedAction, type ActionCtx, type ActionRecorder, type PathChange } from './ledger';
-import { detachLiveLinks, moveLiveLinks } from './links';
+import { detachFollowers, moveFollowers } from './follow';
 import { Hold } from './reservations';
 import { changedUnder } from './restore';
 import { blockSourceFromMemory, hashBlocks, serverUpload, type ServerFile } from './server-upload';
@@ -488,13 +488,13 @@ async function runSteps(ws: WorkspaceCtx, steps: PlannedStep[], blockBytes: Map<
     await flush();
     if (s.op === 'move') {
       await rec.commit(await store.move(ws.volumeId, s.fromPath!, s.path, { overwrite: false }));
-      await moveLiveLinks(ws.id, s.fromPath!, s.path);
+      await moveFollowers(ws.id, s.fromPath!, s.path);
     } else if (s.op === 'copy') {
       await rec.commit(await store.copy(ws.volumeId, s.fromPath!, s.path, { recursive: s.entryType === 'dir', overwrite: false }));
     } else {
       await rec.commit(await store.remove(ws.volumeId, s.path, { recursive: true }));
       // Whatever is created at this path later is not what was shared.
-      await detachLiveLinks(ws.id, s.path, rec.actionId);
+      await detachFollowers(ws.id, s.path, rec.actionId);
     }
   }
   await flush();

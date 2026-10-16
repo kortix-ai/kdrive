@@ -54,6 +54,18 @@ export const PROPOSAL_OPEN_MAX = 50;
 /** Staged bytes per user, across all open proposals. */
 export const PROPOSAL_STAGED_MAX = 256 * MiB;
 
+/** Upload links (people send files into a folder). */
+/** Bytes per file, whatever the link allows. */
+export const UPLOAD_LINK_FILE_MAX = 2 * GiB;
+/** Bytes and files one link takes in per day (UTC), across every sender. */
+export const UPLOAD_LINK_DAY_BYTES = 20 * GiB;
+export const UPLOAD_LINK_DAY_FILES = 1000;
+/** The max-files option a link can be given. */
+export const UPLOAD_LINK_MAX_FILES = 10_000;
+/** Folder depth of a file sent with its folder. */
+export const UPLOAD_LINK_MAX_DEPTH = 16;
+export const UPLOAD_LINK_SENDER_MAX = 80;
+
 /** Email + password accounts: length bounds the server and the forms both enforce. */
 export const PASSWORD_MIN = 8;
 export const PASSWORD_MAX = 128;

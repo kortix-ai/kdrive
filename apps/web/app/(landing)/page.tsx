@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { cookies, headers } from 'next/headers';
+import { AsciiField } from '@/components/landing/ascii-field';
 import { Hero } from '@/components/landing/hero/hero';
 import { Nav } from '@/components/landing/nav';
 import { Agents } from '@/components/landing/sections/agents';
@@ -54,6 +55,9 @@ export default async function LandingPage() {
       <Nav signedIn={signedIn} />
       <main>
         <Hero signedIn={signedIn} />
+        <div className="kd-break" aria-hidden="true">
+          <AsciiField band={[32, 205]} />
+        </div>
         {/* orientation first (the four moves, then what is kept), then the product proof */}
         <How />
         <Facts />
@@ -61,6 +65,9 @@ export default async function LandingPage() {
         <Docked />
         <Agents mcpUrl={mcpUrl} />
         <Features />
+        <div className="kd-break" aria-hidden="true">
+          <AsciiField band={[162, 352]} />
+        </div>
         <UnderHood />
         <Faq />
         <FinalCta signedIn={signedIn} />
