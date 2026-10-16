@@ -10,11 +10,11 @@ import { Chip } from '@/components/ui/chip';
 import { cx } from '@/components/ui/cx';
 import { Dialog } from '@/components/ui/dialog';
 import { FileIcon } from '@/components/ui/file-icon';
-import { Input } from '@/components/ui/input';
+import { DateTimePicker, roundUpToSlot } from '@/components/ui/date-time-picker';
 import { ApiError } from '@/lib/api/client';
 import { api } from '@/lib/api/endpoints';
 import { useStat } from '@/lib/api/hooks';
-import { formatMoment, isoTitle } from '@/lib/format';
+import { formatAgo, formatMoment, isoTitle } from '@/lib/format';
 import { useVx } from '@/lib/store';
 import { copyText, CopyButton } from './copy-button';
 import { expiryToIso, linkStatus, sortLinks, toLocalInput, type ExpiryChoice } from './expiry';
@@ -93,7 +93,7 @@ function ShareBody({ ws, path, onClose }: { ws: string; path: string; onClose: (
   const at = timeTravel?.commitId ?? null;
   const [mode, setMode] = useState<'live' | 'pinned'>(past ? 'pinned' : 'live');
   const [expiry, setExpiry] = useState<ExpiryChoice>('never');
-  const [custom, setCustom] = useState(() => toLocalInput(new Date(Date.now() + 7 * 24 * 3600_000)));
+  const [custom, setCustom] = useState(() => roundUpToSlot(new Date(Date.now() + 7 * 24 * 3600_000)));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<{ code: string; message: string } | null>(null);
   const [created, setCreated] = useState<ShareLink | null>(null);
@@ -142,7 +142,7 @@ function ShareBody({ ws, path, onClose }: { ws: string; path: string; onClose: (
     setError(null);
     let expiresAt: string | null;
     try {
-      expiresAt = expiryToIso(expiry, custom);
+      expiresAt = expiryToIso(expiry, toLocalInput(custom));
     } catch (e) {
       setError({ code: 'bad_request', message: (e as Error).message });
       return;
@@ -276,15 +276,19 @@ function ShareBody({ ws, path, onClose }: { ws: string; path: string; onClose: (
             ))}
           </div>
           {expiry === 'custom' ? (
-            <div className="mt-3 w-full max-w-[260px]">
-              <Input
-                type="datetime-local"
-                size="sm"
-                aria-label="Expires at"
+            <div className="mt-3">
+              <DateTimePicker
+                label="Expires at"
                 value={custom}
-                min={toLocalInput(new Date())}
-                onChange={(e) => setCustom(e.target.value)}
+                min={new Date(Date.now() + 60_000)}
+                onChange={(d) => {
+                  setCustom(d);
+                  setError(null);
+                }}
               />
+              <p className="vx-meta mt-2 text-vx-text-3" title={isoTitle(custom)}>
+                Expires <span className="text-vx-text-2">{formatMoment(custom)}</span> · {formatAgo(custom)}
+              </p>
             </div>
           ) : null}
         </div>
