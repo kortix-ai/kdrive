@@ -1,49 +1,26 @@
-import { Iso } from '@/components/art/iso';
-import type { IsoBox, Vec3 } from '@/components/art/iso-geom';
-import { FEATURE_ART } from '@/components/landing/iso-art';
 import { cx } from './cx';
+import { GlassFolder, HUES, type GlassPaper } from './glass-folder';
 
-/** Which voxel composition an empty state draws (UNIFY-SPEC §9). */
+/** Which glass object an empty state draws. */
 export type EmptyArtKey = 'drive' | 'folder' | 'search' | 'history' | 'checkpoints' | 'deleted' | 'links' | 'proposals' | 'gone' | 'admins';
 
-const slab = (at: Vec3, size: Vec3, style: IsoBox['style'] = 'solid'): IsoBox => ({ at, size, style });
-
-type Piece = { boxes: IsoBox[]; extras?: Parameters<typeof Iso>[0]['extras'] };
-
-function piece(art: EmptyArtKey, past: boolean): Piece {
-  switch (art) {
-    case 'drive':
-      return { boxes: [...FEATURE_ART.upload.boxes] };
-    case 'folder':
-      // a lit slab (the same weight as the other pieces) waiting for its first ghost cube
-      return { boxes: [slab([0, 0, 0], [3.4, 0.5, 3.4]), slab([1.1, 0.5, 1.1], [1.2, 1.2, 1.2], 'ghost')] };
-    case 'search':
-    case 'deleted':
-      return { boxes: [...FEATURE_ART.deleted.boxes] };
-    case 'history':
-      return { boxes: [...FEATURE_ART.history.boxes] };
-    case 'checkpoints':
-      return { boxes: [...FEATURE_ART.checkpoints.boxes] };
-    case 'links':
-      return { boxes: [slab([0, 0, 0], [1.6, 1.6, 1.6], 'ghost')] };
-    case 'proposals':
-      return { boxes: [...FEATURE_ART.versions.boxes] };
-    case 'admins':
-      return { boxes: [...FEATURE_ART.keyboard.boxes], extras: [...FEATURE_ART.keyboard.extras] };
-    case 'gone':
-    default:
-      // a ghost cube with one seam drawn down its near edge (in the past colour when it is the past)
-      return {
-        boxes: [slab([0, 0, 0], [1.8, 1.8, 1.8], 'ghost')],
-        extras: [{ kind: 'seam', a: [1.8, 0, 1.8], b: [1.8, 1.8, 1.8], tone: past ? 'past' : 'default' }],
-      };
-  }
-}
+/** One object per key: a hue and an insert; nothing (search, deleted, gone) draws as a dashed ghost. */
+const ART: Record<EmptyArtKey, { hue: number; paper?: GlassPaper; ghost?: boolean }> = {
+  drive: { hue: HUES.coral, paper: 'doc' },
+  folder: { hue: HUES.mint, paper: 'none' },
+  search: { hue: HUES.aqua, ghost: true },
+  history: { hue: HUES.cobalt, paper: 'doc' },
+  checkpoints: { hue: HUES.amber, paper: 'slide' },
+  deleted: { hue: HUES.rose, ghost: true },
+  links: { hue: HUES.aqua, paper: 'none' },
+  proposals: { hue: HUES.cobalt, paper: 'code' },
+  gone: { hue: HUES.cobalt, ghost: true },
+  admins: { hue: HUES.lime, paper: 'grid' },
+};
 
 /**
- * Empty-state illustration (UNIFY-SPEC §9): static isometric voxels, 120 px wide (96 on phones), decorative.
- * `tone="past"` only turns the seam accent to the past colour; there are no amber fills.
- * `float` is accepted for old callers and ignored (the art is static, like the landing's).
+ * Empty-state illustration: one glass object, 120 px wide (96 on phones), decorative. `tone="past"` draws the
+ * object in cobalt, the past's colour. `float` is accepted for old callers and ignored (the art is static).
  */
 export function EmptyArt({
   art,
@@ -58,21 +35,15 @@ export function EmptyArt({
   float?: boolean;
 }) {
   const key: EmptyArtKey = art ?? (tone === 'past' ? 'gone' : 'drive');
-  const p = piece(key, tone === 'past');
+  const a = ART[key];
   return (
     <div className={cx('flex items-center justify-center', className)} aria-hidden>
-      <Iso
-        id={`vx-ea-${key}-${tone}`}
-        boxes={p.boxes}
-        extras={p.extras}
-        className="h-auto max-h-[96px] max-w-full max-[720px]:max-h-[80px]"
-        width={size}
-      />
+      <GlassFolder hue={tone === 'past' ? HUES.cobalt : a.hue} paper={a.paper} ghost={a.ghost} size={size} className="max-[720px]:!w-24" />
     </div>
   );
 }
 
-/** Teaching empty state: art, 20 gap, title (16/600), 6 gap, one line (15 text-3, max 360), at most one action. */
+/** Teaching empty state: art, 20 gap, title (17/600), 6 gap, one line (15 text-3, max 360), at most one action. */
 export function EmptyState({
   title,
   body,
@@ -92,7 +63,7 @@ export function EmptyState({
   const key = typeof art === 'string' ? art : undefined;
   return (
     <div className={cx('mx-auto flex max-w-[360px] flex-col items-center justify-center px-6 py-16 text-center', className)}>
-      {art ? <EmptyArt className="mb-5 max-[720px]:[&_svg]:w-24" art={key} tone={tone} /> : null}
+      {art ? <EmptyArt className="mb-5" art={key} tone={tone} /> : null}
       <div className="vx-title">{title}</div>
       {body ? <p className="vx-body-lg mt-1.5 text-vx-text-3">{body}</p> : null}
       {actions ? <div className="mt-5 flex flex-wrap items-center justify-center gap-2">{actions}</div> : null}

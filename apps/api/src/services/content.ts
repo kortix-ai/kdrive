@@ -77,13 +77,15 @@ function baseContentHeaders(h: Headers, at: string | undefined, csp: string): vo
 
 /**
  * Streams one file (Range passthrough, ETag, nosniff, CSP; attachment for
- * downloads and active content). See architecture §6.4.
+ * downloads and active content). See architecture §6.4. `viewOnly` (a link
+ * with downloads off) never answers with an attachment, active content is
+ * still plain text, and nothing may be cached.
  */
 export async function streamFile(
   c: Context,
   ws: { volumeId: string },
   path: string,
-  opts: { at?: string; download?: boolean },
+  opts: { at?: string; download?: boolean; viewOnly?: boolean },
 ): Promise<Response> {
   const store = getStore();
   const st = await store.stat(ws.volumeId, path, { at: opts.at });
@@ -92,7 +94,8 @@ export async function streamFile(
   }
   const name = st.name || basename(path) || 'download';
   const active = isActiveContent(name);
-  const download = !!opts.download;
+  const viewOnly = !!opts.viewOnly;
+  const download = !!opts.download && !viewOnly;
   const mime = mimeFor(name);
   const etag = st.version ? `"${st.version}"` : null;
 
@@ -100,8 +103,8 @@ export async function streamFile(
   // Active content (HTML, SVG, XML, JS) is never rendered on the app origin:
   // always an attachment, and shown as plain text when asked for inline.
   h.set('Content-Type', active && !download ? 'text/plain; charset=utf-8' : mime);
-  h.set('Content-Disposition', contentDisposition(download || active ? 'attachment' : 'inline', name));
-  baseContentHeaders(h, opts.at, mime === 'application/pdf' && !active ? CONTENT_CSP_PDF : CONTENT_CSP);
+  h.set('Content-Disposition', contentDisposition((download || active) && !viewOnly ? 'attachment' : 'inline', name));
+  baseContentHeaders(h, viewOnly ? undefined : opts.at, mime === 'application/pdf' && !active ? CONTENT_CSP_PDF : CONTENT_CSP);
   h.set('Accept-Ranges', 'bytes');
   h.set('Last-Modified', new Date(st.mtime).toUTCString());
   if (etag) h.set('ETag', etag);

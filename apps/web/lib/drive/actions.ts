@@ -10,6 +10,7 @@ import { actionText } from '../format';
 import { useVx } from '../store';
 import { compareHref, contentUrl, zipUrl } from '../urls';
 import { clearPending, markPending, markRemoving, optimistic, withAdded, withRenamed, withoutPaths } from './optimistic';
+import { recordOpen } from './stars';
 
 const vx = () => useVx.getState();
 
@@ -201,6 +202,7 @@ export function downloadEntries(ws: string, entries: readonly FileEntry[], at: s
   if (!entries.length) return;
   if (entries.length === 1 && entries[0].type === 'file') {
     triggerDownload(contentUrl(ws, entries[0].path, { at, download: true }));
+    if (!at) recordOpen(ws, entries[0].path);
     return;
   }
   triggerDownload(zipUrl(ws, entries.map((e) => e.path), at));

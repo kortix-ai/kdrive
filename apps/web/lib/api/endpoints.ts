@@ -5,6 +5,7 @@ import {
   InvitationListResponse,
   InviteResponse,
   type InviteRequest,
+  type LinkKind,
   type MemberRole,
   AcceptProposalResponse,
   AdminAuditListResponse,
@@ -39,6 +40,9 @@ import {
   ProposalDetailResponse,
   ProposalListResponse,
   DeletedResponse,
+  DriveStarsResponse,
+  RecentListResponse,
+  StarredListResponse,
   LinkListResponse,
   LinkResponse,
   ListResponse,
@@ -46,6 +50,7 @@ import {
   MutationResponse,
   PublicListResponse,
   PublicShareMeta,
+  PublicUploadMeta,
   RedirectResponse,
   RestoreResponse,
   SearchResponse,
@@ -77,6 +82,17 @@ import {
   type UpdateLinkRequest,
   type UpdateWorkspaceRequest,
   type UploadPlanRequest,
+  CommentCountsResponse,
+  CommentListResponse,
+  CommentResponse,
+  LabelItemsResponse,
+  LabelListResponse,
+  LabelResponse,
+  type AssignLabelRequest,
+  type CreateCommentRequest,
+  type CreateLabelRequest,
+  type UpdateCommentRequest,
+  type UpdateLabelRequest,
 } from '@volumes/shared';
 import { apiFetch, qs } from './client';
 
@@ -172,10 +188,36 @@ export const api = {
     revoke: (ws: string, id: string) => apiFetch<void>(`${w(ws)}/links/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   },
 
+  /** Comments on files (every member of the drive, viewers too). */
+  comments: {
+    list: (ws: string, path: string) => apiFetch(`${w(ws)}/comments${qs({ path })}`, {}, CommentListResponse),
+    counts: (ws: string) => apiFetch(`${w(ws)}/comments/counts`, {}, CommentCountsResponse),
+    create: (ws: string, req: CreateCommentRequest) => apiFetch(`${w(ws)}/comments`, { method: 'POST', json: req }, CommentResponse),
+    update: (ws: string, id: string, req: UpdateCommentRequest) =>
+      apiFetch(`${w(ws)}/comments/${encodeURIComponent(id)}`, { method: 'PATCH', json: req }, CommentResponse),
+    remove: (ws: string, id: string) => apiFetch<void>(`${w(ws)}/comments/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  },
+
+  /** The drive's tags ("labels" in the API). */
+  labels: {
+    list: (ws: string) => apiFetch(`${w(ws)}/labels`, {}, LabelListResponse),
+    items: (ws: string, id: string) => apiFetch(`${w(ws)}/labels/${encodeURIComponent(id)}/items`, {}, LabelItemsResponse),
+    create: (ws: string, req: CreateLabelRequest) => apiFetch(`${w(ws)}/labels`, { method: 'POST', json: req }, LabelResponse),
+    update: (ws: string, id: string, req: UpdateLabelRequest) =>
+      apiFetch(`${w(ws)}/labels/${encodeURIComponent(id)}`, { method: 'PATCH', json: req }, LabelResponse),
+    remove: (ws: string, id: string) => apiFetch<void>(`${w(ws)}/labels/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+    assign: (ws: string, req: AssignLabelRequest) => apiFetch(`${w(ws)}/labels/assign`, { method: 'POST', json: req }, LabelListResponse),
+  },
+
   public: {
     meta: (token: string) => apiFetch(`/api/public/s/${encodeURIComponent(token)}`, {}, PublicShareMeta),
     list: (token: string, q: { path?: string } = {}) =>
       apiFetch(`/api/public/s/${encodeURIComponent(token)}/files${qs({ path: q.path })}`, {}, PublicListResponse),
+    /** A right password sets this link's unlock cookie (204). `upload`: an upload link (`/u/<token>`). */
+    unlock: (token: string, password: string, kind: LinkKind = 'view') =>
+      apiFetch<void>(`/api/public/${kind === 'upload' ? 'u' : 's'}/${encodeURIComponent(token)}/unlock`, { method: 'POST', json: { password } }),
+    /** An upload link's page (counts an open). Files go up with `sendFile` (lib/upload/link-send.ts). */
+    uploadMeta: (token: string) => apiFetch(`/api/public/u/${encodeURIComponent(token)}`, {}, PublicUploadMeta),
   },
 
   workspaces: {
@@ -204,6 +246,20 @@ export const api = {
     list: () => apiFetch('/api/invitations', {}, InvitationListResponse),
     accept: (id: string) => apiFetch(`/api/invitations/${encodeURIComponent(id)}/accept`, { method: 'POST', json: {} }, WorkspaceResponse),
     decline: (id: string) => apiFetch<void>(`/api/invitations/${encodeURIComponent(id)}/decline`, { method: 'POST', json: {} }),
+  },
+
+  /** Starred items (per person, across drives) and the starred paths of one drive. */
+  stars: {
+    list: () => apiFetch('/api/stars', {}, StarredListResponse),
+    drive: (ws: string) => apiFetch(`${w(ws)}/stars`, {}, DriveStarsResponse),
+    set: (ws: string, paths: string[], starred: boolean) =>
+      apiFetch('/api/stars', { method: 'POST', json: { workspaceId: ws, paths, starred } }, DriveStarsResponse),
+  },
+
+  /** Files the user recently opened or changed, across drives. */
+  recent: {
+    list: (q: { limit?: number } = {}) => apiFetch(`/api/recent${qs({ limit: q.limit })}`, {}, RecentListResponse),
+    opened: (ws: string, path: string) => apiFetch<void>('/api/recent/opened', { method: 'POST', json: { workspaceId: ws, path } }),
   },
 
   /** Settings → Storage: the own drives' breakdown, and who wrote what in one drive (any member may read it). */

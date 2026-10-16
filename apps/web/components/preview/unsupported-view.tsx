@@ -15,7 +15,8 @@ export function UnsupportedView({
 }: {
   name: string;
   size: number;
-  downloadHref: string;
+  /** null: downloads are off for this link */
+  downloadHref: string | null;
   version?: string | null;
   mime?: string;
 }) {
@@ -27,7 +28,9 @@ export function UnsupportedView({
         <div className="vx-ui mt-4 max-w-full truncate text-vx-text-1" title={name}>
           {name}
         </div>
-        <p className="vx-body mt-1 text-vx-text-3">No preview for this type of file.</p>
+        <p className="vx-body mt-1 text-vx-text-3">
+          {downloadHref ? 'No preview for this type of file.' : 'Preview not available — downloads are off for this link.'}
+        </p>
         <dl className="mt-5 grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-4 gap-y-1.5 border-t border-vx-hair-soft pt-4 text-left text-[13px] leading-5">
           <dt className="vx-colhead">Size</dt>
           <dd className="vx-meta-row text-vx-text-1">{formatBytes(size)}</dd>
@@ -42,9 +45,11 @@ export function UnsupportedView({
             </>
           ) : null}
         </dl>
-        <a href={downloadHref} className={buttonClass('outline', 'md', { withIcon: true, className: 'mt-5' })}>
-          <Download size={16} strokeWidth={1.75} aria-hidden /> Download
-        </a>
+        {downloadHref ? (
+          <a href={downloadHref} className={buttonClass('outline', 'md', { withIcon: true, className: 'mt-5' })}>
+            <Download size={16} strokeWidth={1.75} aria-hidden /> Download
+          </a>
+        ) : null}
       </div>
     </div>
   );

@@ -48,7 +48,7 @@ if (typeof window !== 'undefined') {
 const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
 /**
- * Dialog (DESIGN-v2 §5): r16 float over the scrim, shadow-4; head 20/600 title + meta + ✕;
+ * Dialog: a 16 px float over the scrim, hair edge, shadow-4; head 19/600 title + meta + ✕;
  * right-aligned footer. ↵ submits, Esc closes, focus is trapped and returned.
  * Below 720 px it becomes a bottom sheet with stacked full-width buttons.
  */
@@ -71,7 +71,7 @@ function ScrollBody({ children }: { children: React.ReactNode }) {
     };
   }, []);
   return (
-    <div ref={ref} data-more-bottom={more ? 'true' : undefined} className="vx-fade-y min-h-0 flex-1 overflow-auto px-5 pb-4">
+    <div ref={ref} data-more-bottom={more ? 'true' : undefined} className="vx-fade-y min-h-0 flex-1 overflow-auto px-6 pb-5 max-[720px]:px-5">
       {children}
     </div>
   );
@@ -188,20 +188,20 @@ export function Dialog({
         aria-labelledby={titleId}
         aria-describedby={description ? descId : undefined}
         className={cx(
-          'dlg-pop flex max-h-[80vh] w-full flex-col overflow-hidden rounded-vx-lg bg-vx-float text-vx-text-2 shadow-vx-4 outline-none',
-          'max-[720px]:max-h-[92dvh] max-[720px]:max-w-none max-[720px]:rounded-b-none',
+          'dlg-pop flex max-h-[80vh] w-full flex-col overflow-hidden rounded-vx-lg border border-vx-hair bg-vx-float text-vx-text-2 shadow-vx-4 outline-none',
+          'max-[720px]:max-h-[92dvh] max-[720px]:max-w-none max-[720px]:rounded-b-none max-[720px]:border-b-0',
           className,
         )}
         style={{ maxWidth: width }}
       >
-        <div className="flex shrink-0 items-start gap-3 px-5 pb-3.5 pt-[18px]">
+        <div className="flex shrink-0 items-start gap-3 px-6 pb-4 pt-5 max-[720px]:px-5">
           {icon ? <span className="mt-0.5 inline-flex shrink-0">{icon}</span> : null}
           <div className="min-w-0 flex-1">
-            <h2 id={titleId} className="text-[18px] font-semibold leading-6 tracking-[-0.02em] text-vx-text-1">
+            <h2 id={titleId} className="text-[19px] font-semibold leading-[26px] tracking-[-0.015em] text-vx-text-1">
               {title}
             </h2>
             {description ? (
-              <div id={descId} className="vx-meta mt-1 text-vx-text-3">
+              <div id={descId} className="mt-1 text-[14px] leading-5 text-vx-text-3">
                 {description}
               </div>
             ) : null}
@@ -212,24 +212,24 @@ export function Dialog({
             aria-label="Close"
             onClick={onClose}
             disabled={busy}
-            className="-mr-1 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-vx-sm text-vx-text-2 transition-colors duration-[120ms] hover:bg-vx-raise hover:text-vx-text-1 disabled:opacity-[.38]"
+            className="-mr-1.5 -mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-vx-sm text-vx-text-2 transition-colors duration-[120ms] hover:bg-vx-hover hover:text-vx-text-1 disabled:opacity-[.38]"
           >
-            <X size={16} strokeWidth={1.75} aria-hidden />
+            <X size={18} strokeWidth={1.75} aria-hidden />
           </button>
         </div>
         <ScrollBody>{children}</ScrollBody>
         {error ? (
-          <div role="alert" className="mx-5 mb-3 flex items-start gap-2 rounded-vx-sm bg-vx-danger-wash px-3 py-2 text-[13px] leading-5 text-vx-danger">
+          <div role="alert" className="mx-6 mb-3 flex items-start gap-2 rounded-vx-sm bg-vx-danger-wash px-3 py-2.5 text-[14px] leading-5 text-vx-danger max-[720px]:mx-5">
             <CircleAlert size={16} strokeWidth={1.75} className="mt-0.5 shrink-0" aria-hidden />
             <span className="min-w-0">{error}</span>
           </div>
         ) : null}
         {footer ? (
-          <div ref={footerRef} className="flex shrink-0 items-center justify-end gap-2 border-t border-vx-hair px-5 py-3.5 max-[720px]:flex-col-reverse max-[720px]:items-stretch max-[720px]:[&>*]:w-full">
+          <div ref={footerRef} className="flex shrink-0 items-center justify-end gap-2 border-t border-vx-hair px-6 py-4 max-[720px]:flex-col-reverse max-[720px]:px-5 max-[720px]:items-stretch max-[720px]:[&>*]:w-full">
             {footer}
           </div>
         ) : null}
-        {note ? <div className="vx-micro flex shrink-0 items-center gap-2 border-t border-vx-hair bg-vx-surface-2 px-5 py-3 text-vx-text-3">{note}</div> : null}
+        {note ? <div className="flex shrink-0 items-center gap-2 border-t border-vx-hair bg-vx-surface-2 px-6 py-3 text-[13px] leading-5 text-vx-text-3 max-[720px]:px-5">{note}</div> : null}
       </div>
     </div>,
     document.body,

@@ -56,9 +56,21 @@ function Crumbs({ token, rootName, rel }: { token: string; rootName: string; rel
 const iconLink =
   'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-vx-sm text-vx-text-2 transition-colors duration-[120ms] ease-vx hover:bg-vx-raise hover:text-vx-text-1';
 
-function PreviewDrawer({ token, entry, onClose, onStep }: { token: string; entry: FileEntry; onClose: () => void; onStep: (dir: 1 | -1) => void }) {
+function PreviewDrawer({
+  token,
+  entry,
+  allowDownload,
+  onClose,
+  onStep,
+}: {
+  token: string;
+  entry: FileEntry;
+  allowDownload: boolean;
+  onClose: () => void;
+  onStep: (dir: 1 | -1) => void;
+}) {
   useHotkeys({ escape: onClose, arrowleft: () => onStep(-1), arrowright: () => onStep(1) });
-  const download = publicContentUrl(token, entry.path, { download: true });
+  const download = allowDownload ? publicContentUrl(token, entry.path, { download: true }) : null;
   return (
     <aside className="vx-sheet flex min-w-0 flex-col self-start overflow-hidden min-[1000px]:sticky min-[1000px]:top-[72px]" aria-label={`Preview of ${entry.name}`}>
       <div className="flex items-center gap-2.5 pb-3 pl-4 pr-2 pt-3">
@@ -71,9 +83,11 @@ function PreviewDrawer({ token, entry, onClose, onStep }: { token: string; entry
             {formatBytes(entry.size)} · edited <span title={isoTitle(entry.mtime)}>{formatWhen(entry.mtime)}</span>
           </div>
         </div>
-        <a href={download} className={iconLink} aria-label={`Download ${entry.name}`} title="Download">
-          <Download size={16} strokeWidth={1.75} aria-hidden />
-        </a>
+        {download ? (
+          <a href={download} className={iconLink} aria-label={`Download ${entry.name}`} title="Download">
+            <Download size={16} strokeWidth={1.75} aria-hidden />
+          </a>
+        ) : null}
         <IconButton label="Close preview (Esc)" size="sm" onClick={onClose}>
           <X size={16} strokeWidth={1.75} aria-hidden />
         </IconButton>
@@ -92,7 +106,10 @@ function PreviewDrawer({ token, entry, onClose, onStep }: { token: string; entry
 
 const cols = 'grid-cols-[20px_minmax(0,1fr)_140px_88px_64px] max-[640px]:grid-cols-[20px_minmax(0,1fr)_64px]';
 
-/** Read-only folder browser for a shared folder: breadcrumbs clamped to the link root, list, preview sheet, per-row download. */
+/**
+ * Read-only folder browser for a shared folder: breadcrumbs clamped to the link root, list, preview sheet,
+ * per-row download (none on a view-only link).
+ */
 export function PublicBrowser({ token, meta, rel }: { token: string; meta: PublicShareMeta; rel: string }) {
   const router = useRouter();
   const { data, error, isLoading, mutate } = useSWR(['public-ls', token, rel], () => api.public.list(token, { path: rel }), {
@@ -182,21 +199,27 @@ export function PublicBrowser({ token, meta, rel }: { token: string; meta: Publi
                   <span className={cx('vx-meta-row text-right max-[640px]:hidden', active ? 'text-vx-on-selection' : 'text-vx-text-3')}>
                     {e.type === 'dir' ? '—' : formatBytes(e.size)}
                   </span>
-                  <a
-                    href={dl}
-                    aria-label={e.type === 'dir' ? `Download ${e.name} as .zip` : `Download ${e.name}`}
-                    title={e.type === 'dir' ? 'Download .zip' : 'Download'}
-                    className={cx(iconLink, 'justify-self-end opacity-0 focus-visible:opacity-100 group-hover:opacity-100 max-[640px]:opacity-100 [@media(hover:none)]:opacity-100')}
-                  >
-                    {e.type === 'dir' ? <FolderDown size={16} strokeWidth={1.75} aria-hidden /> : <Download size={16} strokeWidth={1.75} aria-hidden />}
-                  </a>
+                  {meta.allowDownload ? (
+                    <a
+                      href={dl}
+                      aria-label={e.type === 'dir' ? `Download ${e.name} as .zip` : `Download ${e.name}`}
+                      title={e.type === 'dir' ? 'Download .zip' : 'Download'}
+                      className={cx(iconLink, 'justify-self-end opacity-0 focus-visible:opacity-100 group-hover:opacity-100 max-[640px]:opacity-100 [@media(hover:none)]:opacity-100')}
+                    >
+                      {e.type === 'dir' ? <FolderDown size={16} strokeWidth={1.75} aria-hidden /> : <Download size={16} strokeWidth={1.75} aria-hidden />}
+                    </a>
+                  ) : (
+                    <span />
+                  )}
                 </li>
               );
             })}
           </ul>
         )}
       </section>
-      {preview ? <PreviewDrawer token={token} entry={preview} onClose={() => setPreview(null)} onStep={step} /> : null}
+      {preview ? (
+        <PreviewDrawer token={token} entry={preview} allowDownload={meta.allowDownload} onClose={() => setPreview(null)} onStep={step} />
+      ) : null}
     </div>
   );
 }

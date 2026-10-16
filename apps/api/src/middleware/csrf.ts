@@ -4,6 +4,8 @@ import { ApiError } from '../lib/http';
 
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const BLOCK_PUT = /^\/api\/w\/[^/]+\/uploads\/[^/]+\/blocks\/[^/]+$/;
+/** A file sent through an upload link: the raw bytes. */
+const LINK_UPLOAD = /^\/api\/public\/u\/[^/]+\/files$/;
 /** Server-to-server callers with their own signature (no browser, no Origin). */
 const SIGNED_WEBHOOKS = new Set(['/api/billing/webhook']);
 
@@ -16,7 +18,7 @@ function hasBody(req: Request): boolean {
 /**
  * Same-origin + content-type guard for our mutating routes (better-auth guards
  * its own). The Origin must be a trusted origin; a body must be JSON (the
- * block PUT must be application/octet-stream). Signed webhooks are exempt.
+ * block PUT and an upload link's file must be application/octet-stream). Signed webhooks are exempt.
  * Failure: 403 `csrf`.
  */
 export const csrfGuard: MiddlewareHandler = async (c, next) => {
@@ -42,7 +44,8 @@ export const csrfGuard: MiddlewareHandler = async (c, next) => {
 
   if (hasBody(c.req.raw)) {
     const ct = (c.req.header('content-type') ?? '').split(';')[0].trim().toLowerCase();
-    const want = method === 'PUT' && BLOCK_PUT.test(path) ? 'application/octet-stream' : 'application/json';
+    const raw = (method === 'PUT' && BLOCK_PUT.test(path)) || (method === 'POST' && LINK_UPLOAD.test(path));
+    const want = raw ? 'application/octet-stream' : 'application/json';
     if (ct !== want) throw new ApiError(403, 'csrf', `Content-Type must be ${want}.`);
   }
   return next();

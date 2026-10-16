@@ -92,6 +92,13 @@ export function PublicHero({ meta }: { meta: PublicShareMeta }) {
       'always the latest version'
     ),
   );
+  if (!meta.allowDownload) {
+    facts.push(
+      <span key="d" title="The owner turned downloads off. You can view everything here.">
+        view only
+      </span>,
+    );
+  }
   if (meta.expiresAt) {
     facts.push(
       <span key="e" title={isoTitle(meta.expiresAt)}>

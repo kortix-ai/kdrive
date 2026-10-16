@@ -50,7 +50,7 @@ export function AccountPassword({ email, hasPassword, canReset, onChanged }: { e
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <span className="text-[13px] font-medium leading-5 text-vx-text-2">Password</span>
+        <span className="text-[14px] font-medium leading-5 text-vx-text-2">Password</span>
         <span className="vx-body text-vx-text-3">{hasPassword ? 'Set' : 'Not set: you sign in with a connected account'}</span>
         <span className="flex-1" />
         {hasPassword && !open ? (
@@ -59,7 +59,7 @@ export function AccountPassword({ email, hasPassword, canReset, onChanged }: { e
           </Button>
         ) : null}
         {!hasPassword && canReset ? (
-          <Link href={`/forgot-password?email=${encodeURIComponent(email)}`} className="vx-meta text-vx-text-2 underline-offset-4 hover:underline">
+          <Link href={`/forgot-password?email=${encodeURIComponent(email)}`} className="text-[14px] font-medium leading-5 text-vx-text-1 underline decoration-vx-hair-strong underline-offset-[3px] hover:decoration-vx-text-1">
             Set a password by email
           </Link>
         ) : null}

@@ -3,7 +3,7 @@
 import { cx } from './cx';
 
 /**
- * Checkbox (UNIFY-SPEC §10): 16 px, r2, 1.5 px outline; on = accent (platinum / graphite) fill + on-accent tick;
+ * Checkbox: 16 px, 5 px corners, 1.5 px hair-strong edge on the surface; on = the ink fill + an on-primary tick;
  * indeterminate = a bar. Controlled; renders a real <input type=checkbox> for a11y.
  */
 export function Checkbox({
@@ -41,13 +41,13 @@ export function Checkbox({
         }}
         onChange={(e) => onChange?.(e.target.checked, e)}
         onClick={onClick}
-        className="peer absolute inset-0 m-0 cursor-pointer appearance-none rounded-vx-xs disabled:cursor-not-allowed"
+        className="peer absolute inset-0 m-0 cursor-pointer appearance-none rounded-[5px] disabled:cursor-not-allowed"
       />
       <span
         aria-hidden
         className={cx(
-          'pointer-events-none flex h-full w-full items-center justify-center rounded-vx-xs border-[1.5px] transition-colors duration-[120ms] peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-vx-focus peer-disabled:opacity-[.38]',
-          on ? 'border-vx-accent bg-vx-accent text-vx-on-accent' : 'border-vx-outline bg-transparent',
+          'pointer-events-none flex h-full w-full items-center justify-center rounded-[5px] border-[1.5px] transition-colors duration-[120ms] peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-vx-focus peer-disabled:opacity-[.38]',
+          on ? 'border-vx-primary bg-vx-primary text-vx-on-primary' : 'border-vx-hair-strong bg-vx-surface hover:border-vx-outline',
         )}
       >
         {indeterminate ? (

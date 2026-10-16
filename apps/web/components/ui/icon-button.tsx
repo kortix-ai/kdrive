@@ -8,15 +8,15 @@ export interface IconButtonProps extends React.ButtonHTMLAttributes<HTMLButtonEl
   label: string;
   /** aria-pressed toggle: accent wash when on (Details, History). */
   toggled?: boolean;
-  /** md 32 (top bar, dialogs) · sm 28 (rows, panels) · xs 24 (dense). */
+  /** md 36 (top bar, dialogs) · sm 28 (rows, panels) · xs 24 (dense). */
   size?: 'xs' | 'sm' | 'md';
   /** Set false when a <Tooltip> already names the button. */
   nativeTitle?: boolean;
 }
 
-const SIZES = { xs: 'h-6 w-6', sm: 'h-7 w-7', md: 'h-8 w-8' } as const;
+const SIZES = { xs: 'h-6 w-6', sm: 'h-7 w-7', md: 'h-9 w-9' } as const;
 
-/** Square icon-only button (UNIFY-SPEC §10): r4, text-2; hover raise + text-1. Put a 16 px lucide icon inside. */
+/** Square icon-only button: 8 px corners, text-2; hover fill + text-1. Put a 16-18 px lucide icon inside. */
 export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(function IconButton(
   { label, toggled, size = 'md', nativeTitle = true, className, children, type = 'button', ...rest },
   ref,
@@ -29,11 +29,11 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
       title={nativeTitle ? label : undefined}
       aria-pressed={toggled ?? undefined}
       className={cx(
-        'inline-flex shrink-0 items-center justify-center rounded-vx-sm transition-colors duration-[120ms] ease-vx disabled:cursor-not-allowed disabled:opacity-[.38]',
+        'inline-flex shrink-0 items-center justify-center rounded-vx-sm transition-colors duration-[160ms] ease-vx disabled:cursor-not-allowed disabled:opacity-[.38]',
         SIZES[size],
         toggled
           ? 'bg-vx-accent-wash text-vx-text-1 hover:bg-vx-accent-wash-2'
-          : 'text-vx-text-2 hover:bg-vx-raise hover:text-vx-text-1 active:bg-vx-pressed',
+          : 'text-vx-text-2 hover:bg-vx-hover hover:text-vx-text-1 active:bg-vx-pressed',
         className,
       )}
       {...rest}

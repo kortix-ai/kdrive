@@ -1,15 +1,16 @@
 'use client';
 
-// One list row (UNIFY-SPEC §12.1, DESIGN-v2 §6.2, §7): 36 px, full-bleed in the sheet with a
+// One list row (UNIFY-SPEC §12.1, DESIGN-v2 §6.2, §7): 42 px, inside the framed file table with a
 // hair-soft divider, grid `--vx-list-cols`
 // (checkbox · icon + name · modified · size · actions). At rest a row shows only its icon,
-// name, date and size; the checkbox and the actions (Download · Share · Versions · More)
+// name (with a filled star when starred), date and size; the checkbox and the actions
+// (Star · Download · Share · Versions · More)
 // appear on hover, focus or selection. With compact columns (panel or rail open) the
 // actions overlay the row end and cover the date entirely. Phones get 60 px rows with a
 // meta line and a ⋮ button. States: hover, selected, focused, renaming, pending,
 // collapsing, dragging, drop target, past drift chips, gone-now, ghost.
 import { memo } from 'react';
-import { ChevronRight, Clock, Download, MoreHorizontal, MoreVertical, Share2 } from 'lucide-react';
+import { ChevronRight, Clock, Download, MoreHorizontal, MoreVertical, Share2, Star } from 'lucide-react';
 import { formatBytes, type FileEntry } from '@volumes/shared';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -22,15 +23,14 @@ import { useVx } from '@/lib/store';
 import type { Drift } from '@/lib/drive/drift';
 import { useDriveCtx, type DriveCtxValue } from './drive-context';
 import { RenameInput } from './rename-dialog';
+import { ItemAnnotations } from '@/components/labels/label-chip';
 import s from './drive.module.css';
 
 /** Columns come from CSS (`--vx-list-cols` / `--vx-list-cols-compact`). */
 export const LIST_COLS = 'var(--vx-list-cols)';
 export const LIST_COLS_COMPACT = 'var(--vx-list-cols-compact)';
-export const ROW_H = 36;
+export const ROW_H = 42;
 export const PHONE_ROW_H = 60;
-/** Rows run full-bleed inside the sheet (UNIFY-SPEC §12.1); dividers carry the structure. */
-export const LIST_INSET = 0;
 
 export function listCols(density: DriveCtxValue['density']): string {
   return density === 'wide' ? LIST_COLS : LIST_COLS_COMPACT;
@@ -118,20 +118,55 @@ const stop = {
   onDoubleClick: (e: React.MouseEvent) => e.stopPropagation(),
 };
 
-/** Hover actions: Download · Share · Versions (files) · More. 28 px icon buttons, r4. */
+/** The filled star next to a starred item's name (always shown, unlike the hover actions). */
+export function StarMark({ className }: { className?: string }) {
+  return (
+    <span role="img" aria-label="Starred" title="Starred" className={cx('inline-flex shrink-0', className)}>
+      <Star size={12} strokeWidth={2} fill="currentColor" aria-hidden />
+    </span>
+  );
+}
+
+/** The star toggle of a row or card (filled while starred). Starring changes nothing in the drive, so viewers have it too. */
+export function StarButton({ entry, className }: { entry: FileEntry; className?: string }) {
+  const ctx = useDriveCtx();
+  const on = ctx.starred.has(entry.path);
+  return (
+    <Tooltip label={on ? 'Remove from Starred' : 'Add to Starred'} kbd="S">
+      <IconButton
+        size="sm"
+        label={on ? `Unstar ${entry.name}` : `Star ${entry.name}`}
+        nativeTitle={false}
+        tabIndex={-1}
+        aria-pressed={on}
+        className={className}
+        {...stop}
+        onClick={(e) => {
+          e.stopPropagation();
+          ctx.cmd.star([entry]);
+        }}
+      >
+        <Star size={16} strokeWidth={1.75} fill={on ? 'currentColor' : 'none'} aria-hidden />
+      </IconButton>
+    </Tooltip>
+  );
+}
+
+/** Hover actions: Star (now only) · Download · Share · Versions (files) · More. 28 px icon buttons, r4. */
 export function RowActions({ entry, className }: { entry: FileEntry; className?: string }) {
   const ctx = useDriveCtx();
   const isFile = entry.type === 'file';
   const btn = 'group-aria-selected:text-vx-on-selection';
   return (
     <span className={cx('flex items-center justify-end', className)}>
+      {ctx.past ? null : <StarButton entry={entry} className={btn} />}
       <Tooltip label={isFile ? 'Download' : 'Download .zip'} kbd="D">
         <IconButton size="sm" label={isFile ? `Download ${entry.name}` : `Download ${entry.name} as .zip`} nativeTitle={false} tabIndex={-1} className={btn} {...stop} onClick={(e) => { e.stopPropagation(); ctx.cmd.download([entry]); }}>
           <Download size={16} strokeWidth={1.75} aria-hidden />
         </IconButton>
       </Tooltip>
       {ctx.viewOnly ? null : (
-        <Tooltip label={ctx.past ? 'Share pinned link' : 'Share'} kbd="S">
+        <Tooltip label={ctx.past ? 'Share pinned link' : 'Share'} kbd="⇧S">
           <IconButton size="sm" label={`Share ${entry.name}`} nativeTitle={false} tabIndex={-1} className={btn} {...stop} onClick={(e) => { e.stopPropagation(); ctx.cmd.share(entry); }}>
             <Share2 size={16} strokeWidth={1.75} aria-hidden />
           </IconButton>
@@ -158,12 +193,12 @@ export function RowActions({ entry, className }: { entry: FileEntry; className?:
 /**
  * Shared visual state of a row or card (UNIFY-SPEC §5): hover = raise; selected = selection fill
  * (rows add a 2 px accent bar on the left, `s.selBar`); drop target = accent-wash + a 1 px
- * accent-edge inset. The keyboard-focus ring (violet) comes from drive.module.css, only while the
+ * accent-edge inset. The keyboard-focus ring comes from drive.module.css, only while the
  * list itself has keyboard focus, so a click never paints a ring.
  */
 export function itemTone(o: { selected: boolean; focused: boolean; dropTarget: boolean; dragging: boolean }) {
   return cx(
-    o.dropTarget ? cx('bg-vx-accent-wash text-vx-on-accent-wash', s.dropOn) : o.selected ? 'bg-vx-selection text-vx-on-selection' : 'hover:bg-vx-raise',
+    o.dropTarget ? cx('bg-vx-accent-wash text-vx-on-accent-wash', s.dropOn) : o.selected ? 'bg-vx-selection text-vx-on-selection' : 'hover:bg-vx-surface-2',
     o.dragging && 'opacity-40',
   );
 }
@@ -183,7 +218,7 @@ function FileRowImpl({ entry, style }: { entry: FileEntry; style?: React.CSSProp
   const dropTarget = ctx.dropDir === entry.path;
   const renaming = ctx.renaming === entry.path;
   const phone = ctx.density === 'phone';
-  const meta = lit ? 'text-vx-on-selection' : 'text-vx-text-3';
+  const meta = 'text-vx-text-3';
   const modified = entry.mtime ? formatRelative(entry.mtime) : '—';
   // Compact columns are 120 px: drop a trailing time at the date boundary ("8 Dec 2025 08:57"
   // → "8 Dec 2025") instead of clipping mid-string. The full stamp stays in the tooltip.
@@ -194,13 +229,16 @@ function FileRowImpl({ entry, style }: { entry: FileEntry; style?: React.CSSProp
   ) : (
     <MiddleName
       name={entry.name}
-      className={cx(phone ? 'text-[15px] leading-5' : 'text-[14px] leading-5', 'font-medium', lit ? 'text-vx-on-selection' : drift === 'gone' ? 'text-vx-text-2' : 'text-vx-text-1')}
+      className={cx(phone ? 'text-[15px] leading-5' : 'text-[14.5px] leading-5', 'font-medium', lit ? 'text-vx-on-selection' : drift === 'gone' ? 'text-vx-text-2' : 'text-vx-text-1')}
     />
   );
 
+  const starred = !ctx.past && ctx.starred.has(entry.path);
   const extras = (
     <>
+      {starred && !renaming ? <StarMark className={lit ? 'text-vx-on-selection' : 'text-vx-text-2'} /> : null}
       {drift && !renaming ? <DriftChip drift={drift} /> : null}
+      {!ctx.past && !renaming ? <ItemAnnotations path={entry.path} lit={lit} max={ctx.density === 'wide' ? 2 : 1} /> : null}
       {pending === 'waiting' ? <span className={cx('vx-meta shrink-0', meta)}>Waiting for a free slot</span> : null}
       {drift === 'gone' && !phone ? <GoneRestore entry={entry} className="shrink-0" /> : null}
     </>
@@ -249,7 +287,11 @@ function FileRowImpl({ entry, style }: { entry: FileEntry; style?: React.CSSProp
         ) : null}
         <FileIcon name={entry.name} type={entry.type} size={28} />
         <span className="flex min-w-0 flex-col gap-0.5 pr-1">
-          <span className="flex min-w-0 items-center gap-2">{name}</span>
+          <span className="flex min-w-0 items-center gap-2">
+            {name}
+            {starred && !renaming ? <StarMark className={lit ? 'text-vx-on-selection' : 'text-vx-text-2'} /> : null}
+            {!ctx.past && !renaming ? <ItemAnnotations path={entry.path} lit={lit} dots /> : null}
+          </span>
           <span className={cx('vx-meta flex min-w-0 items-center gap-2', meta)}>
             {drift && !renaming ? (
               <DriftChip drift={drift} />
@@ -285,12 +327,12 @@ function FileRowImpl({ entry, style }: { entry: FileEntry; style?: React.CSSProp
       <span className="flex items-center justify-center">
         <RowCheck on={selected} onToggle={() => ctx.onCheck(entry)} label={`Select ${entry.name}`} className={cx(!selected && s.reveal, s.revealCheck)} />
       </span>
-      <span className="flex min-w-0 items-center gap-3 pr-4">
-        <FileIcon name={entry.name} type={entry.type} size={20} />
+      <span className="flex min-w-0 items-center gap-2.5 pr-4">
+        <FileIcon name={entry.name} type={entry.type} size={28} />
         {name}
         {extras}
       </span>
-      <span className={cx('vx-col-mtime vx-meta-row truncate pr-3', meta)} title={isoTitle(entry.mtime)}>
+      <span className={cx('vx-col-mtime truncate pr-3 text-[14px] leading-5 tabular-nums', meta)} title={isoTitle(entry.mtime)}>
         {modifiedShown}
       </span>
       <span className={cx('vx-meta-row truncate pr-2 text-right', meta)}>{isDir ? '—' : formatBytes(entry.size)}</span>
@@ -320,13 +362,13 @@ export function GhostRow({ entry, style }: { entry: FileEntry; style?: React.CSS
   return (
     <div
       style={{ ...style, gridTemplateColumns: phone ? '40px minmax(0,1fr) 44px' : listCols(ctx.density) }}
-      className={cx(s.row, 'grid items-center text-vx-text-4', phone ? 'pl-2' : 'pl-1 pr-3')}
+      className={cx(s.row, 'grid items-center text-vx-text-3', phone ? 'pl-2' : 'pl-1 pr-3')}
       aria-disabled
     >
       {phone ? null : <span />}
-      <span className={cx('flex min-w-0 items-center gap-3', !phone && 'pr-4')}>
-        <FileIcon name={entry.name} type={entry.type} size={phone ? 28 : 20} muted />
-        {phone ? null : <MiddleName name={entry.name} className="text-[14px] font-medium leading-5" />}
+      <span className={cx('flex min-w-0 items-center gap-2.5', !phone && 'pr-4')}>
+        <FileIcon name={entry.name} type={entry.type} size={28} muted />
+        {phone ? null : <MiddleName name={entry.name} className="text-[14.5px] font-medium leading-5" />}
         {phone ? null : <DriftChip drift="ghost" />}
       </span>
       {phone ? (
@@ -336,7 +378,7 @@ export function GhostRow({ entry, style }: { entry: FileEntry; style?: React.CSS
         </span>
       ) : (
         <>
-          <span className="vx-col-mtime vx-meta-row truncate pr-3">{entry.mtime ? compactDate(formatRelative(entry.mtime)) : '—'}</span>
+          <span className="vx-col-mtime truncate pr-3 text-[14px] leading-5">{entry.mtime ? compactDate(formatRelative(entry.mtime)) : '—'}</span>
           <span className="vx-meta-row truncate pr-2 text-right">{entry.type === 'dir' ? '—' : formatBytes(entry.size)}</span>
         </>
       )}

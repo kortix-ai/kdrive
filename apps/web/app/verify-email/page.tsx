@@ -48,8 +48,8 @@ function Outcome({ params }: { params: { get(name: string): string | null } }) {
   return (
     <>
       <Icon size={28} strokeWidth={1.5} className={ok ? 'text-vx-text-2' : 'text-vx-danger'} aria-hidden />
-      <h1 className="vx-h2 mt-5">{copy.title}</h1>
-      <p className="vx-body mt-2 text-vx-text-2">{copy.body}</p>
+      <h1 className="text-[28px] font-semibold leading-[34px] tracking-[-0.03em] text-vx-text-1 mt-5">{copy.title}</h1>
+      <p className="mt-2 text-[16px] leading-6 text-vx-text-2">{copy.body}</p>
       <div className="mt-7 flex flex-col gap-3">
         {ok ? (
           me ? (
@@ -61,7 +61,7 @@ function Outcome({ params }: { params: { get(name: string): string | null } }) {
               Sign in
             </Link>
           ) : (
-            <span className="skeleton block h-11 w-full !rounded-vx-sm" />
+            <span className="skeleton block h-12 w-full !rounded-vx-md" />
           )
         ) : me && !me.user.emailVerified ? (
           <Resend email={me.user.email} />
@@ -74,7 +74,7 @@ function Outcome({ params }: { params: { get(name: string): string | null } }) {
             <Link href="/signin?next=/drive" className={buttonClass('primary', 'lg', { block: true })}>
               Sign in to get a new link
             </Link>
-            <p className="vx-meta text-center text-vx-text-3">Once you are signed in, the banner at the top of your drive sends a fresh one.</p>
+            <p className="text-center text-[13px] leading-5 text-vx-text-3">Once you are signed in, the banner at the top of your drive sends a fresh one.</p>
           </>
         )}
       </div>

@@ -30,7 +30,7 @@ import { isStoreError, type Commit, type FileEntry, type FileStat, type Ref } fr
 import type { WorkspaceCtx } from '../types';
 import { createCheckpoint, deleteCheckpoint } from './checkpoints';
 import { exactBlockLists, landedCommit, withAction, type ActionCtx, type PathChange } from './ledger';
-import { detachLiveLinks } from './links';
+import { detachFollowers, reattachRestored } from './follow';
 import { reserveQuota } from './reservations';
 import { blockSourceAt, serverUpload } from './server-upload';
 import { listTree, statOrNull } from './tree';
@@ -361,9 +361,11 @@ export async function restorePaths(
       await rec.addPaths(work.changes);
       for (const r of work.remove) {
         await rec.commit(await store.remove(ctx.ws.volumeId, r.path, { recursive: true }));
-        await detachLiveLinks(ctx.ws.id, r.path, rec.actionId);
+        await detachFollowers(ctx.ws.id, r.path, rec.actionId);
       }
       if (work.files.length || work.dirs.length) await serverUpload(ctx.ws, work.files, work.dirs, blockSourceAt(ctx.ws, work.files, target.id), rec);
+      // Comments and tags come back with a restored item (an undo re-attaches its own).
+      if (!opts.undoOfActionId) await reattachRestored(ctx.ws, roots, target.createdAt, rec.actionId);
     },
   );
   return action;
@@ -495,7 +497,8 @@ export async function restoreDrive(
         commitId = landed;
       }
       await rec.commit({ commitId, outcome: 'fast', headCommitId: commitId, overwritten: [], skipped: [] });
-      for (const c of changes) if (c.op === 'deleted') await detachLiveLinks(ctx.ws.id, c.path, rec.actionId);
+      for (const c of changes) if (c.op === 'deleted') await detachFollowers(ctx.ws.id, c.path, rec.actionId);
+      if (!opts?.undoOfActionId) await reattachRestored(ctx.ws, ['/'], target.createdAt, rec.actionId);
     },
   );
   return { action, ...(checkpoint ? { checkpoint } : {}), ...(checkpointSkipped ? { checkpointSkipped: true } : {}) };

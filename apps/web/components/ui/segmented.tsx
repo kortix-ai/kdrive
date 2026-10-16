@@ -11,8 +11,8 @@ export interface SegmentedOption<T extends string> {
 }
 
 /**
- * Segmented control (UNIFY-SPEC §10): 30 px, r4, a 1 px hair-strong frame with 1 px hair dividers,
- * Inter 13/500 text-2; the "on" segment is the raise fill + text-1 (no check, no colour). `check` is
+ * Segmented control: a surface-3 well (3 px inset, soft hair edge) holding 13.5/500 text-2 segments; the "on"
+ * segment lifts onto the surface with a 1 px shadow and text-1 (no check, no colour). md 36 · sm 32. `check` is
  * accepted for old callers and ignored. Used for list/grid, Split/Unified, Dark/Light/System, …
  */
 export function Segmented<T extends string>({
@@ -26,7 +26,7 @@ export function Segmented<T extends string>({
   options: SegmentedOption<T>[];
   value: T;
   onChange: (v: T) => void;
-  /** md 32 · sm 28 */
+  /** md 36 · sm 32 */
   size?: 'sm' | 'md';
   label?: string;
   check?: boolean;
@@ -36,9 +36,9 @@ export function Segmented<T extends string>({
     <div
       role="radiogroup"
       aria-label={label}
-      className={cx('inline-flex shrink-0 overflow-hidden rounded-vx-sm border border-vx-hair-strong', size === 'sm' ? 'h-7' : 'h-[30px]', className)}
+      className={cx('inline-flex shrink-0 gap-0.5 rounded-[10px] border border-vx-hair-soft bg-vx-surface-3 p-[3px]', size === 'sm' ? 'h-8' : 'h-9', className)}
     >
-      {options.map((o, i) => {
+      {options.map((o) => {
         const on = o.value === value;
         return (
           <button
@@ -50,13 +50,12 @@ export function Segmented<T extends string>({
             disabled={o.disabled}
             onClick={() => onChange(o.value)}
             className={cx(
-              'inline-flex items-center justify-center gap-1.5 text-[13px] font-medium leading-5 transition-colors duration-[120ms] ease-vx focus-visible:-outline-offset-2 disabled:cursor-not-allowed disabled:opacity-[.38]',
-              size === 'sm' ? 'px-2.5' : 'px-3',
-              i > 0 && 'border-l border-vx-hair',
-              on ? 'bg-vx-raise text-vx-text-1' : 'text-vx-text-2 hover:bg-vx-raise/60 hover:text-vx-text-1',
+              'inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-[7px] font-medium leading-5 transition-[background-color,color,box-shadow] duration-[160ms] ease-vx disabled:cursor-not-allowed disabled:opacity-[.38]',
+              size === 'sm' ? 'px-2.5 text-[13px]' : 'px-3 text-[13.5px]',
+              on ? 'bg-vx-surface text-vx-text-1 shadow-[var(--vx-shadow-1),0_0_0_1px_var(--vx-hair-soft)]' : 'text-vx-text-2 hover:text-vx-text-1',
             )}
           >
-                        {o.label}
+            {o.label}
           </button>
         );
       })}

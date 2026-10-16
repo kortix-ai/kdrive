@@ -14,12 +14,11 @@ export function primaryCtaLabel(signedIn: boolean): string {
   return signedIn ? 'Open your drive' : 'Get started';
 }
 
-/** The primary landing button (LANDING-SPEC §7): the drive when signed in, otherwise account creation (then the drive). */
-export function PrimaryCta({ signedIn, className }: { signedIn: boolean; className?: string }) {
+/** The primary landing button: the drive when signed in, otherwise account creation (then the drive). */
+export function PrimaryCta({ signedIn, className, label }: { signedIn: boolean; className?: string; label?: string }) {
   return (
     <Link href={signedIn ? DRIVE_HREF : SIGNUP_HREF} className={`kd-btn kd-btn--primary${className ? ` ${className}` : ''}`}>
-      {primaryCtaLabel(signedIn)}
-      <span className="kd-btn__arrow" aria-hidden="true">→</span>
+      {signedIn ? primaryCtaLabel(true) : (label ?? primaryCtaLabel(false))}
     </Link>
   );
 }

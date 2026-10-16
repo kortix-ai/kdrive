@@ -19,7 +19,7 @@ import { CompareText } from '@/components/versioning/compare-text';
 import { driveHref } from '@/lib/urls';
 import { CHANGE_LABEL } from './format';
 
-/** A proposal review compares "Now" (A, a neutral disc, never the past's amber) with "Proposed" (B). UNIFY-SPEC §14.4. */
+/** A proposal review compares "Now" (A, a neutral disc, never the past's cobalt) with "Proposed" (B). UNIFY-SPEC §14.4. */
 const REVIEW_SIDES: CompareSides = { a: { label: 'Now', tone: 'neutral' }, b: { label: 'Proposed' } };
 
 export type ReviewView = 'text' | 'image' | 'csv' | 'meta' | 'removed' | 'move' | 'folder' | 'none';

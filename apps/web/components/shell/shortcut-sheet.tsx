@@ -5,8 +5,8 @@ import { cx } from '@/components/ui/cx';
 import { Kbd } from '@/components/ui/kbd';
 
 const GROUPS: { label: string; keys: [string, string][] }[] = [
-  { label: 'Global', keys: [['/  ⌘K', 'Search'], ['?', 'Keyboard shortcuts'], ['h', 'History'], ['⌘B', 'Collapse / expand sidebar'], ['⌘Z', 'Undo last action'], ['g d', 'Go to files'], ['g c', 'Go to checkpoints'], ['g x', 'Go to recently deleted'], ['g p', 'Go to proposals'], ['g ,', 'Go to settings']] },
-  { label: 'Drive', keys: [['u  ⇧U', 'Upload files / folder'], ['n', 'New folder'], ['↵', 'Open'], ['Space', 'Preview'], ['F2', 'Rename'], ['⌫', 'Delete'], ['d', 'Download'], ['m  ⇧M', 'Move / copy to…'], ['s', 'Share'], ['⇧H', 'Versions'], ['v', 'List / grid'], ['⌘A', 'Select all']] },
+  { label: 'Global', keys: [['/  ⌘K', 'Search'], ['?', 'Keyboard shortcuts'], ['h', 'History'], ['⌘B', 'Collapse / expand sidebar'], ['⌘Z', 'Undo last action'], ['g d', 'Go to files'], ['g r', 'Go to recent'], ['g s', 'Go to starred'], ['g c', 'Go to checkpoints'], ['g x', 'Go to recently deleted'], ['g p', 'Go to proposals'], ['g ,', 'Go to settings']] },
+  { label: 'Drive', keys: [['u  ⇧U', 'Upload files / folder'], ['n', 'New folder'], ['↵', 'Open'], ['Space', 'Preview'], ['F2', 'Rename'], ['⌫', 'Delete'], ['d', 'Download'], ['m  ⇧M', 'Move / copy to…'], ['s', 'Star / unstar'], ['⇧S', 'Share'], ['⇧H', 'Versions'], ['v', 'List / grid'], ['⌘A', 'Select all']] },
   { label: 'Time', keys: [[',  .', 'Older / newer version'], ['p', 'New checkpoint'], ['c', 'Compare'], ['r', 'Restore (in the past)'], ['Esc', 'Back to now']] },
   { label: 'Preview', keys: [['←  →', 'Previous / next file'], ['+  −', 'Zoom'], ['0  1', 'Fit / 100 %'], ['Esc', 'Close']] },
   { label: 'Compare', keys: [[']  [', 'Next / previous change'], ['x', 'Swap A and B'], ['←  →', 'Move the swipe'], ['⇧←  ⇧→', 'Move the swipe ×10'], ['Esc', 'Back']] },

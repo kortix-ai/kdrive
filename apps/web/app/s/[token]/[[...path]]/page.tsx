@@ -1,12 +1,14 @@
 'use client';
 
 // Public share page: no sign-in, no app chrome. `/s/<token>` (+ a folder path relative to the link root).
+// A link with access controls shows its gate first (password, sign-in, wrong account).
 import { useEffect, useMemo } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, usePathname } from 'next/navigation';
 import useSWR from 'swr';
 import { decodePathFromUrl } from '@volumes/shared';
 import { FilePreview } from '@/components/preview/file-preview';
 import { PublicBrowser } from '@/components/public/public-browser';
+import { PublicGate, gateFor } from '@/components/public/public-gate';
 import { PublicHero, PublicShell, inactiveCopy } from '@/components/public/public-shell';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ApiError } from '@/lib/api/client';
@@ -26,7 +28,8 @@ export default function PublicSharePage() {
   }, [Array.isArray(rawPath) ? rawPath.join('/') : rawPath]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // One meta fetch per visit (it counts an open); client-side folder navigation reuses it.
-  const { data: meta, error, isLoading } = useSWR(token ? ['public-meta', token] : null, () => api.public.meta(token), {
+  const pathname = usePathname();
+  const { data: meta, error, isLoading, mutate } = useSWR(token ? ['public-meta', token] : null, () => api.public.meta(token), {
     revalidateOnFocus: false,
     revalidateOnReconnect: false,
     revalidateIfStale: false,
@@ -36,6 +39,15 @@ export default function PublicSharePage() {
   useEffect(() => {
     document.title = meta ? `${meta.name} · KDRIVE` : 'Shared link · KDRIVE';
   }, [meta, error]);
+
+  const gate = gateFor(error);
+  if (gate && token) {
+    return (
+      <PublicShell>
+        <PublicGate gate={gate} token={token} next={pathname || `/s/${token}`} onUnlocked={() => void mutate()} />
+      </PublicShell>
+    );
+  }
 
   if (error || (!token && !isLoading)) {
     const copy = inactiveCopy(error ?? new ApiError(404, 'not_found', 'Not found'));
@@ -62,9 +74,11 @@ export default function PublicSharePage() {
   }
 
   const isDir = meta.targetType === 'dir';
-  const download = isDir
-    ? { href: publicZipUrl(token, rel), label: 'Download .zip' }
-    : { href: publicContentUrl(token, '/', { download: true }), label: 'Download' };
+  const download = !meta.allowDownload
+    ? null
+    : isDir
+      ? { href: publicZipUrl(token, rel), label: 'Download .zip' }
+      : { href: publicContentUrl(token, '/', { download: true }), label: 'Download' };
 
   return (
     <PublicShell meta={meta} download={download}>
@@ -74,7 +88,7 @@ export default function PublicSharePage() {
       ) : (
         <FilePreview
           src={publicContentUrl(token, '/')}
-          downloadHref={publicContentUrl(token, '/', { download: true })}
+          downloadHref={download?.href ?? null}
           name={meta.name}
           size={meta.size ?? 0}
           mime={meta.mime}

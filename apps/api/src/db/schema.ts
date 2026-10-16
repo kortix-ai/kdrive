@@ -260,9 +260,98 @@ export const shareLinks = pgTable(
     detachedByActionId: text('detached_by_action_id'),
     openCount: integer('open_count').notNull().default(0),
     lastOpenedAt: timestamp('last_opened_at', tz),
+    // Access controls. The password is only ever stored as an argon2id hash; an
+    // unlock cookie is bound to that hash, so changing or removing it signs every
+    // visitor out. Allowed emails are lower-cased; empty = anyone with the link.
+    passwordHash: text('password_hash'),
+    allowDownload: boolean('allow_download').notNull().default(true),
+    allowedEmails: text('allowed_emails').array().notNull().default(sql`'{}'::text[]`),
     createdAt: timestamp('created_at', tz).defaultNow().notNull(),
+    // 'upload': a live folder link people send files into. They never list or
+    // read the folder; each file lands as one action charged to the drive owner.
+    kind: text('kind').$type<'view' | 'upload'>().notNull().default('view'),
+    maxFileBytes: bigint('max_file_bytes', { mode: 'number' }), // upload only; null = the server cap
+    maxFiles: integer('max_files'), // upload only; null = no limit
+    uploadCount: integer('upload_count').notNull().default(0),
+    uploadBytes: bigint('upload_bytes', { mode: 'number' }).notNull().default(0),
+    // The per-day cap: bytes and files received on `upload_day` (UTC).
+    uploadDay: text('upload_day'),
+    uploadDayBytes: bigint('upload_day_bytes', { mode: 'number' }).notNull().default(0),
+    uploadDayFiles: integer('upload_day_files').notNull().default(0),
   },
   (t) => [index('share_links_ws_idx').on(t.workspaceId)],
+);
+
+/**
+ * A comment on a file, by any member of the drive. A reply names its thread's first
+ * comment (`parent_id`; one level only). Like a live link, a comment follows its file
+ * through moves (services/follow.ts); deleting the file detaches it, and undoing that
+ * delete or restoring the file brings it back.
+ */
+export const fileComments = pgTable(
+  'file_comments',
+  {
+    id: text('id').primaryKey(), // ulid
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    path: text('path').notNull(),
+    parentId: text('parent_id').references((): AnyPgColumn => fileComments.id, { onDelete: 'cascade' }),
+    userId: text('user_id').references(() => bauthUser.id, { onDelete: 'set null' }),
+    body: text('body').notNull(),
+    commitId: text('commit_id'), // the drive's head when written: the file version it speaks about
+    editedAt: timestamp('edited_at', tz),
+    resolvedAt: timestamp('resolved_at', tz), // thread roots only
+    resolvedBy: text('resolved_by').references(() => bauthUser.id, { onDelete: 'set null' }),
+    detachedAt: timestamp('detached_at', tz),
+    detachedByActionId: text('detached_by_action_id'),
+    createdAt: timestamp('created_at', tz).defaultNow().notNull(),
+  },
+  (t) => [
+    index('file_comments_ws_path_idx').on(t.workspaceId, t.path).where(sql`detached_at IS NULL`),
+    index('file_comments_parent_idx').on(t.parentId),
+    index('file_comments_detached_by_idx').on(t.workspaceId, t.detachedByActionId),
+  ],
+);
+
+/** A tag (in the UI) of one drive: a name, unique per drive ignoring case, and a palette colour. */
+export const fileLabels = pgTable(
+  'file_labels',
+  {
+    id: text('id').primaryKey(), // ulid
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    color: text('color').notNull(),
+    createdBy: text('created_by').references(() => bauthUser.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', tz).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex('file_labels_ws_name_idx').on(t.workspaceId, sql`lower(${t.name})`)],
+);
+
+/** A tag on a file or folder. Follows the item like a comment does. */
+export const fileLabelAssignments = pgTable(
+  'file_label_assignments',
+  {
+    id: text('id').primaryKey(), // ulid
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    labelId: text('label_id')
+      .notNull()
+      .references(() => fileLabels.id, { onDelete: 'cascade' }),
+    path: text('path').notNull(),
+    createdBy: text('created_by').references(() => bauthUser.id, { onDelete: 'set null' }),
+    detachedAt: timestamp('detached_at', tz),
+    detachedByActionId: text('detached_by_action_id'),
+    createdAt: timestamp('created_at', tz).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex('file_label_assignments_live_idx').on(t.labelId, t.path).where(sql`detached_at IS NULL`),
+    index('file_label_assignments_ws_path_idx').on(t.workspaceId, t.path),
+    index('file_label_assignments_detached_by_idx').on(t.workspaceId, t.detachedByActionId),
+  ],
 );
 
 export type UploadRowPlan = {
@@ -517,6 +606,58 @@ export const proposalBlocks = pgTable(
   (t) => [primaryKey({ columns: [t.userId, t.sha256] })],
 );
 
+/**
+ * A person's starred items (private to them). A star names a path, so it follows its item
+ * through renames and moves and is detached when the item is deleted, exactly like a live
+ * share link (services/stars.ts, called from the link hooks in services/links.ts). Losing
+ * access to the drive hides its stars; they come back if access does.
+ */
+export const stars = pgTable(
+  'stars',
+  {
+    id: text('id').primaryKey(), // ulid
+    userId: text('user_id')
+      .notNull()
+      .references(() => bauthUser.id, { onDelete: 'cascade' }),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    path: text('path').notNull(),
+    targetType: text('target_type').$type<'file' | 'dir'>().notNull(),
+    detachedAt: timestamp('detached_at', tz),
+    detachedByActionId: text('detached_by_action_id'),
+    createdAt: timestamp('created_at', tz).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex('stars_user_ws_path_idx').on(t.userId, t.workspaceId, t.path).where(sql`detached_at IS NULL`),
+    index('stars_ws_path_idx').on(t.workspaceId, t.path),
+    index('stars_user_created_idx').on(t.userId, t.createdAt.desc()),
+  ],
+);
+
+/**
+ * Files a person opened (previewed or downloaded): one row per user and item, the newest
+ * open wins, at most RECENT_OPENS_CAP rows per user. Changes they made come from the ledger.
+ */
+export const recentOpens = pgTable(
+  'recent_opens',
+  {
+    userId: text('user_id')
+      .notNull()
+      .references(() => bauthUser.id, { onDelete: 'cascade' }),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    path: text('path').notNull(),
+    openedAt: timestamp('opened_at', tz).defaultNow().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.workspaceId, t.path] }),
+    index('recent_opens_user_opened_idx').on(t.userId, t.openedAt.desc()),
+    index('recent_opens_ws_path_idx').on(t.workspaceId, t.path),
+  ],
+);
+
 export type WorkspaceRow = typeof workspaces.$inferSelect;
 export type UserSettingsRow = typeof userSettings.$inferSelect;
 export type WorkspaceMemberRow = typeof workspaceMembers.$inferSelect;
@@ -534,3 +675,8 @@ export type ProposalFileRow = typeof proposalFiles.$inferSelect;
 export type StorageRequestRow = typeof storageRequests.$inferSelect;
 export type BillingAccountRow = typeof billingAccounts.$inferSelect;
 export type AdminRow = typeof admins.$inferSelect;
+export type StarRow = typeof stars.$inferSelect;
+export type RecentOpenRow = typeof recentOpens.$inferSelect;
+export type FileCommentRow = typeof fileComments.$inferSelect;
+export type FileLabelRow = typeof fileLabels.$inferSelect;
+export type FileLabelAssignmentRow = typeof fileLabelAssignments.$inferSelect;

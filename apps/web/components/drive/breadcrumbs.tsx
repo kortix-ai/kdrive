@@ -1,9 +1,8 @@
 'use client';
 
-// Breadcrumbs (UNIFY-SPEC §14.2): 32 px r4 crumbs in Inter 18/600. Ancestors are text-3 with a
-// decorative 14 px ChevronRight (text-4) between them; the current crumb is text-1 with a ChevronDown that opens the
-// folder menu. More than 4 levels collapse into a `…` crumb menu. Every crumb is a drop
-// target for moving items.
+// Breadcrumbs (UNIFY-SPEC §14.2): 30 px r8 crumbs at 15 px over the page title. Ancestors are text-3 with a
+// decorative 14 px ChevronRight between them; the current crumb is text-1 (the title under it carries the folder
+// menu). More than 4 levels collapse into a `…` crumb menu. Every crumb is a drop target for moving items.
 import { useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { splitPath } from '@volumes/shared';
@@ -22,10 +21,10 @@ export function crumbsFor(path: string, rootName: string): Crumb[] {
 }
 
 const crumbBase =
-  'inline-flex h-8 min-w-0 shrink items-center gap-1 rounded-vx-sm px-2 text-[18px] font-semibold leading-6 tracking-[-0.015em] transition-colors duration-[120ms] ease-vx';
+  'inline-flex h-[30px] min-w-0 shrink items-center gap-1 rounded-vx-sm px-2 text-[15px] leading-5 transition-colors duration-[120ms] ease-vx';
 
 function Sep() {
-  return <ChevronRight size={14} strokeWidth={1.75} className="mx-0.5 shrink-0 text-vx-text-4" aria-hidden />;
+  return <ChevronRight size={14} strokeWidth={1.75} className="mx-0.5 shrink-0 text-vx-text-3" aria-hidden />;
 }
 
 export default function Breadcrumbs({
@@ -46,8 +45,8 @@ export default function Breadcrumbs({
   onDropItems: (dest: string) => void;
   /** Whether the current internal drag may land in `dest`. */
   canDropInto: (dest: string) => boolean;
-  /** Items of the current crumb's ▾ menu. */
-  folderMenu: MenuItem[];
+  /** Items of the current crumb's ▾ menu; without them the current crumb is plain text. */
+  folderMenu?: MenuItem[];
   /** The folder does not exist (here or at this version): the last crumb is plain text, no menu. */
   missing?: boolean;
 }) {
@@ -111,8 +110,8 @@ export default function Breadcrumbs({
         ) : null}
         {shown.slice(1, -1).map(ancestor)}
         <li className="flex min-w-0 items-center">
-          {missing ? (
-            <span aria-current="page" className={cx(crumbBase, 'cursor-default text-vx-text-1')} title={last.path}>
+          {missing || !folderMenu ? (
+            <span aria-current="page" {...(missing ? {} : dropProps(last))} className={cx(crumbBase, 'cursor-default font-medium text-vx-text-1', dropTone(last))} title={last.path}>
               <span className="truncate">{last.label}</span>
             </span>
           ) : (

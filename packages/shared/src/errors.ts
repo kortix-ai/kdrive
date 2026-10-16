@@ -23,6 +23,11 @@ export const ERROR_CODES = [
   'range_not_satisfiable',
   'link_expired',
   'link_revoked',
+  'link_sign_in_required',
+  'link_wrong_account',
+  'link_password_required',
+  'link_password_incorrect',
+  'download_disabled',
   'upstream_unavailable',
   'not_implemented',
   'insufficient_scope',
@@ -31,6 +36,8 @@ export const ERROR_CODES = [
   'read_only',
   'already_member',
   'too_many_people',
+  'folder_full',
+  'upload_limit',
   'internal',
 ] as const;
 

@@ -28,6 +28,10 @@ const LABELS: Record<string, string> = {
   'link.create': 'Link created',
   'link.update': 'Link changed',
   'link.revoke': 'Link revoked',
+  'label.create': 'Tag created',
+  'label.update': 'Tag changed',
+  'label.delete': 'Tag deleted',
+  'comment.delete': 'Comment removed',
   'quota.change': 'Quota changed',
   'storage.request': 'More storage requested',
   'storage.grant': 'Storage request granted',
@@ -62,7 +66,7 @@ export function auditLabel(kind: string): string {
 export const AUDIT_GROUPS: { id: string; label: string; kinds: string[] }[] = (() => {
   const groups = [
     { id: 'account', label: 'Sign-in and account', test: (k: string) => k.startsWith('auth.') || k.startsWith('account.') },
-    { id: 'drives', label: 'Drives and sharing', test: (k: string) => k.startsWith('workspace.') },
+    { id: 'drives', label: 'Drives and sharing', test: (k: string) => k.startsWith('workspace.') || k.startsWith('label.') || k.startsWith('comment.') },
     { id: 'restore', label: 'Restores and undo', test: (k: string) => k.startsWith('restore.') || k === 'undo' },
     { id: 'links', label: 'Links and checkpoints', test: (k: string) => k.startsWith('link.') || k.startsWith('checkpoint.') },
     { id: 'storage', label: 'Storage and plans', test: (k: string) => k.startsWith('storage.') || k.startsWith('billing.') || k === 'quota.change' },
