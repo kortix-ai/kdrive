@@ -124,7 +124,7 @@ export const Composer = forwardRef<
       {error ? <p className="text-[13px] leading-5 text-vx-danger">{error}</p> : null}
       {value || onCancel ? (
         <div className="flex items-center gap-2">
-          <span className={cx('vx-meta min-w-0 flex-1 truncate', over ? 'text-vx-danger' : 'text-vx-text-4')}>
+          <span className={cx('vx-meta min-w-0 flex-1 truncate', over ? 'text-vx-danger' : 'text-vx-text-3')}>
             {value.length > MAX_COMMENT_CHARS - 400 ? `${value.length.toLocaleString()} / ${MAX_COMMENT_CHARS.toLocaleString()}` : mac ? '⌘↵ to post' : 'Ctrl+↵ to post'}
           </span>
           {onCancel ? (

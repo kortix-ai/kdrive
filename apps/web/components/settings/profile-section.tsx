@@ -75,7 +75,7 @@ export function ProfileSection({ me }: { me: MeResponse }) {
         </div>
       </div>
       <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-vx-hair-soft pt-4">
-        <span className="mr-1 text-[13px] font-medium leading-5 text-vx-text-2">Signed in with</span>
+        <span className="mr-1 text-[14px] font-medium leading-5 text-vx-text-2">Signed in with</span>
         {accounts.error ? (
           <span className="text-[13px] text-vx-danger">Couldn&apos;t load connected accounts.</span>
         ) : !accounts.data ? (

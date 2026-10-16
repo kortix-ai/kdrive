@@ -17,221 +17,233 @@
  * Components use only --vx-* (or the Tailwind aliases below), never raw hex.
  * ════════════════════════════════════════════════════════════════════════ */
 
+/* KDRIVE "Glass on paper": oat paper + stone grey, warm charcoal at night; ember = now, cobalt = past. */
 :root, [data-vx-theme-scope='dark'] {
-  /* grounds and surfaces */
-  --vx-bg: #0a0a0b;
-  --vx-bg-2: #0d0d0f;
-  --vx-surface: #121215;
-  --vx-surface-2: #17171b;
-  --vx-surface-3: #1d1d22;
-  --vx-raise: #1d1d22;
+  color-scheme: dark;
+  /* ground + surfaces: warm graphite, never blue-black */
+  --vx-bg: #1A1917;
+  --vx-bg-2: #201F1C;
+  --vx-surface: #252421;
+  --vx-surface-2: #2C2A27;
+  --vx-surface-3: #33312D;
+  --vx-raise: #2F2D2A;
   --vx-hover: var(--vx-raise);
-  --vx-pressed: #24242a;
-  --vx-field: #0f0f12;
-  --vx-field-hover: #141418;
-  --vx-float: #16161a;
-  --vx-mat: #0f0f12;
-  --vx-scrim: rgb(0 0 0 / .62);
-  --vx-nav-glass: rgb(10 10 11 / .86);
-
+  --vx-pressed: #3A3834;
+  --vx-field: #1F1E1B;
+  --vx-field-hover: #232220;
+  --vx-float: #2C2A27;
+  --vx-mat: #22211E;
+  --vx-scrim: rgba(10, 9, 8, 0.56);
+  --vx-nav-glass: rgba(26, 25, 23, 0.78);
   /* lines */
-  --vx-hair: #232329;
-  --vx-hair-soft: #1b1b20;
-  --vx-hair-strong: #30303a;
-  --vx-hair-dash: #3b3b46;
-  --vx-outline: #6b6b76;
-
-  /* text */
-  --vx-text-1: #ededf0;
-  --vx-text-2: #b4b4bd;
-  --vx-text-3: #8b8b96;
-  --vx-text-4: #63636d;
-  --vx-text-inv: #0a0a0b;
-
-  /* primary and the active ink (platinum) */
-  --vx-primary: #ededf0;
-  --vx-primary-hover: #ffffff;
-  --vx-on-primary: #0a0a0b;
-  --vx-accent: #ededf0;
-  --vx-accent-strong: #ffffff;
-  --vx-accent-wash: #24242b;
-  --vx-accent-wash-2: #2c2c34;
-  --vx-on-accent-wash: #ededf0;
-  --vx-accent-edge: #c8ccd4;
-  --vx-on-accent: #0a0a0b;
-  --vx-selection: #1f1f26;
-  --vx-on-selection: #ededf0;
-
-  /* violet: focus, text selection and landing atmosphere only */
-  --vx-focus: #a78bfa;
-  --vx-text-select: rgb(167 139 250 / .30);
-  --vx-violet: #a78bfa;
-  --vx-violet-deep: #2a1f4d;
-
-  /* metal */
-  --vx-plat-hi: #f6f7f9;
-  --vx-plat-mid: #c8ccd4;
-  --vx-plat-lo: #8d929c;
-  --vx-metal: linear-gradient(180deg, var(--vx-plat-hi) 0%, #e3e6eb 38%, var(--vx-plat-mid) 52%, #eef0f3 70%, var(--vx-plat-lo) 100%);
-
-  /* past (time travel): muted brass */
-  --vx-past: #e3b36f;
-  --vx-past-strong: #f3cf96;
-  --vx-past-wash: rgb(227 179 111 / .08);
-  --vx-past-edge: rgb(227 179 111 / .38);
-  --vx-past-halo: rgb(227 179 111 / .14);
-  --vx-past-dot: #e3b36f;
-  --vx-past-hatch: repeating-linear-gradient(135deg, rgb(227 179 111 / .10) 0 4px, transparent 4px 9px);
-  --vx-past-filter: saturate(.75) brightness(.92);
-  --vx-on-past: #0a0a0b;
-
+  --vx-hair: #36332F;
+  --vx-hair-soft: rgba(242, 238, 230, 0.06);
+  --vx-hair-strong: #4A4640;
+  --vx-hair-dash: rgba(242, 238, 230, 0.24);
+  --vx-outline: rgba(242, 238, 230, 0.32);
+  /* text (ratios on bg / surface-3) */
+  --vx-text-1: #F2EEE6;            /* 15.2 / 11.2 */
+  --vx-text-2: #D2CDC3;            /* 11.1 / 8.2 */
+  --vx-text-3: #A7A197;            /* 6.9 / 5.1 */
+  --vx-text-4: #8F897E;            /* decoration only */
+  --vx-text-inv: #1A1917;
+  /* primary = ink; accent = ember, which means "now" */
+  --vx-primary: #F2EEE6;
+  --vx-primary-hover: #FFFFFF;
+  --vx-on-primary: #1A1917;
+  --vx-accent: #FF8A57;            /* 7.6 on bg */
+  --vx-accent-strong: #FFA57D;
+  --vx-accent-wash: rgba(255, 138, 87, 0.10);
+  --vx-accent-wash-2: rgba(255, 138, 87, 0.18);
+  --vx-on-accent-wash: #FFB494;
+  --vx-accent-edge: rgba(255, 138, 87, 0.45);
+  --vx-on-accent: #1A1917;
+  --vx-selection: rgba(242, 238, 230, 0.07);
+  --vx-on-selection: #F2EEE6;
+  --vx-focus: #FF8A57;
+  --vx-text-select: rgba(134, 162, 255, 0.30);
+  /* "platinum" becomes pearl */
+  --vx-plat-hi: #FFFFFF;
+  --vx-plat-mid: #D9D4CA;
+  --vx-plat-lo: #9D978C;
+  --vx-metal: linear-gradient(180deg, #FFFFFF 0%, #E4DFD5 55%, #B9B2A6 100%);
+  --vx-metal-lg: linear-gradient(100deg, #FFFFFF 0%, #DCD6CB 40%, #FFFFFF 60%, #BDB6AA 100%);
+  /* past / time travel: cobalt (was brass) */
+  --vx-past: #86A2FF;              /* 7.2 on bg */
+  --vx-past-strong: #A9BDFF;
+  --vx-past-wash: rgba(134, 162, 255, 0.13);
+  --vx-past-edge: rgba(134, 162, 255, 0.50);
+  --vx-past-halo: rgba(134, 162, 255, 0.15);
+  --vx-past-dot: #86A2FF;
+  --vx-past-fill: #86A2FF;         /* NEW: solid restore button */
+  --vx-past-hatch: rgba(134, 162, 255, 0.18);
+  --vx-past-hatch-neutral: rgba(242, 238, 230, 0.07);
+  --vx-past-filter: saturate(0.75);
+  --vx-on-past: #141A33;
   /* diff */
-  --vx-add-fg: #86e0ad; --vx-add-bg: rgb(46 160 90 / .13); --vx-add-word: rgb(46 160 90 / .34); --vx-add-word-fg: #b6f0cd;
-  --vx-del-fg: #ff9d97; --vx-del-bg: rgb(229 72 77 / .12); --vx-del-word: rgb(229 72 77 / .32); --vx-del-word-fg: #ffc9c5;
-  --vx-mod-bg: rgb(232 180 90 / .10);
-
-  /* state */
-  --vx-ok: #6fd39a; --vx-ok-wash: rgb(111 211 154 / .10);
-  --vx-warn: #e8b45a; --vx-warn-wash: rgb(232 180 90 / .10);
-  --vx-danger: #ff9d97; --vx-danger-strong: #ffc2be; --vx-danger-wash: rgb(229 72 77 / .12);
-  --vx-danger-edge: rgb(229 72 77 / .40); --vx-danger-fill: #d9534f; --vx-on-danger: #ffffff;
-
+  --vx-add-fg: #8FD3A6; --vx-add-bg: rgba(110, 196, 140, 0.12); --vx-add-word: rgba(110, 196, 140, 0.28); --vx-add-word-fg: #C9F0D5;
+  --vx-del-fg: #F2A094; --vx-del-bg: rgba(232, 120, 104, 0.12); --vx-del-word: rgba(232, 120, 104, 0.28); --vx-del-word-fg: #FFD4CC;
+  --vx-mod-bg: rgba(134, 162, 255, 0.10);
+  /* status */
+  --vx-ok: #7CCB98; --vx-ok-wash: rgba(124, 203, 152, 0.13);
+  --vx-warn: #E8B464; --vx-warn-wash: rgba(232, 180, 100, 0.13);
+  --vx-danger: #F08C7C; --vx-danger-strong: #FFAA9C; --vx-danger-wash: rgba(240, 140, 124, 0.12);
+  --vx-danger-edge: rgba(240, 140, 124, 0.45); --vx-danger-fill: #C9452F; --vx-on-danger: #FFFFFF;
   /* misc */
-  --vx-meter-track: #232329;
-  --vx-tick: #55555f;
-  --vx-inverse: #ededf0; --vx-on-inverse: #0a0a0b; --vx-inverse-accent: #0a0a0b;
-  --vx-avatar-bg: #2a2a31; --vx-avatar-fg: #ededf0;
-  /* tags: muted hues on graphite (chips draw a wash of the same ink) */
+  --vx-meter-track: rgba(242, 238, 230, 0.10);
+  --vx-tick: rgba(242, 238, 230, 0.42);
+  --vx-inverse: #F2EEE6; --vx-on-inverse: #1A1917; --vx-inverse-accent: #AD3F16;
+  --vx-avatar-bg: #3A3834; --vx-avatar-fg: #F2EEE6;
+  --skel-base: #2A2926; --skel-hi: #33312E;
+  --vx-mark-body: #F2EEE6; --vx-mark-contact: #1A1917;
+  /* file-type hues (list icons; the glass objects use --hue-*) */
+  --vx-ft-doc: #8FA8E8; --vx-ft-sheet: #7CC49A; --vx-ft-pdf: #EE8E72; --vx-ft-slides: #E8B25A;
+  --vx-ft-image: #EC8FB0; --vx-ft-photo: #E39AC9; --vx-ft-video: #E58A9E; --vx-ft-audio: #B4C66A;
+  --vx-ft-code: #6CC3CC; --vx-ft-archive: #C9AE85; --vx-ft-other: #A7A197; --vx-ft-folder: #9FB4D8;
+  --vx-ft-glyph: #1A1917; --vx-ft-tint: 18%;
+  /* syntax */
+  --sh-fg: #E7E2D8; --sh-kw: #A9BDFF; --sh-str: #9FD8B0; --sh-num: #FFB494; --sh-dim: #9A948A; --sh-arg: #EC8FB0;
+  /* shadows */
+  --vx-shadow-sheet: none;
+  --vx-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.30);
+  --vx-shadow-2: 0 4px 12px -2px rgba(0, 0, 0, 0.40);
+  --vx-shadow-3: 0 12px 32px -8px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(242, 238, 230, 0.06);
+  --vx-shadow-4: 0 28px 64px -16px rgba(0, 0, 0, 0.65);
+  --vx-shadow-mock: 0 40px 80px -30px rgba(0, 0, 0, 0.6);
+  /* atmosphere */
+  --vx-atmos-tint: rgba(255, 138, 87, 0.04);
+  --vx-glow: rgba(255, 220, 180, 0.05);
+  --vx-grain-opacity: 0.08; --vx-grain-blend: overlay;
+  --vx-cta-fill: #F2EEE6;
+  /* glass objects  NEW */
+  --vx-glass-l: 0.74; --vx-glass-c: 0.09; --vx-glass-a: 0.46; --vx-glass-back-l: 0.52;
+  --vx-glass-rim: rgba(255, 255, 255, 0.26); --vx-glass-hi: rgba(255, 255, 255, 0.40);
+  --vx-glass-shadow-l: 0.20;
+  --vx-paper: #EEEAE2; --vx-paper-line: rgba(26, 25, 23, 0.16);
+  --vx-ink-line: color-mix(in oklab, var(--vx-text-1) 70%, transparent);
+  /* paper texture  NEW */
+  --vx-dot: rgba(238, 233, 223, 0.10);          /* 24px notebook dot grid */
+  --vx-ascii-ink: 0.34;                          /* glyph strength */
+  --vx-ascii-wash: 0.10;                         /* blurred colour under glyphs */
+  --vx-ascii-chroma: 0.06;                       /* glyphs tint from the nearest hue */
+  /* row labels (unchanged) */
   --vx-label-slate: #a3abb8; --vx-label-sage: #9cc4a4; --vx-label-moss: #b8c27e; --vx-label-sand: #d6bb8a;
   --vx-label-clay: #e0a088; --vx-label-rose: #e3a1b4; --vx-label-plum: #bfa6dc; --vx-label-sky: #8fb8e0;
   --vx-label-tint: 14%;
-  --skel-base: #16161a; --skel-hi: #1d1d22;
-
-  /* file types: a tinted tile with a coloured glyph (no violet) */
-  --vx-ft-doc: #8ab4ff; --vx-ft-sheet: #7fd3a0; --vx-ft-pdf: #ff8f87; --vx-ft-slides: #f0b866;
-  --vx-ft-image: #ee9fc6; --vx-ft-photo: #6ccfd8; --vx-ft-video: #c8ccd4; --vx-ft-audio: #c9d27a;
-  --vx-ft-code: #a9aeb8; --vx-ft-archive: #d2b48a; --vx-ft-other: #8b8b96; --vx-ft-folder: #b4b4bd;
-  --vx-ft-tint: 16%;
-  /* Deprecated: the old filled-tile glyph colour, kept so unconverted callers still draw. */
-  --vx-ft-glyph: var(--vx-text-1);
-
-  /* code (lib/highlight.ts) */
-  --sh-fg: #d6d6dc; --sh-kw: #ededf0; --sh-str: #86e0ad; --sh-num: #e3b36f; --sh-dim: #6f6f7a; --sh-arg: #b4b4bd;
-
-  /* elevation: shadows only on floating things; floats carry a hair ring */
-  --vx-shadow-sheet: none;
-  --vx-shadow-1: 0 1px 0 rgb(255 255 255 / .03) inset;
-  --vx-shadow-2: 0 8px 24px -12px rgb(0 0 0 / .7);
-  --vx-shadow-3: 0 16px 40px -16px rgb(0 0 0 / .8), 0 0 0 1px var(--vx-hair);
-  --vx-shadow-4: 0 40px 90px -50px rgb(0 0 0 / .9), 0 0 0 1px var(--vx-hair);
-  --vx-shadow-mock: 0 40px 90px -50px rgb(0 0 0 / .9);
-
-  /* K mark: every pixel, and the plug's contacts */
-  --vx-mark-body: #ededf0; --vx-mark-contact: #0a0a0b;
-
-  color: var(--vx-text-2);
-  color-scheme: dark;
+  /* violet retired: kept as aliases of the past/agents cobalt so old references still draw */
+  --vx-violet: var(--vx-past);
+  --vx-violet-deep: var(--vx-past-wash);
 }
+
 
 /* ── Light: the same language in daylight (pale cool ground, graphite ink) ── */
 :root[data-vx-theme='light'], [data-vx-theme-scope='light'] {
-  --vx-bg: #f4f4f6;
-  --vx-bg-2: #eeeef1;
-  --vx-surface: #ffffff;
-  --vx-surface-2: #f7f7f9;
-  --vx-surface-3: #efeff3;
-  --vx-raise: #ebebef;
+  color-scheme: light;
+  /* ground + surfaces: oat paper, stone grey */
+  --vx-bg: #ECE8E0;                /* oat */
+  --vx-bg-2: #E2E1DD;              /* stone */
+  --vx-surface: #F7F5F0;
+  --vx-surface-2: #F0EDE7;
+  --vx-surface-3: #E8E5DE;
+  --vx-raise: #EAE6DE;
   --vx-hover: var(--vx-raise);
-  --vx-pressed: #e3e3e8;
-  --vx-field: #ffffff;
-  --vx-field-hover: #fafafb;
-  --vx-float: #ffffff;
-  --vx-mat: #f1f1f4;
-  --vx-scrim: rgb(20 20 28 / .28);
-  --vx-nav-glass: rgb(244 244 246 / .86);
-
-  --vx-hair: #e2e2e7;
-  --vx-hair-soft: #ececf0;
-  --vx-hair-strong: #cfcfd6;
-  --vx-hair-dash: #bdbdc6;
-  --vx-outline: #8a8a94;
-
-  --vx-text-1: #111114;
-  --vx-text-2: #3d3d45;
-  --vx-text-3: #62626c;
-  --vx-text-4: #9b9ba4;
-  --vx-text-inv: #ffffff;
-
-  --vx-primary: #17171b;
-  --vx-primary-hover: #2a2a31;
-  --vx-on-primary: #ffffff;
-  --vx-accent: #17171b;
-  --vx-accent-strong: #000000;
-  --vx-accent-wash: #e6e6ec;
-  --vx-accent-wash-2: #dcdce3;
-  --vx-on-accent-wash: #111114;
-  --vx-accent-edge: #3d3d45;
-  --vx-on-accent: #ffffff;
-  --vx-selection: #e9e9f0;
-  --vx-on-selection: #111114;
-
-  --vx-focus: #6a4bd6;
-  --vx-text-select: rgb(106 75 214 / .18);
-  --vx-violet: #6a4bd6;
-  --vx-violet-deep: #ddd5fb;
-
-  --vx-plat-hi: #4a4e57;
-  --vx-plat-mid: #1c1d22;
-  --vx-plat-lo: #0e0f12;
-  --vx-metal: linear-gradient(180deg, #3b3e46 0%, #1c1d22 38%, #5a5e68 52%, #23252b 70%, #0e0f12 100%);
-
-  --vx-past: #94570f;
-  --vx-past-strong: #6e3f07;
-  --vx-past-wash: #fbf4e8;
-  --vx-past-edge: #e6c48f;
-  --vx-past-halo: rgb(148 87 15 / .10);
-  --vx-past-dot: #b5711c;
-  --vx-past-hatch: repeating-linear-gradient(135deg, rgb(148 87 15 / .09) 0 4px, transparent 4px 9px);
-  --vx-past-filter: saturate(.8) sepia(.08);
-  --vx-on-past: #ffffff;
-
-  --vx-add-fg: #1b7546; --vx-add-bg: rgb(46 160 90 / .10); --vx-add-word: rgb(46 160 90 / .24); --vx-add-word-fg: #0f5a33;
-  --vx-del-fg: #c2302a; --vx-del-bg: rgb(229 72 77 / .08); --vx-del-word: rgb(229 72 77 / .20); --vx-del-word-fg: #8e1c17;
-  --vx-mod-bg: rgb(154 93 0 / .12);
-
-  --vx-ok: #1b7546; --vx-ok-wash: rgb(27 117 70 / .08);
-  --vx-warn: #9a5d00; --vx-warn-wash: rgb(154 93 0 / .08);
-  --vx-danger: #c2302a; --vx-danger-strong: #9c1f1a; --vx-danger-wash: rgb(194 48 42 / .07);
-  --vx-danger-edge: rgb(194 48 42 / .35); --vx-danger-fill: #c2302a; --vx-on-danger: #ffffff;
-
-  --vx-meter-track: #e2e2e7;
-  --vx-tick: #a3a3ad;
-  --vx-inverse: #17171b; --vx-on-inverse: #f4f4f6; --vx-inverse-accent: #ededf0;
-  --vx-avatar-bg: #dcdce3; --vx-avatar-fg: #111114;
+  --vx-pressed: #DFDBD2;
+  --vx-field: #FBFAF7;
+  --vx-field-hover: #FFFFFF;
+  --vx-float: #FBFAF7;
+  --vx-mat: #E5E3DE;
+  --vx-scrim: rgba(27, 26, 23, 0.30);
+  --vx-nav-glass: rgba(236, 232, 224, 0.80);
+  /* lines */
+  --vx-hair: rgba(43, 38, 30, 0.12);
+  --vx-hair-soft: rgba(43, 38, 30, 0.07);
+  --vx-hair-strong: rgba(43, 38, 30, 0.22);
+  --vx-hair-dash: rgba(43, 38, 30, 0.28);
+  --vx-outline: rgba(43, 38, 30, 0.32);
+  /* text (ratios on bg / bg-2) */
+  --vx-text-1: #1B1A17;            /* 14.2 / 13.3 */
+  --vx-text-2: #45423C;            /* 8.2 / 7.7 */
+  --vx-text-3: #635E55;            /* 5.3 / 4.9  (spec #6B665C was 4.36 on bg-2) */
+  --vx-text-4: #8F897E;            /* decoration only */
+  --vx-text-inv: #F7F5F0;
+  --vx-primary: #1B1A17;
+  --vx-primary-hover: #34322D;
+  --vx-on-primary: #F7F5F0;
+  --vx-accent: #AD3F16;            /* ember: 4.9 on bg, white on it 6.0 */
+  --vx-accent-strong: #8F3210;
+  --vx-accent-wash: rgba(173, 63, 22, 0.07);
+  --vx-accent-wash-2: rgba(173, 63, 22, 0.12);
+  --vx-on-accent-wash: #8F3210;
+  --vx-accent-edge: rgba(173, 63, 22, 0.40);
+  --vx-on-accent: #FFFFFF;
+  --vx-selection: rgba(27, 26, 23, 0.055);
+  --vx-on-selection: #1B1A17;
+  --vx-focus: #AD3F16;
+  --vx-text-select: rgba(47, 84, 214, 0.18);
+  --vx-plat-hi: #FFFFFF;
+  --vx-plat-mid: #DCD7CD;
+  --vx-plat-lo: #A49D90;
+  --vx-metal: linear-gradient(180deg, #2E2C28 0%, #1B1A17 100%);
+  --vx-metal-lg: linear-gradient(100deg, #1B1A17 0%, #57524A 50%, #1B1A17 100%);
+  --vx-past: #2F54D6;              /* cobalt: 5.1 on bg, white on it 6.25 */
+  --vx-past-strong: #2441AE;
+  --vx-past-wash: rgba(47, 84, 214, 0.08);
+  --vx-past-edge: rgba(47, 84, 214, 0.42);
+  --vx-past-halo: rgba(47, 84, 214, 0.12);
+  --vx-past-dot: #2F54D6;
+  --vx-past-fill: #2F54D6;         /* NEW */
+  --vx-past-hatch: rgba(47, 84, 214, 0.16);
+  --vx-past-hatch-neutral: rgba(43, 38, 30, 0.06);
+  --vx-past-filter: saturate(0.75);
+  --vx-on-past: #FFFFFF;
+  --vx-add-fg: #246B42; --vx-add-bg: rgba(36, 107, 66, 0.09); --vx-add-word: rgba(36, 107, 66, 0.20); --vx-add-word-fg: #1A4F30;
+  --vx-del-fg: #A3352A; --vx-del-bg: rgba(176, 48, 42, 0.08); --vx-del-word: rgba(176, 48, 42, 0.18); --vx-del-word-fg: #7D2618;
+  --vx-mod-bg: rgba(47, 84, 214, 0.07);
+  --vx-ok: #246B42; --vx-ok-wash: rgba(36, 107, 66, 0.10);
+  --vx-warn: #83580C; --vx-warn-wash: rgba(131, 88, 12, 0.10);
+  --vx-danger: #B0302A; --vx-danger-strong: #8E231E; --vx-danger-wash: rgba(176, 48, 42, 0.08);
+  --vx-danger-edge: rgba(176, 48, 42, 0.40); --vx-danger-fill: #B0302A; --vx-on-danger: #FFFFFF;
+  --vx-meter-track: rgba(43, 38, 30, 0.10);
+  --vx-tick: rgba(43, 38, 30, 0.42);
+  --vx-inverse: #1B1A17; --vx-on-inverse: #F7F5F0; --vx-inverse-accent: #FF8A57;
+  --vx-avatar-bg: #DFDBD2; --vx-avatar-fg: #1B1A17;
+  --skel-base: #E6E2DA; --skel-hi: #EFECE6;
+  --vx-mark-body: #1B1A17; --vx-mark-contact: #ECE8E0;
+  --vx-ft-doc: #3F5FB5; --vx-ft-sheet: #2F7A50; --vx-ft-pdf: #B4471F; --vx-ft-slides: #93620F;
+  --vx-ft-image: #B13F6A; --vx-ft-photo: #A3488C; --vx-ft-video: #A8435A; --vx-ft-audio: #5B6E1A;
+  --vx-ft-code: #1A6F7A; --vx-ft-archive: #7E633D; --vx-ft-other: #635E55; --vx-ft-folder: #4A6896;
+  --vx-ft-glyph: #FFFFFF; --vx-ft-tint: 14%;
+  --sh-fg: #2B2924; --sh-kw: #2441AE; --sh-str: #246B42; --sh-num: #8F3210; --sh-dim: #6E695F; --sh-arg: #A3375F;
+  --vx-shadow-sheet: 0 1px 0 rgba(43, 38, 30, 0.04), 0 1px 3px rgba(60, 45, 25, 0.05);
+  --vx-shadow-1: 0 1px 2px rgba(60, 45, 25, 0.08);
+  --vx-shadow-2: 0 4px 12px -2px rgba(60, 45, 25, 0.12);
+  --vx-shadow-3: 0 16px 36px -10px rgba(60, 45, 25, 0.22), 0 0 0 1px rgba(43, 38, 30, 0.06);
+  --vx-shadow-4: 0 30px 64px -18px rgba(60, 45, 25, 0.30);
+  --vx-shadow-mock: 0 40px 80px -36px rgba(60, 45, 25, 0.35);
+  --vx-atmos-tint: rgba(173, 63, 22, 0.03);
+  --vx-glow: rgba(255, 255, 255, 0.5);
+  --vx-grain-opacity: 0.06; --vx-grain-blend: multiply;
+  --vx-cta-fill: #1B1A17;
+  /* glass objects  NEW */
+  --vx-glass-l: 0.84; --vx-glass-c: 0.085; --vx-glass-a: 0.44; --vx-glass-back-l: 0.72;
+  --vx-glass-rim: rgba(255, 255, 255, 0.62); --vx-glass-hi: rgba(255, 255, 255, 0.85);
+  --vx-glass-shadow-l: 0.34;
+  --vx-paper: #FFFEFB; --vx-paper-line: rgba(27, 26, 23, 0.14);
+  --vx-ink-line: color-mix(in oklab, var(--vx-text-1) 70%, transparent);
+  /* paper texture  NEW */
+  --vx-dot: rgba(28, 26, 23, 0.10);
+  --vx-ascii-ink: 0.28;
+  --vx-ascii-wash: 0.12;
+  --vx-ascii-chroma: 0.05;
+  /* row labels (unchanged) */
   --vx-label-slate: #4f5866; --vx-label-sage: #2f6b43; --vx-label-moss: #5b6516; --vx-label-sand: #85602a;
   --vx-label-clay: #9c4a2c; --vx-label-rose: #a33a5c; --vx-label-plum: #6a4a9a; --vx-label-sky: #2c5f93;
   --vx-label-tint: 11%;
-  --skel-base: #ececf0; --skel-hi: #f6f6f8;
-
-  --vx-ft-doc: #2f62d1; --vx-ft-sheet: #1b7546; --vx-ft-pdf: #c2302a; --vx-ft-slides: #a85c0c;
-  --vx-ft-image: #b8357a; --vx-ft-photo: #0e7a86; --vx-ft-video: #4a4e57; --vx-ft-audio: #6b7413;
-  --vx-ft-code: #5b606b; --vx-ft-archive: #8a6630; --vx-ft-other: #62626c; --vx-ft-folder: #3d3d45;
-  --vx-ft-tint: 12%;
-  --vx-ft-glyph: var(--vx-text-1);
-
-  --sh-fg: #25252b; --sh-kw: #111114; --sh-str: #1b7546; --sh-num: #94570f; --sh-dim: #8a8a94; --sh-arg: #3d3d45;
-
-  --vx-shadow-1: 0 1px 2px rgb(20 20 30 / .06);
-  --vx-shadow-2: 0 6px 18px -10px rgb(20 20 30 / .22);
-  --vx-shadow-3: 0 12px 32px -14px rgb(20 20 30 / .22), 0 0 0 1px var(--vx-hair);
-  --vx-shadow-4: 0 40px 90px -50px rgb(30 30 45 / .35), 0 0 0 1px var(--vx-hair);
-  --vx-shadow-mock: 0 40px 90px -50px rgb(30 30 45 / .35);
-
-  --vx-mark-body: #0a0a0b; --vx-mark-contact: #f4f4f6;
-
-  color: var(--vx-text-2);
-  color-scheme: light;
+  /* violet retired: kept as aliases of the past/agents cobalt so old references still draw */
+  --vx-violet: var(--vx-past);
+  --vx-violet-deep: var(--vx-past-wash);
 }
+
 
 /* ── Iso art (app empty states + landing iso art) and landing atmosphere ── */
 :root, [data-vx-theme-scope='dark'] {
@@ -251,10 +263,10 @@
   --vx-iso-seam: #dfe3ea; --vx-iso-seam-groove: transparent; --vx-iso-seam-glow: .28;
   --vx-iso-glyph: #2a2c31;
 
-  --vx-atmos-tint: rgb(76 56 150 / .20);
-  --vx-atmos-floor: var(--vx-violet-deep);
+  --vx-atmos-tint: rgb(255 220 180 / .05);
+  --vx-atmos-floor: var(--vx-bg-2);
   --vx-atmos-vignette: rgb(0 0 0 / .55);
-  --vx-glow: rgb(167 139 250 / .10);
+  --vx-glow: rgb(255 220 180 / .05);
   --vx-grain-opacity: .055; --vx-grain-blend: overlay;
   --vx-hero-ghost-btn: rgb(10 10 11 / .75);
   --vx-tag-bg: rgb(10 10 11 / .72); --vx-tag-ring: transparent;
@@ -293,10 +305,10 @@
   --vx-iso-seam: #ffffff; --vx-iso-seam-groove: #2a2c32; --vx-iso-seam-glow: 0;
   --vx-iso-glyph: #ffffff;
 
-  --vx-atmos-tint: rgb(167 139 250 / .16);
-  --vx-atmos-floor: #e4ddfb;
+  --vx-atmos-tint: rgb(173 63 22 / .04);
+  --vx-atmos-floor: var(--vx-bg-2);
   --vx-atmos-vignette: rgb(40 40 60 / .07);
-  --vx-glow: rgb(106 75 214 / .07);
+  --vx-glow: rgb(255 255 255 / .5);
   --vx-grain-opacity: .04; --vx-grain-blend: multiply;
   --vx-hero-ghost-btn: rgb(244 244 246 / .78);
   --vx-tag-bg: rgb(255 255 255 / .82); --vx-tag-ring: var(--vx-hair);
@@ -318,17 +330,23 @@
 
 /* ── Shared scales ────────────────────────────────────────────────────── */
 :root {
-  --vx-font-sans: var(--font-inter), "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --vx-font-mono: var(--font-kd-mono), ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  /* 2 / 4 / 6, no pills (pill degrades to a rectangle for old references) */
-  --vx-r-xs: 2px; --vx-r-sm: 4px; --vx-r-md: 6px; --vx-r-lg: 6px; --vx-r-pill: 4px;
-  --vx-ease: cubic-bezier(.2, .7, .2, 1); --vx-ease-io: cubic-bezier(.65, 0, .35, 1); --vx-ease-exit: cubic-bezier(.3, 0, 1, 1);
+  --vx-font-sans: var(--font-geist), 'Geist', ui-sans-serif, system-ui, sans-serif;          /* one-line swap from Inter */
+  --vx-font-mono: var(--font-kd-mono), 'Geist Mono', ui-monospace, 'SF Mono', monospace;       /* one-line swap from JetBrains Mono */
+  --vx-font-display: var(--font-kd-display), 'Instrument Serif', Georgia, serif;                    /* NEW: one emphasised word only */
+  --vx-r-xs: 4px; --vx-r-sm: 8px; --vx-r-md: 12px; --vx-r-lg: 16px; --vx-r-xl: 22px; --vx-r-pill: 999px;
+  --vx-ease: cubic-bezier(0.2, 0.8, 0.2, 1); --vx-ease-io: cubic-bezier(0.6, 0, 0.2, 1); --vx-ease-exit: cubic-bezier(0.4, 0, 1, 1);
   --vx-dur-1: 120ms; --vx-dur-2: 160ms; --vx-dur-3: 200ms; --vx-dur-4: 240ms; --vx-dur-5: 500ms;
-  --vx-topbar-h: 56px; --vx-rail-w: 240px; --vx-row-h: 36px; --vx-strip-h: 64px;
-  --vx-panel-w: clamp(380px, 30vw, 480px); --vx-timeline-w: 300px; --vx-ctl-h: 36px; --vx-ctl-h-sm: 30px;
+  --vx-topbar-h: 60px; --vx-rail-w: 248px; --vx-row-h: 42px; --vx-strip-h: 80px;
+  --vx-ctl-h: 40px; --vx-ctl-h-sm: 32px;
+  /* the seven object hues (oklch hue angle)  NEW. No violet. */
+  --hue-coral: 32; --hue-amber: 72; --hue-lime: 118; --hue-mint: 162; --hue-aqua: 205; --hue-cobalt: 262; --hue-rose: 352;
+  --vx-obj-w: 180px;                /* NEW: landing object; app card 150px; sidebar dot 16x13 */
+  /* app geometry kept from the previous system (column order is wired in components) */
+  --vx-panel-w: clamp(380px, 30vw, 480px); --vx-timeline-w: 300px;
   --vx-list-cols: 36px minmax(0, 1fr) 168px 96px 152px;
   --vx-list-cols-compact: 36px minmax(0, 1fr) 120px 80px;
 }
+
 
 /* ── Tailwind v4 bridge: bg-vx-bg, text-vx-text-2, border-vx-hair, rounded-vx-md, shadow-vx-3, … ── */
 @theme inline {
@@ -379,6 +397,7 @@
   --color-vx-past-edge: var(--vx-past-edge);
   --color-vx-past-halo: var(--vx-past-halo);
   --color-vx-past-dot: var(--vx-past-dot);
+  --color-vx-past-fill: var(--vx-past-fill);
   --color-vx-on-past: var(--vx-on-past);
   --color-vx-add-fg: var(--vx-add-fg);
   --color-vx-add-bg: var(--vx-add-bg);
@@ -480,26 +499,26 @@ html.vx-theme-switching *, html.vx-theme-switching *::before, html.vx-theme-swit
 
 /* ── type scale (UNIFY-SPEC §3): Inter for prose, JetBrains Mono for data and labels ── */
 .vx-display { font-size: clamp(34px, 4.4vw, 52px); line-height: 1.04; font-weight: 600; letter-spacing: -0.032em; color: var(--vx-text-1); }
-.vx-h1 { font-size: 26px; line-height: 32px; font-weight: 600; letter-spacing: -0.025em; color: var(--vx-text-1); }
-.vx-h2 { font-size: 20px; line-height: 26px; font-weight: 600; letter-spacing: -0.02em; color: var(--vx-text-1); }
-.vx-title { font-size: 16px; line-height: 22px; font-weight: 600; letter-spacing: -0.015em; color: var(--vx-text-1); }
+.vx-h1 { font-size: 32px; line-height: 38px; font-weight: 600; letter-spacing: -0.024em; color: var(--vx-text-1); text-wrap: balance; }
+.vx-h2 { font-size: 22px; line-height: 28px; font-weight: 600; letter-spacing: -0.014em; color: var(--vx-text-1); text-wrap: balance; }
+.vx-title { font-size: 17px; line-height: 24px; font-weight: 600; letter-spacing: -0.008em; color: var(--vx-text-1); }
 .vx-body-lg { font-size: 15px; line-height: 24px; font-weight: 400; }
 .vx-body { font-size: 14px; line-height: 20px; font-weight: 400; }
 .vx-ui { font-size: 14px; line-height: 20px; font-weight: 500; }
 .vx-meta { font-family: var(--vx-font-mono); font-size: 12px; line-height: 18px; font-weight: 400; }
-.vx-meta-row { font-family: var(--vx-font-mono); font-size: 12.5px; line-height: 20px; font-weight: 400; }
-.vx-micro { font-size: 12px; line-height: 16px; font-weight: 400; }
-.vx-eyebrow { font-family: var(--vx-font-mono); font-size: 11px; line-height: 16px; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; color: var(--vx-text-3); }
+.vx-meta-row { font-family: var(--vx-font-mono); font-size: 13px; line-height: 20px; font-weight: 400; }
+.vx-micro { font-size: 12.5px; line-height: 18px; font-weight: 400; }
+.vx-eyebrow { font-family: var(--vx-font-mono); font-size: 12px; line-height: 16px; font-weight: 500; letter-spacing: .1em; text-transform: uppercase; color: var(--vx-text-3); }
 /* A tag chip: `--lc` is one of the --vx-label-* inks (components/labels/label-chip.tsx). */
 .vx-tag { color: var(--lc); background: color-mix(in srgb, var(--lc) var(--vx-label-tint), transparent); }
 .vx-tag-dot { background: var(--lc); }
-.vx-colhead { font-family: var(--vx-font-mono); font-size: 11px; line-height: 16px; font-weight: 500; letter-spacing: .10em; text-transform: uppercase; color: var(--vx-text-3); }
+.vx-colhead { font-family: var(--vx-font-mono); font-size: 12px; line-height: 16px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--vx-text-3); }
 /* Header cells that hold the user's own data (CSV columns): the colhead voice, but never re-cased. */
 .vx-datahead { font-family: var(--vx-font-mono); font-size: 11px; line-height: 16px; font-weight: 500; letter-spacing: .04em; color: var(--vx-text-3); }
 .vx-code { font-size: 12px; line-height: 18px; font-weight: 400; }
 /* Metal text: the landing wordmark, two landing emphasis words and the sign-in headline's last word only. */
 .vx-metal { background: var(--vx-metal); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.vx-wordmark { font-family: var(--vx-font-sans); font-size: 15px; line-height: 20px; font-weight: 600; letter-spacing: .08em; color: var(--vx-text-1); }
+.vx-wordmark { font-family: var(--vx-font-sans); font-size: 16px; line-height: 20px; font-weight: 600; letter-spacing: .09em; color: var(--vx-text-1); }
 
 /* ── surfaces ─────────────────────────────────────────────────────────── */
 /* Page → sheet → float. Sheets hold the work and rely on their hairline; floats carry a shadow. */
@@ -514,16 +533,16 @@ html.vx-theme-switching *, html.vx-theme-switching *::before, html.vx-theme-swit
   border-radius: var(--vx-r-md);
   box-shadow: var(--vx-shadow-3);
 }
-/* Past ring: border + 3 px halo on the drive sheet and the strip. */
+/* Past ring: cobalt border + 3 px halo on the drive sheet and the strip. */
 .is-past {
   border-color: var(--vx-past-edge) !important;
   box-shadow: 0 0 0 3px var(--vx-past-halo);
   transition: box-shadow var(--vx-dur-3) var(--vx-ease), border-color var(--vx-dur-3) var(--vx-ease);
 }
-.vx-hatch { background-image: var(--vx-past-hatch); }
-/* Selected rows and cards: neutral fill + a 2px ink bar on the left edge. */
-.vx-selected { background: var(--vx-selection); color: var(--vx-on-selection); box-shadow: inset 2px 0 0 var(--vx-accent); }
-/* The landing's static atmosphere for sheetless pages (sign-in, OAuth, 404): a violet tint over the ground. */
+.vx-hatch { background-image: repeating-linear-gradient(-45deg, var(--vx-past-hatch) 0 2px, transparent 2px 7px); }
+/* Selected rows and cards: neutral fill + a 3 px ink bar on the left edge. */
+.vx-selected { background: var(--vx-selection); color: var(--vx-on-selection); box-shadow: inset 3px 0 0 var(--vx-text-1); }
+/* The static atmosphere for sheetless pages (sign-in, OAuth, 404): a warm tint over the ground. */
 .vx-atmos {
   background:
     radial-gradient(ellipse 70% 55% at 50% 0%, var(--vx-atmos-tint), transparent 70%),
@@ -582,10 +601,11 @@ html.vx-theme-switching *, html.vx-theme-switching *::before, html.vx-theme-swit
 
 /* ════════════════════════════════════════════════════════════════════════
  * App shell (UNIFY-SPEC §11)
- *   .vx-app      grid [sidebar 240][content] × [top bar 56][content]
+ *   .vx-app      grid [sidebar 248][content] × [top bar 60][content]
  *   .vx-topbar   brand lockup · search field · help / theme / avatar (1px hair bottom)
  *   .vx-side     + New, workspace switcher, nav, storage (1px hair right)
- *   .vx-content  grid [work sheet 1fr][timeline 300?][panel 380?] over [strip 64]
+ *   .vx-content  grid [work sheet 1fr][timeline 300?][panel 380?] over [strip 80]
+ * No texture in here: the paper ground is flat, the sheets carry the work.
  *   .vx-main     the work sheet (.vx-sheet unless the route is sheetless)
  * ════════════════════════════════════════════════════════════════════════ */
 .vx-app {
@@ -611,7 +631,7 @@ html.vx-theme-switching *, html.vx-theme-switching *::before, html.vx-theme-swit
 }
 .vx-side {
   display: flex; flex-direction: column; min-height: 0; overflow-y: auto; overflow-x: hidden;
-  padding: 12px 12px 12px 12px;
+  padding: 14px 12px 12px 12px;
   background: var(--vx-bg);
   border-right: 1px solid var(--vx-hair);
 }
@@ -621,8 +641,8 @@ html.vx-theme-switching *, html.vx-theme-switching *::before, html.vx-theme-swit
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
   grid-template-rows: minmax(0, 1fr) auto;
-  /* Rows 8 px apart; the rail and panel carry their own 8 px left margin so empty columns add no gap. */
-  row-gap: 8px;
+  /* Rows 10 px apart; the rail and panel carry their own 8 px left margin so empty columns add no gap. */
+  row-gap: 10px;
   padding: 12px;
   min-height: 0; min-width: 0;
 }
@@ -666,7 +686,7 @@ html.vx-theme-switching *, html.vx-theme-switching *::before, html.vx-theme-swit
     box-shadow: var(--vx-shadow-4);
   }
   .vx-content[data-strip='true'] > .vx-timeline,
-  .vx-content[data-strip='true'] > .vx-panel { bottom: calc(12px + var(--vx-strip-h) + 8px); }
+  .vx-content[data-strip='true'] > .vx-panel { bottom: calc(12px + var(--vx-strip-h) + 10px); }
 }
 
 /* 720–1023: the sidebar collapses to a 64 px icon column. */
@@ -683,15 +703,15 @@ html.vx-theme-switching *, html.vx-theme-switching *::before, html.vx-theme-swit
   html[data-vx-side='collapsed'] .vx-side { padding: 12px 8px; align-items: center; }
   html[data-vx-side='collapsed'] .vx-side-full { display: none !important; }
   html[data-vx-side='collapsed'] .vx-side-compact { display: revert; }
-  html[data-vx-side='collapsed'] .vx-nav { flex-direction: column; justify-content: center; gap: 2px; height: auto; width: 48px; padding: 0 0 4px; background: transparent !important; color: var(--vx-text-2); font-size: 11px; line-height: 14px; }
+  html[data-vx-side='collapsed'] .vx-nav { flex-direction: column; justify-content: center; gap: 2px; height: auto; width: 52px; padding: 0 0 4px; background: transparent !important; box-shadow: none !important; color: var(--vx-text-2); font-size: 11px; line-height: 14px; }
   html[data-vx-side='collapsed'] .vx-nav .vx-nav-icon { width: 40px; height: 32px; border-radius: var(--vx-r-sm); transition: background-color var(--vx-dur-1) var(--vx-ease); }
   html[data-vx-side='collapsed'] .vx-nav:hover .vx-nav-icon { background: var(--vx-raise); }
   html[data-vx-side='collapsed'] .vx-nav[aria-current='page'] { color: var(--vx-text-1); }
-  html[data-vx-side='collapsed'] .vx-nav[aria-current='page'] .vx-nav-icon { background: var(--vx-accent-wash); color: var(--vx-text-1); }
+  html[data-vx-side='collapsed'] .vx-nav[aria-current='page'] .vx-nav-icon { background: var(--vx-surface); color: var(--vx-text-1); box-shadow: var(--vx-shadow-1), 0 0 0 1px var(--vx-hair); }
 }
 /* ≤ 720: phone. One glass bar on top, the sidebar becomes a drawer, sheets go full-bleed. */
 @media (max-width: 720px) {
-  :root { --vx-topbar-h: 56px; --vx-rail-w: 300px; --vx-strip-h: 56px; }
+  :root { --vx-topbar-h: 56px; --vx-rail-w: 300px; --vx-strip-h: 64px; }
   .vx-app { grid-template-columns: minmax(0, 1fr); }
   .vx-app > .vx-content { grid-column: 1; }
   .vx-topbar {
@@ -726,7 +746,7 @@ html.vx-theme-switching *, html.vx-theme-switching *::before, html.vx-theme-swit
     border-radius: var(--vx-r-lg) var(--vx-r-lg) 0 0; border-bottom: 0;
   }
   .vx-content > .vx-strip {
-    position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 40; min-height: 0;
+    position: fixed; left: 8px; right: 8px; bottom: 8px; z-index: 40; min-height: 0;
     box-shadow: var(--vx-shadow-2);
   }
 }
@@ -743,35 +763,36 @@ html.vx-theme-switching *, html.vx-theme-switching *::before, html.vx-theme-swit
   .vx-toasts, .vx-toasts[data-shell='true'] { left: 16px; right: 16px; width: auto; transform: none; }
 }
 
-/* ── Sidebar nav items (UNIFY-SPEC §11): 32h, r4; active = accent wash + text-1 + 600 ── */
+/* ── Sidebar nav items: 38h, r10, 15/500; active = a raised surface tab (surface + hair ring + shadow-1) ── */
 .vx-nav {
-  display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 10px;
-  border-radius: var(--vx-r-sm); color: var(--vx-text-2);
-  font-size: 14px; line-height: 20px; font-weight: 500;
-  transition: background-color var(--vx-dur-1) var(--vx-ease), color var(--vx-dur-1) var(--vx-ease);
+  display: flex; align-items: center; gap: 12px; height: 38px; padding: 0 10px;
+  border-radius: 10px; color: var(--vx-text-2);
+  font-size: 15px; line-height: 20px; font-weight: 500;
+  transition: background-color var(--vx-dur-1) var(--vx-ease), color var(--vx-dur-1) var(--vx-ease), box-shadow var(--vx-dur-1) var(--vx-ease);
 }
 .vx-nav:hover { background: var(--vx-raise); color: var(--vx-text-1); }
 .vx-nav:active { background: var(--vx-pressed); }
-.vx-nav[aria-current='page'] { background: var(--vx-accent-wash); color: var(--vx-text-1); font-weight: 600; }
-.vx-nav-icon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.vx-nav[aria-current='page'] { background: var(--vx-surface); color: var(--vx-text-1); box-shadow: var(--vx-shadow-1), 0 0 0 1px var(--vx-hair); }
+.vx-nav-icon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--vx-text-3); }
+.vx-nav:hover .vx-nav-icon, .vx-nav[aria-current='page'] .vx-nav-icon { color: var(--vx-text-1); }
 /* The chord shows on hover/focus beside the count (never instead of it), so a count is never hidden while pointed at. */
 .vx-nav-chord { opacity: 0; font-family: var(--vx-font-mono); font-size: 11px; text-transform: uppercase; color: var(--vx-text-4); transition: opacity var(--vx-dur-1) var(--vx-ease); }
 .vx-nav:hover .vx-nav-chord, .vx-nav:focus-visible .vx-nav-chord { opacity: 1; }
 @media (hover: none) { .vx-nav-chord { display: none; } }
-/* Nav counts are one component: an r2 Mono chip. Plain counts carry a hair ring; attention counts (proposals) the accent wash. */
+/* Nav counts are one component: a 20 px Mono chip. Plain counts carry a hair ring; attention counts (proposals, from agents) the cobalt wash. */
 .vx-nav-count {
-  display: inline-flex; align-items: center; justify-content: center; height: 18px; min-width: 18px; padding: 0 4px;
-  border-radius: var(--vx-r-xs); box-shadow: inset 0 0 0 1px var(--vx-hair);
-  font-family: var(--vx-font-mono); font-size: 11px; line-height: 16px; font-weight: 500; font-variant-numeric: tabular-nums; color: var(--vx-text-3);
+  display: inline-flex; align-items: center; justify-content: center; height: 20px; min-width: 22px; padding: 0 6px;
+  border-radius: 6px; box-shadow: inset 0 0 0 1px var(--vx-hair);
+  font-family: var(--vx-font-mono); font-size: 12px; line-height: 16px; font-weight: 500; font-variant-numeric: tabular-nums; color: var(--vx-text-3);
 }
-.vx-nav-count.is-attention { box-shadow: none; background: var(--vx-accent-wash); color: var(--vx-on-accent-wash); }
+.vx-nav-count.is-attention { box-shadow: none; background: var(--vx-past-wash); color: var(--vx-past); }
 .vx-nav.is-drop { background: var(--vx-accent-wash); box-shadow: inset 0 0 0 1px var(--vx-accent-edge); }
 @media (min-width: 721px) and (max-width: 1023px) {
-  .vx-nav { flex-direction: column; justify-content: center; gap: 2px; height: auto; width: 48px; padding: 0 0 4px; background: transparent !important; color: var(--vx-text-2); font-size: 11px; line-height: 14px; }
+  .vx-nav { flex-direction: column; justify-content: center; gap: 2px; height: auto; width: 52px; padding: 0 0 4px; background: transparent !important; box-shadow: none !important; color: var(--vx-text-2); font-size: 11px; line-height: 14px; }
   .vx-nav .vx-nav-icon { width: 40px; height: 32px; border-radius: var(--vx-r-sm); transition: background-color var(--vx-dur-1) var(--vx-ease); }
   .vx-nav:hover .vx-nav-icon { background: var(--vx-raise); }
   .vx-nav[aria-current='page'] { color: var(--vx-text-1); }
-  .vx-nav[aria-current='page'] .vx-nav-icon { background: var(--vx-accent-wash); color: var(--vx-text-1); }
+  .vx-nav[aria-current='page'] .vx-nav-icon { background: var(--vx-surface); color: var(--vx-text-1); box-shadow: var(--vx-shadow-1), 0 0 0 1px var(--vx-hair); }
 }
 
 /* Grain at half the landing's strength, for the sheetless atmosphere pages. */

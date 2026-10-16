@@ -30,7 +30,7 @@ const noRetry = { revalidateOnFocus: false, shouldRetryOnError: false } as const
 /** A danger row inside the dialog body (budget full, create errors). */
 function ErrorRow({ children }: { children: React.ReactNode }) {
   return (
-    <div role="alert" className="flex items-start gap-2 rounded-vx-sm bg-vx-danger-wash px-3 py-2 text-[13px] leading-5 text-vx-danger">
+    <div role="alert" className="flex items-start gap-2 rounded-vx-sm bg-vx-danger-wash px-3 py-2.5 text-[14px] leading-5 text-vx-danger">
       <CircleAlert size={16} strokeWidth={1.75} className="mt-0.5 shrink-0" aria-hidden />
       <span className="min-w-0">{children}</span>
     </div>
@@ -63,7 +63,7 @@ function OptionCard({
       className={cx(
         'vx-inset-focus flex min-h-[60px] min-w-0 items-center gap-3 rounded-vx-md px-3.5 py-3 text-left transition-colors duration-[120ms] ease-vx disabled:cursor-not-allowed disabled:opacity-[.38]',
         on
-          ? 'bg-vx-selection shadow-[inset_0_0_0_1px_var(--vx-accent-edge)]'
+          ? 'bg-vx-surface shadow-[inset_0_0_0_1.5px_var(--vx-text-1),var(--vx-shadow-1)]'
           : 'shadow-[inset_0_0_0_1px_var(--vx-hair-strong)] enabled:hover:bg-vx-raise',
       )}
     >
@@ -71,13 +71,13 @@ function OptionCard({
         aria-hidden
         className={cx(
           'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-vx-sm',
-          on ? 'bg-vx-accent text-vx-on-accent' : 'bg-vx-surface-3 text-vx-text-2',
+          on ? 'bg-vx-primary text-vx-on-primary' : 'bg-vx-surface-3 text-vx-text-2',
         )}
       >
         {icon}
       </span>
       <span className="min-w-0">
-        <span className={cx('block text-[14px] font-semibold leading-5', on ? 'text-vx-on-selection' : 'text-vx-text-1')}>{title}</span>
+        <span className="block text-[14.5px] font-semibold leading-5 text-vx-text-1">{title}</span>
         <span className="mt-0.5 block text-[13px] leading-[18px] text-vx-text-3">{body}</span>
       </span>
     </button>
@@ -198,7 +198,7 @@ function ShareBody({ ws, path, tab: initialTab, onClose }: { ws: string; path: s
     await Promise.all([links.mutate(), link.mode === 'pinned' ? budget.mutate() : null]);
   };
 
-  const label = 'mb-2 block text-[13px] font-medium leading-5 text-vx-text-2';
+  const label = 'mb-2 block text-[14px] font-medium leading-5 text-vx-text-2';
 
   return (
     <Dialog

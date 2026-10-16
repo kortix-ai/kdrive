@@ -1,7 +1,7 @@
 'use client';
 
-// Selection bar (UNIFY-SPEC §14.2): a 40 px r4 bar on `--vx-raise` with a 1 px hair-strong
-// edge that replaces the column header while anything is selected: ✕ · "2 selected" + size · divider · Download, Move,
+// Selection bar (UNIFY-SPEC §14.2): a 44 px r12 float bar with a 1 px hair-strong
+// edge that floats over the top of the list while anything is selected: ✕ · "2 selected" + size · divider · Download, Move,
 // Copy, Star, Share*, Versions*, Delete, More (* single item only). In the past, write actions stay
 // visible but disabled with the reason, and a single item offers Restore.
 import { Clock, Copy, Download, FolderInput, MoreHorizontal, RotateCcw, Share2, Star, Tag, Trash, X } from 'lucide-react';
@@ -91,7 +91,7 @@ export default function SelectionBar({
     <div
       role="toolbar"
       aria-label="Selection"
-      className={cx(s.selIn, 'flex h-10 min-w-0 items-center gap-0.5 rounded-vx-sm border border-vx-hair-strong bg-vx-raise pl-1.5 pr-1.5 text-vx-text-1')}
+      className={cx(s.selIn, 'flex h-11 min-w-0 items-center gap-0.5 rounded-vx-md border border-vx-hair-strong bg-vx-float pl-1.5 pr-1.5 text-vx-text-1')}
     >
       <Act label="Clear selection" kbd="Esc" onClick={onClear}>
         <X {...I} />

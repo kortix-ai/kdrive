@@ -1,7 +1,8 @@
 'use client';
 
 // The drive (architecture §9.4, DESIGN-v2 §6.2–6.3, 6.13–6.15, §7): the sheet head
-// (crumbs, view, details), column header / selection bar, virtualised list or grid,
+// (crumbs, title, meta, view, details), glass folder cards over a file table (list) or
+// file cards (grid), the floating selection bar, virtualisation,
 // marquee, drag-and-drop moves, context menus, inline rename and new folder, keyboard
 // map, search palette.
 // In the past (store.timeTravel) every read passes `at`, writes are disabled
@@ -33,7 +34,7 @@ import {
   type Rect,
 } from '@/lib/drive/selection';
 import { DEFAULT_SORT, loadSort, nextSort, saveSort, sortEntries, type SortKey, type SortSpec } from '@/lib/drive/sort';
-import { formatMoment } from '@/lib/format';
+import { formatMoment, formatRelative } from '@/lib/format';
 import { isTypingTarget, useHotkeys } from '@/lib/keys';
 import { useShellIntents } from '@/lib/shell-intents';
 import { currentRole, useVx, VIEW_ONLY_REASON } from '@/lib/store';
@@ -45,8 +46,7 @@ import DriveContextMenu, { buildDriveMenu, buildFolderMenu, type DriveCommands }
 import { DriveCtx, READ_ONLY_REASON, type DriveCtxValue } from './drive-context';
 import EmptyDrive, { DriveEmpty, type EmptyKind } from './empty-drive';
 import FileGrid from './file-grid';
-import FileList, { LIST_TOP, type ListRow } from './file-list';
-import { LIST_INSET, PHONE_ROW_H, ROW_H, RowCheck, listCols } from './file-row';
+import { PHONE_ROW_H, ROW_H, RowCheck, listCols } from './file-row';
 import MoveCopyDialog, { type MoveCopyRequest } from './move-copy-dialog';
 import { SearchPalette } from './search-box';
 import type { PaletteItem } from './search-results';
@@ -59,7 +59,7 @@ import s from './drive.module.css';
 
 type MenuState = { x: number; y: number; flipY?: number; align?: 'start' | 'end'; targets: FileEntry[] } | null;
 
-/** Column header button (UNIFY-SPEC §12.1): `.vx-colhead` (Mono 11 UPPERCASE); the sort column is text-1 with a 12 px arrow. */
+/** Column header button (UNIFY-SPEC §12.1): `.vx-colhead` (Mono 12 UPPERCASE); the sort column is text-1 with a 12 px arrow. */
 function SortHead({ label, k, sort, onSort, align = 'left' }: { label: string; k: SortKey; sort: SortSpec; onSort: (k: SortKey) => void; align?: 'left' | 'right' }) {
   const on = sort.key === k;
   const Arrow = sort.dir === 'asc' ? ArrowUp : ArrowDown;
@@ -240,46 +240,26 @@ export default function FileBrowser({ path }: { path: string }) {
     if (st.selection.length && st.selection.some((p) => !byPath.has(p))) st.select(st.selection.filter((p) => byPath.has(p)), 'replace');
   }, [data, stale, byPath, listing.isValidating]);
 
-  // ── rows / layout ─────────────────────────────────────────────────────────
-  const listRows: ListRow[] = useMemo(() => {
-    const rows: ListRow[] = [];
-    if (creating) rows.push({ kind: 'new' });
-    for (const e of entries) rows.push({ kind: 'entry', entry: e });
-    if (addedLater.length) {
-      rows.push({ kind: 'footer', count: addedLater.length, names: addedLater.map((e) => e.name) });
-      if (addedLaterOpen) for (const e of addedLater) rows.push({ kind: 'ghost', entry: e });
-    }
-    return rows;
-  }, [creating, entries, addedLater, addedLaterOpen]);
-
+  // ── layout: folder cards, then a file table (list) or file cards (grid) ─────
+  const listView = view === 'list';
   const gridLayout = useMemo(
     () =>
-      view === 'grid'
-        ? computeGridLayout({
-            width: width || 800,
-            folders: entries.filter((e) => e.type === 'dir'),
-            files: entries.filter((e) => e.type !== 'dir'),
-            creating,
-            ghosts: addedLaterOpen ? addedLater : [],
-            addedLaterCount: addedLater.length,
-            addedLaterNames: addedLater.map((e) => e.name),
-            phone,
-          })
-        : null,
-    [view, width, entries, creating, addedLater, addedLaterOpen, phone],
+      computeGridLayout({
+        width: width || 800,
+        folders: entries.filter((e) => e.type === 'dir'),
+        files: entries.filter((e) => e.type !== 'dir'),
+        creating,
+        ghosts: addedLaterOpen ? addedLater : [],
+        addedLaterCount: addedLater.length,
+        addedLaterNames: addedLater.map((e) => e.name),
+        phone,
+        listRowH: listView ? rowH : undefined,
+      }),
+    [listView, width, entries, creating, addedLater, addedLaterOpen, phone, rowH],
   );
 
-  const itemRects: ItemRect[] = useMemo(() => {
-    if (gridLayout) return gridLayout.itemRects;
-    const out: ItemRect[] = [];
-    listRows.forEach((r, i) => {
-      if (r.kind === 'entry') out.push({ path: r.entry.path, rect: { x: LIST_INSET, y: LIST_TOP + i * rowH, w: Math.max(0, (width || 1000) - LIST_INSET * 2), h: rowH } });
-    });
-    return out;
-  }, [gridLayout, listRows, width, rowH]);
-
-  const focusIndex = focus ? listRows.findIndex((r) => r.kind === 'entry' && r.entry.path === focus) : -1;
-  const focusRow = focus && gridLayout ? (gridLayout.rowOf.get(focus) ?? -1) : -1;
+  const itemRects: ItemRect[] = gridLayout.itemRects;
+  const focusRow = focus ? (gridLayout.rowOf.get(focus) ?? -1) : -1;
 
   // ── commands ──────────────────────────────────────────────────────────────
   const vx = useVx.getState;
@@ -411,8 +391,8 @@ export default function FileBrowser({ path }: { path: string }) {
     }
     setFocus(next);
   };
-  // Up/down in the grid steps a whole row of the section the focus is in.
-  const vStep = gridLayout ? (focus && byPath.get(focus)?.type === 'dir' ? gridLayout.folderCols : gridLayout.cols) : 1;
+  // Up/down steps a whole row of the section the focus is in (one file at a time in the table).
+  const vStep = focus && byPath.get(focus)?.type === 'dir' ? gridLayout.folderCols : gridLayout.cols;
 
   // The shell's search pill and "+ New › New folder" land here.
   useShellIntents({ search: () => setPaletteOpen(true), 'new-folder': newFolder });
@@ -476,7 +456,7 @@ export default function FileBrowser({ path }: { path: string }) {
       k: () => moveFocus(-vStep, false),
       'shift+j': () => moveFocus(vStep, true),
       'shift+k': () => moveFocus(-vStep, true),
-      ...(gridLayout && panel?.kind !== 'preview'
+      ...((!listView || (focus && byPath.get(focus)?.type === 'dir')) && panel?.kind !== 'preview'
         ? {
             arrowright: () => moveFocus(1, false),
             arrowleft: () => moveFocus(-1, false),
@@ -745,7 +725,63 @@ export default function FileBrowser({ path }: { path: string }) {
   });
   const detailsOpen = panel?.kind === 'preview' && panel.path === path;
   const allSelected = selectedEntries.length > 0 && selectedEntries.length === entries.length;
-  const listView = view === 'list' && !phone;
+  // "8 files · 4 folders · updated 2 h ago" under the title.
+  const nDirs = entries.filter((e) => e.type === 'dir').length;
+  const nFiles = entries.length - nDirs;
+  const newest = entries.reduce((m, e) => Math.max(m, e.mtime || 0), 0);
+  const summary =
+    (filtering || (data && !hardError)) && entries.length
+      ? [
+          nFiles ? `${nFiles.toLocaleString()} ${nFiles === 1 ? 'file' : 'files'}` : null,
+          nDirs ? `${nDirs.toLocaleString()} ${nDirs === 1 ? 'folder' : 'folders'}` : null,
+          newest && !filtering ? `updated ${formatRelative(newest).toLowerCase()}` : null,
+        ]
+          .filter(Boolean)
+          .join(' · ')
+      : filtering
+        ? ''
+        : data && !hardError && !stale
+          ? 'Empty'
+          : '';
+  // The table's column header (list view): select all · Name · Modified · Size · count.
+  const listHead = phone ? (
+    <div className="flex h-full items-center gap-5 px-3">
+      <SortHead label="Name" k="name" sort={sort} onSort={onSort} />
+      <SortHead label="Modified" k="mtime" sort={sort} onSort={onSort} />
+      <SortHead label="Size" k="size" sort={sort} onSort={onSort} />
+    </div>
+  ) : (
+    <div className={cx(s.item, 'grid h-full items-center pl-1', density === 'wide' ? 'pr-2' : 'pr-3')} style={{ gridTemplateColumns: listCols(density) }}>
+      <span className="flex items-center justify-center">
+        <RowCheck
+          on={allSelected}
+          onToggle={() => (allSelected ? vx().clearSelection() : vx().select(order, 'replace'))}
+          label="Select all"
+          className={cx(!allSelected && s.reveal)}
+        />
+      </span>
+      <span className="flex min-w-0 items-center pr-4">
+        <SortHead label="Name" k="name" sort={sort} onSort={onSort} />
+      </span>
+      <span className="vx-col-mtime min-w-0 pr-3">
+        <SortHead label="Modified" k="mtime" sort={sort} onSort={onSort} />
+      </span>
+      <span className="flex min-w-0 justify-end pr-2">
+        <SortHead label="Size" k="size" sort={sort} onSort={onSort} align="right" />
+      </span>
+      {density === 'wide' ? <span className="truncate pr-2 text-right font-mono text-[12px] leading-4 text-vx-text-3">{countLabel}</span> : null}
+    </div>
+  );
+  // The grid view sorts from its first heading.
+  const sortSlot = (
+    <div className="flex items-center gap-4">
+      <SortHead label="Name" k="name" sort={sort} onSort={onSort} />
+      <span className="vx-col-mtime">
+        <SortHead label="Modified" k="mtime" sort={sort} onSort={onSort} />
+      </span>
+      <SortHead label="Size" k="size" sort={sort} onSort={onSort} />
+    </div>
+  );
 
   if (!ws) return null;
 
@@ -767,67 +803,10 @@ export default function FileBrowser({ path }: { path: string }) {
           onDetails={() => (detailsOpen ? vx().closePanel() : vx().openPreview(path))}
           phone={phone}
           missing={hardError}
+          summary={summary}
         />
 
         {filtering ? <TaggedBar labelId={labelFilter!} count={tagged.data?.items.length ?? null} /> : null}
-
-        {/* Column header ⇄ selection bar: same 44 px slot, so the list never jumps. An empty or missing
-            folder has no columns to head, so the slot (and its "0 items") is left out. */}
-        {empty && !selectedEntries.length ? null : (
-          <div className={cx('flex h-11 shrink-0 flex-col justify-end', selectedEntries.length > 0 && 'px-2 pb-0.5')}>
-            {selectedEntries.length > 0 ? (
-              <SelectionBar
-                key="sel"
-                entries={selectedEntries}
-                total={entries.length}
-                past={past}
-                cmd={cmd}
-                phone={phone}
-                onClear={() => vx().clearSelection()}
-                onSelectAll={() => vx().select(order, 'replace')}
-                onMore={(e) => {
-                  const r = e.currentTarget.getBoundingClientRect();
-                  setMenu({ x: r.right, y: r.bottom + 4, flipY: r.top - 4, align: 'end', targets: selectedEntries });
-                }}
-              />
-            ) : listView ? (
-              <div
-                key="head"
-                className={cx(s.item, s.selIn, 'grid h-9 items-center border-b border-vx-hair pl-1', density === 'wide' ? 'pr-2' : 'pr-3')}
-                style={{ gridTemplateColumns: listCols(density) }}
-              >
-                <span className="flex items-center justify-center">
-                  <RowCheck
-                    on={allSelected}
-                    onToggle={() => (allSelected ? vx().clearSelection() : vx().select(order, 'replace'))}
-                    label="Select all"
-                    className={cx(!allSelected && s.reveal)}
-                  />
-                </span>
-                {/* compact columns have no actions column for the count, and beside Modified it reads as a label: leave it out */}
-                <span className="flex min-w-0 items-center pr-4">
-                  <SortHead label="Name" k="name" sort={sort} onSort={onSort} />
-                </span>
-                <span className="vx-col-mtime min-w-0 pr-3">
-                  <SortHead label="Modified" k="mtime" sort={sort} onSort={onSort} />
-                </span>
-                <span className="flex min-w-0 justify-end pr-2">
-                  <SortHead label="Size" k="size" sort={sort} onSort={onSort} align="right" />
-                </span>
-                {density === 'wide' ? <span className="truncate pr-2 text-right font-mono text-[11px] leading-4 text-vx-text-3">{countLabel}</span> : null}
-              </div>
-            ) : (
-              <div key="head" className={cx(s.selIn, 'flex h-9 items-center gap-5 border-b border-vx-hair', phone ? 'px-3' : 'pl-4 pr-3')}>
-                <SortHead label="Name" k="name" sort={sort} onSort={onSort} />
-                <span className="vx-col-mtime">
-                  <SortHead label="Modified" k="mtime" sort={sort} onSort={onSort} />
-                </span>
-                <SortHead label="Size" k="size" sort={sort} onSort={onSort} />
-                <span className="ml-auto truncate font-mono text-[11px] leading-4 text-vx-text-3">{countLabel}</span>
-              </div>
-            )}
-          </div>
-        )}
 
         {err && data && !hardError ? (
           <div className="mx-3 mt-2 flex shrink-0 items-center gap-2 rounded-vx-sm border border-vx-danger-edge bg-vx-danger-wash px-3 py-1.5 text-[13px] leading-5 text-vx-danger" role="alert">
@@ -839,61 +818,82 @@ export default function FileBrowser({ path }: { path: string }) {
           </div>
         ) : null}
 
-        <div
-          ref={scrollRef}
-          tabIndex={0}
-          aria-label="Drive contents"
-          onMouseDown={onBlankMouseDown}
-          onContextMenu={(e) => {
-            if ((e.target as HTMLElement).closest('[role="option"]')) return;
-            ctx.onContextMenu(e, null);
-          }}
-          className={cx(s.scroller, 'vx-inset-focus relative min-h-0 flex-1 overflow-auto rounded-b-vx-lg outline-none', stale && 'opacity-60 transition-opacity duration-[120ms]')}
-        >
-          {loadingFirst ? (
-            <div aria-busy>
-              {Array.from({ length: 12 }, (_, i) => (
-                <div key={i} className={cx(s.row, 'relative grid items-center', phone ? 'pl-2' : 'pl-1 pr-3')} style={{ height: rowH, gridTemplateColumns: phone ? '40px minmax(0,1fr)' : listCols(density) }}>
-                  {phone ? null : <span />}
-                  <span className="flex min-w-0 items-center gap-3 pl-0.5 pr-4">
-                    <span className="skeleton h-5 w-5 shrink-0 !rounded-vx-xs" />
-                    {phone ? null : <span className="skeleton skel-line" style={{ width: `${30 + ((i * 37) % 40)}%` }} />}
-                  </span>
-                  {phone ? (
-                    <span className="flex flex-col gap-2">
-                      <span className="skeleton skel-line" style={{ width: `${40 + ((i * 37) % 40)}%` }} />
-                      <span className="skeleton h-2.5 w-28" />
-                    </span>
-                  ) : (
-                    <>
-                      <span className="vx-col-mtime pr-3">
-                        <span className="skeleton skel-line w-20" />
-                      </span>
-                      <span className="flex justify-end pr-2">
-                        <span className="skeleton skel-line w-12" />
-                      </span>
-                    </>
-                  )}
-                </div>
-              ))}
+        <div className="relative flex min-h-0 flex-1 flex-col">
+          {/* The selection bar floats over the top of the list while anything is selected, so nothing below it moves. */}
+          {selectedEntries.length > 0 ? (
+            <div className={cx('pointer-events-none absolute inset-x-0 top-1 z-20 flex justify-center', phone ? 'px-2' : 'px-5')}>
+              <div className="pointer-events-auto w-full max-w-[880px] rounded-vx-md shadow-vx-3">
+                <SelectionBar
+                  key="sel"
+                  entries={selectedEntries}
+                  total={entries.length}
+                  past={past}
+                  cmd={cmd}
+                  phone={phone}
+                  onClear={() => vx().clearSelection()}
+                  onSelectAll={() => vx().select(order, 'replace')}
+                  onMore={(e) => {
+                    const r = e.currentTarget.getBoundingClientRect();
+                    setMenu({ x: r.right, y: r.bottom + 4, flipY: r.top - 4, align: 'end', targets: selectedEntries });
+                  }}
+                />
+              </div>
             </div>
-          ) : filtering && entries.length === 0 ? (
-            <DriveEmpty art="search" title="Nothing carries this tag yet." body="Tag files and folders from their menu, or from the bar that appears when you select some." />
-          ) : empty ? (
-            <EmptyDrive
-              state={empty}
-              onUpload={() => uploadFiles(false)}
-              onNewFolder={newFolder}
-              onBackToNow={() => vx().exitTimeTravel()}
-              onGoHome={() => router.push('/drive')}
-              onRetry={() => void listing.mutate()}
-            />
-          ) : gridLayout ? (
-            <FileGrid layout={gridLayout} scrollRef={scrollRef} focusRow={focusRow} />
-          ) : (
-            <FileList rows={listRows} rowH={rowH} scrollRef={scrollRef} focusIndex={focusIndex} />
-          )}
-          <SelectionRect rect={marquee} />
+          ) : null}
+          <div
+            ref={scrollRef}
+            tabIndex={0}
+            aria-label="Drive contents"
+            onMouseDown={onBlankMouseDown}
+            onContextMenu={(e) => {
+              if ((e.target as HTMLElement).closest('[role="option"]')) return;
+              ctx.onContextMenu(e, null);
+            }}
+            className={cx(s.scroller, 'vx-inset-focus relative min-h-0 flex-1 overflow-auto rounded-b-vx-lg outline-none', stale && 'opacity-60 transition-opacity duration-[120ms]')}
+          >
+            {loadingFirst ? (
+              <div aria-busy className={phone ? 'px-4 pt-14' : 'px-6 pt-14'}>
+                {Array.from({ length: 12 }, (_, i) => (
+                  <div key={i} className={cx(s.row, 'relative grid items-center', phone ? 'pl-2' : 'pl-1 pr-3')} style={{ height: rowH, gridTemplateColumns: phone ? '40px minmax(0,1fr)' : listCols(density) }}>
+                    {phone ? null : <span />}
+                    <span className="flex min-w-0 items-center gap-3 pl-0.5 pr-4">
+                      <span className="skeleton h-7 w-7 shrink-0 !rounded-vx-sm" />
+                      {phone ? null : <span className="skeleton skel-line" style={{ width: `${30 + ((i * 37) % 40)}%` }} />}
+                    </span>
+                    {phone ? (
+                      <span className="flex flex-col gap-2">
+                        <span className="skeleton skel-line" style={{ width: `${40 + ((i * 37) % 40)}%` }} />
+                        <span className="skeleton h-2.5 w-28" />
+                      </span>
+                    ) : (
+                      <>
+                        <span className="vx-col-mtime pr-3">
+                          <span className="skeleton skel-line w-20" />
+                        </span>
+                        <span className="flex justify-end pr-2">
+                          <span className="skeleton skel-line w-12" />
+                        </span>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : filtering && entries.length === 0 ? (
+              <DriveEmpty art="search" title="Nothing carries this tag yet." body="Tag files and folders from their menu, or from the bar that appears when you select some." />
+            ) : empty ? (
+              <EmptyDrive
+                state={empty}
+                onUpload={() => uploadFiles(false)}
+                onNewFolder={newFolder}
+                onBackToNow={() => vx().exitTimeTravel()}
+                onGoHome={() => router.push('/drive')}
+                onRetry={() => void listing.mutate()}
+              />
+            ) : (
+              <FileGrid layout={gridLayout} scrollRef={scrollRef} focusRow={focusRow} listHead={listView ? listHead : undefined} sortSlot={sortSlot} />
+            )}
+            <SelectionRect rect={marquee} />
+          </div>
         </div>
       </div>
 

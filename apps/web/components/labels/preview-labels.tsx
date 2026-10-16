@@ -56,7 +56,7 @@ export function PreviewCommentsButton({ path }: { path: string }) {
       >
         <MessageSquare size={16} strokeWidth={1.75} aria-hidden />
         {c ? (
-          <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-vx-surface-3 px-[3px] font-mono text-[9px] font-semibold leading-none text-vx-text-1">
+          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-vx-surface-3 px-[3px] font-mono text-[11px] font-semibold leading-none text-vx-text-1">
             {c.count > 99 ? '99+' : c.count}
           </span>
         ) : null}

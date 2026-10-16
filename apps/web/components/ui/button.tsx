@@ -13,7 +13,7 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   variant?: ButtonVariant;
   size?: ButtonSize;
   loading?: boolean;
-  /** Leading icon (16 px; 14 px in sm/xs). `restore` gets RotateCcw when none is given. */
+  /** Leading icon (16 px; 18 at lg, 14 at xs). `restore` gets RotateCcw when none is given. */
   icon?: React.ReactNode;
   /** Trailing icon (e.g. ChevronDown). */
   trailing?: React.ReactNode;
@@ -27,7 +27,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   { variant = 'outline', size = 'md', loading, icon, trailing, kbd, block, className, children, disabled, type = 'button', ...rest },
   ref,
 ) {
-  const iconSize = size === 'sm' || size === 'xs' ? 14 : 16;
+  const iconSize = size === 'xs' ? 14 : size === 'lg' ? 18 : 16;
   const lead = icon ?? (variant === 'restore' ? <RotateCcw size={iconSize} strokeWidth={1.75} aria-hidden /> : null);
   return (
     <button

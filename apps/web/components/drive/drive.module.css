@@ -8,16 +8,19 @@
 }
 .removing { animation: vxCollapse 160ms var(--vx-ease-exit) forwards; transform-origin: top; pointer-events: none; }
 
-/* List rows run full-bleed inside the sheet with a 1 px hair-soft divider (the landing mocks). */
+/* List rows sit in the framed file table with a 1 px hair-soft divider. */
 .row::after {
   content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; pointer-events: none;
   background: var(--vx-hair-soft);
 }
-/* Selected rows: a 2 px accent bar flush on the left edge (UNIFY-SPEC §5). */
-.selBar { box-shadow: inset 2px 0 0 var(--vx-accent); }
+/* Selected rows: a 3 px ink bar on the left edge, inset 8 px from the row's top and bottom. */
+.selBar::before {
+  content: ''; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; border-radius: 0 3px 3px 0; pointer-events: none;
+  background: var(--vx-text-1);
+}
 /* Drop target: accent-wash (from the tone) + a solid 1 px accent-edge inset. */
 .dropOn { box-shadow: inset 0 0 0 1px var(--vx-accent-edge); }
-/* Keyboard focus: the violet inset ring on the focused row / card, only while the list itself
+/* Keyboard focus: the focus inset ring on the focused row / card, only while the list itself
    has keyboard focus (a mouse click focuses an item without painting a ring). */
 .scroller:focus-visible .item[data-focused='true'] { box-shadow: inset 0 0 0 2px var(--vx-focus); }
 /* The list carries its own per-item ring, so the scroller's frame ring stays off while one shows. */
@@ -38,7 +41,7 @@
 }
 
 /* a frame is loading: a 2 px indeterminate bar along the top of the sheet
-   (amber while scrubbing the past, accent at now) */
+   (cobalt while scrubbing the past, ember at now) */
 .loadLine { position: absolute; left: 0; right: 0; top: 0; height: 2px; overflow: hidden; pointer-events: none; z-index: 5; }
 .loadLine::after {
   content: ''; position: absolute; top: 0; left: 0; width: 30%; height: 2px; background: var(--vx-accent);
@@ -93,7 +96,7 @@
 /* A keyboard-focused row that is not hovered keeps the sheet colour, so the backing must match it (no lighter slab). */
 .item[data-focused='true']:not(:hover):not([aria-selected='true']):not([data-open='true']) .actsOverlay { --acts-bg: var(--vx-surface); }
 
-/* grid: the file card's thumbnail mat (r4, --vx-mat) */
+/* grid: the file card's thumbnail mat (r8, --vx-mat) */
 .mat { position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden; border-radius: var(--vx-r-sm); background: var(--vx-mat); }
 .matInner { position: absolute; inset: 0; }
 .pastFilter { filter: var(--vx-past-filter); }
@@ -107,7 +110,7 @@
 }
 
 /* OS drop target: a 2 px dashed accent ring with a 30 % accent-wash tint that moves to the
-   folder row / card / crumb under the pointer. Danger over quota, amber in the past. */
+   folder row / card / crumb under the pointer. Danger over quota, cobalt in the past. */
 .dropFrame {
   position: fixed; pointer-events: none;
   --drop-edge: var(--vx-accent-edge);

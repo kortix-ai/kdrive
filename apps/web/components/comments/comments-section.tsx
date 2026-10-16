@@ -59,7 +59,7 @@ function CommentItem({ c, ops, onReply, extra }: { c: FileComment; ops: Ops; onR
             {formatRelative(c.createdAt)}
           </span>
           {c.editedAt ? (
-            <span className="vx-meta shrink-0 text-vx-text-4" title={`Edited ${formatDate(c.editedAt)}`}>
+            <span className="vx-meta shrink-0 text-vx-text-3" title={`Edited ${formatDate(c.editedAt)}`}>
               · edited
             </span>
           ) : null}
@@ -100,11 +100,11 @@ function CommentItem({ c, ops, onReply, extra }: { c: FileComment; ops: Ops; onR
         <div className="mt-0.5 flex min-h-6 flex-wrap items-center gap-x-2">
           {c.commitAt ? (
             onThisVersion ? (
-              <span className="vx-meta text-vx-text-4">on this version</span>
+              <span className="vx-meta text-vx-text-3">on this version</span>
             ) : (
               <button
                 type="button"
-                className="vx-meta rounded-vx-xs text-vx-text-4 underline-offset-[3px] hover:text-vx-text-2 hover:underline"
+                className="vx-meta rounded-vx-xs text-vx-text-3 underline-offset-[3px] hover:text-vx-text-1 hover:underline"
                 title={`See the file as it was when this was written (${c.commitId})`}
                 onClick={() => useVx.getState().openPreview(ops.path, { at: c.commitId })}
               >

@@ -1,8 +1,8 @@
 'use client';
 
-// Top bar (UNIFY-SPEC §11): the KDRIVE lockup · the "Search in Drive" field · Help,
-// the sun/moon theme toggle and the account avatar, over a 1px hair rule. On phones
-// it is a glass bar holding the menu button, the search field and a 28 px avatar.
+// Top bar (UNIFY-SPEC §11): the KDRIVE lockup · the 40 px "Search in Drive" field · in the past, the
+// cobalt time pill with Back to now · Help, the sun/moon theme toggle and the account avatar, over a
+// 1px hair rule. On phones it is a glass bar holding the menu button, the search field and a 28 px avatar.
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { CircleHelp, Clock, LogOut, Menu as MenuIcon, Monitor, Moon, PanelLeftClose, PanelLeftOpen, Search, Settings, Sun } from 'lucide-react';
@@ -35,22 +35,33 @@ function useOpenSearch() {
   };
 }
 
-function PastChip() {
+/** In the past: a cobalt pill with the viewed moment and a white-on-cobalt "Back to now". */
+function PastPill() {
   const tt = useVx((s) => s.timeTravel);
+  const exit = useVx((s) => s.exitTimeTravel);
   if (!tt) return null;
   return (
-    <span className="fade-in inline-flex h-6 shrink-0 items-center gap-1.5 rounded-vx-xs bg-vx-past-wash px-2 font-mono text-[11px] font-medium text-vx-past shadow-[inset_0_0_0_1px_var(--vx-past-edge)] max-[720px]:hidden">
-      <Clock size={13} strokeWidth={1.75} aria-hidden />
-      <span className="tabular-nums">{formatMoment(tt.createdAt)}</span>
+    <span className="fade-in mr-2 inline-flex h-[34px] shrink-0 items-center gap-2 rounded-full border border-vx-past-edge bg-vx-past-wash pl-3 pr-1 font-mono text-[13px] text-vx-past max-[900px]:hidden">
+      <Clock size={14} strokeWidth={1.75} aria-hidden />
+      <span className="tabular-nums" title={new Date(tt.createdAt).toString()}>
+        {formatMoment(tt.createdAt)}
+      </span>
+      <button
+        type="button"
+        onClick={() => exit()}
+        className="h-[26px] rounded-full bg-vx-past-fill px-3 font-sans text-[13px] font-semibold text-vx-on-past transition-[filter] duration-[120ms] hover:brightness-110"
+      >
+        Back to now
+      </button>
     </span>
   );
 }
 
-/** The 36 px search field (opens the palette). `phone` puts the menu button before it and the avatar after it. */
+/** The 40 px search field (opens the palette). `phone` puts the menu button before it and the avatar after it. */
 function SearchPill({ onMenu, phone }: { onMenu?: () => void; phone?: boolean }) {
   const open = useOpenSearch();
   return (
-    <div role="search" className={cx('flex w-full min-w-0 items-center gap-2', phone ? '' : 'max-w-[640px]')}>
+    <div role="search" className={cx('flex w-full min-w-0 items-center gap-2', phone ? '' : 'max-w-[560px]')}>
       {phone ? (
         <>
           <IconButton label="Open navigation" size="md" onClick={onMenu}>
@@ -68,17 +79,16 @@ function SearchPill({ onMenu, phone }: { onMenu?: () => void; phone?: boolean })
         aria-label="Search in Drive"
         aria-keyshortcuts="/ Meta+K"
         data-testid="search-pill"
-        className="flex h-9 min-w-0 flex-1 items-center gap-2.5 rounded-vx-sm border border-vx-hair-strong bg-vx-field px-3 text-left text-vx-text-3 transition-[border-color,background-color] duration-[120ms] ease-vx hover:border-vx-outline hover:bg-vx-field-hover"
+        className="flex h-10 min-w-0 flex-1 items-center gap-2.5 rounded-[11px] border border-vx-hair-strong bg-vx-field pl-3.5 pr-2 text-left text-vx-text-3 transition-[border-color,background-color] duration-[120ms] ease-vx hover:border-vx-outline hover:bg-vx-field-hover"
       >
         <Search size={16} strokeWidth={1.75} className="shrink-0" aria-hidden />
-        <span className="min-w-0 flex-1 truncate text-[14px] leading-5">Search in Drive</span>
-        <PastChip />
+        <span className="min-w-0 flex-1 truncate text-[15px] leading-5">Search in Drive</span>
         {phone ? null : <Kbd className="max-[900px]:hidden">/</Kbd>}
       </button>
       {phone ? (
         <>
           <ThemeToggle size="sm" />
-          <AccountMenu size={28} />
+          <AccountMenu size={30} />
         </>
       ) : null}
     </div>
@@ -88,7 +98,7 @@ function SearchPill({ onMenu, phone }: { onMenu?: () => void; phone?: boolean })
 const THEME_ICON = { dark: Moon, light: Sun, system: Monitor } as const;
 
 /** Avatar + account menu: email, Settings, Theme (Dark / Light / System), Sign out. */
-export function AccountMenu({ size = 28 }: { size?: number }) {
+export function AccountMenu({ size = 32 }: { size?: number }) {
   const router = useRouter();
   const me = useVx((s) => s.me);
   const [pref] = useThemePref();
@@ -154,14 +164,15 @@ export function TopBar({ onMenu, onHelp }: { onMenu: () => void; onHelp: () => v
   return (
     <header className="vx-topbar">
       {/* ≥ 721 px: brand · pill · tools */}
-      <div className="flex items-center pl-4 max-[1023px]:justify-center max-[1023px]:pl-0 side-collapsed:justify-center side-collapsed:pl-0 max-[720px]:hidden">
-        <Brand compactBelow />
+      <div className="flex items-center pl-[18px] max-[1023px]:justify-center max-[1023px]:pl-0 side-collapsed:justify-center side-collapsed:pl-0 max-[720px]:hidden">
+        <Brand compactBelow size={20} />
       </div>
       <div className="flex min-w-0 items-center justify-start px-3 max-[720px]:hidden">
         <SideToggle />
         <SearchPill />
       </div>
-      <div className="flex items-center gap-1 pl-2 max-[720px]:hidden">
+      <div className="flex items-center gap-1 pl-2 pr-1 max-[720px]:hidden">
+        <PastPill />
         <Tooltip label="Keyboard shortcuts" kbd="?" side="bottom">
           <IconButton label="Keyboard shortcuts" nativeTitle={false} onClick={onHelp}>
             <CircleHelp size={16} strokeWidth={1.75} aria-hidden />

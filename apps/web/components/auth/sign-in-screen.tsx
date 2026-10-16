@@ -1,19 +1,19 @@
 'use client';
 
-// Sign in / create account (UNIFY-SPEC §14.1): one 960 card on the landing's atmosphere. Left: the
-// metal KDRIVE lockup, the headline and the static voxel art. Right: one outline button per configured
-// provider (labels come from config, never hard-coded), the email + password form, the dev-only email
-// block, inline errors (no toasts), and `?next=` honoured across both modes. Footer: retention copy.
+// Sign in / create account: one frosted card on the paper, the ASCII grain and glass objects around it. The
+// top bar holds the lockup, the switch to the other mode and the theme toggle. In the card: one outline button
+// per configured provider (labels come from config, never hard-coded), the email + password form, the dev-only
+// email block, inline errors (no toasts), and `?next=` honoured across both modes. Retention copy closes the card.
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { mutate } from 'swr';
-import { KeyRound } from 'lucide-react';
+import { Eye, EyeOff, KeyRound, Lock, Mail } from 'lucide-react';
 import { PASSWORD_MAX, PASSWORD_MIN, RETENTION_COPY } from '@volumes/shared';
 import { AuthCard, AuthFrame } from '@/components/auth/auth-frame';
 import { ErrorRow, NoticeRow, OrRule, StrengthMeter, authErrorCopy, oauthErrorCopy, providerButtonLabel, safeNext } from '@/components/auth/auth-bits';
-import { SignInArt } from '@/components/auth/sign-in-art';
-import { BrandMetal } from '@/components/shell/brand';
+import { KMark } from '@/components/brand/k-mark';
+import { Brand } from '@/components/shell/brand';
 import { ThemeToggle } from '@/components/shell/theme-toggle';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,7 +29,7 @@ const PRIVACY_URL = process.env.NEXT_PUBLIC_PRIVACY_URL || null;
 
 function Legal({ href, children }: { href: string | null; children: React.ReactNode }) {
   return href ? (
-    <a href={href} target="_blank" rel="noreferrer" className="text-vx-text-2 underline underline-offset-2 hover:text-vx-text-1">
+    <a href={href} target="_blank" rel="noreferrer" className="text-vx-text-2 underline decoration-vx-hair-strong underline-offset-[3px] hover:text-vx-text-1">
       {children}
     </a>
   ) : (
@@ -49,6 +49,7 @@ export function SignInScreen({ mode }: { mode: AuthMode }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState(params.get('email') ?? '');
   const [password, setPassword] = useState('');
+  const [reveal, setReveal] = useState(false);
   const [devEmail, setDevEmail] = useState('dev@volumes.local');
   const [busy, setBusy] = useState<string | null>(null);
   // A failed provider sign-in comes back with better-auth's code in `?error=`.
@@ -148,154 +149,190 @@ export function SignInScreen({ mode }: { mode: AuthMode }) {
         ? 'New accounts are closed right now. Existing accounts can still sign in.'
         : null;
 
+  const switchHref = withNext(signup ? '/signin' : '/signup', next);
+  const forgotHref = `/forgot-password${email ? `?email=${encodeURIComponent(email.trim())}` : ''}`;
+  const legal = TERMS_URL || PRIVACY_URL;
+
   return (
-    <AuthFrame>
-      <AuthCard className="grid max-w-[960px] grid-cols-[1.1fr_1fr] max-[860px]:grid-cols-1 max-[720px]:content-start">
-        <section className="flex flex-col border-r border-vx-hair bg-vx-bg-2 p-10 max-[860px]:border-b max-[860px]:border-r-0 max-[720px]:min-h-[140px] max-[720px]:justify-center max-[720px]:px-6 max-[720px]:py-7">
-          <BrandMetal />
-          <div className="vx-eyebrow mt-10 max-[860px]:mt-6 max-[720px]:hidden">Versioned cloud drive</div>
-          <h1 className="vx-display mt-3 max-[720px]:mt-5 max-[720px]:text-[30px] max-[720px]:leading-[34px]">
-            Every change
-            <br />
-            is a <span className="vx-metal">version.</span>
-          </h1>
-          <p className="vx-body-lg mt-4 max-w-[420px] text-vx-text-2 max-[860px]:hidden">
-            The drive that remembers: travel back, compare, restore — and undo the restore.
-          </p>
-          <div className="mt-auto flex justify-center pt-12 max-[860px]:hidden">
-            <SignInArt />
+    <AuthFrame
+      bar={
+        <>
+          <Brand href="/" size={22} />
+          <div className="flex items-center gap-3">
+            {emailPassword || providers.length ? (
+              <span className="text-[15px] leading-6 text-vx-text-2">
+                <span className="max-[720px]:hidden">{signup ? 'Have an account? ' : 'New here? '}</span>
+                <Link href={switchHref} className="font-medium text-vx-text-1 underline decoration-vx-hair-strong underline-offset-[3px] hover:decoration-vx-text-1">
+                  {signup ? 'Sign in' : 'Create an account'}
+                </Link>
+              </span>
+            ) : null}
+            <ThemeToggle size="md" className="-mr-1.5" />
           </div>
-        </section>
-
-        <section className="flex items-center justify-center p-10 max-[720px]:items-start max-[720px]:px-6 max-[720px]:py-8">
-          <div className="w-full max-w-[360px]">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <h2 className="vx-h1">{signup ? 'Create your account' : 'Sign in'}</h2>
-                <p className="vx-meta mt-1 text-vx-text-3">{signup ? 'a drive that keeps every version' : 'to continue to your drive'}</p>
-                {modeNote ? <p className="vx-meta mt-2 text-vx-text-2">{modeNote}</p> : null}
-              </div>
-              <ThemeToggle size="sm" className="-mr-1.5 mt-0.5" />
-            </div>
-
-            <div className="mt-8 flex flex-col gap-3">
-              {!config && !configError ? (
-                <>
-                  <span className="skeleton block h-11 w-full !rounded-vx-sm" />
-                  <span className="skeleton block h-11 w-full !rounded-vx-sm" />
-                </>
-              ) : null}
-              {providers.map((p) => (
-                <Button
-                  key={p}
-                  size="lg"
-                  variant="outline"
-                  block
-                  icon={<KeyRound size={16} strokeWidth={1.75} aria-hidden />}
-                  onClick={() => social(p)}
-                  loading={busy === p}
-                  disabled={!!busy}
-                >
-                  {providerButtonLabel(p, mode)}
-                </Button>
-              ))}
-            </div>
-
-            {emailPassword ? (
+        </>
+      }
+      foot={
+        <>
+          {PRIVACY_URL ? <Legal href={PRIVACY_URL}>Privacy</Legal> : null}
+          {TERMS_URL ? <Legal href={TERMS_URL}>Terms</Legal> : null}
+          {legal ? null : <span className="font-mono text-[12px]">every version · kept</span>}
+        </>
+      }
+    >
+      <AuthCard className="max-w-[440px] px-[34px] pb-7 pt-[34px] max-[720px]:px-5 max-[720px]:pb-[22px] max-[720px]:pt-[26px]">
+        <main>
+          <KMark size={36} />
+          <h1 className="mb-1.5 mt-5 text-[32px] font-semibold leading-[38px] tracking-[-0.03em] text-vx-text-1 max-[720px]:text-[28px] max-[720px]:leading-[34px]">
+            {signup ? (
               <>
-                {providers.length ? <OrRule /> : null}
-                <form onSubmit={submit} className="flex flex-col gap-4" aria-label={signup ? 'Create account' : 'Sign in with email'}>
-                  {signup ? (
-                    <Input size="lg" id="name" label="Name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" maxLength={120} />
-                  ) : null}
-                  <Input
-                    size="lg"
-                    id="email"
-                    label="Email"
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    autoComplete={signup ? 'email' : 'username'}
-                    maxLength={320}
-                  />
-                  <div>
-                    <Input
-                      size="lg"
-                      id="password"
-                      label="Password"
-                      type="password"
-                      required
-                      minLength={signup ? PASSWORD_MIN : undefined}
-                      maxLength={PASSWORD_MAX}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      autoComplete={signup ? 'new-password' : 'current-password'}
-                      hint={signup && !password ? `At least ${PASSWORD_MIN} characters. A few unrelated words work well.` : undefined}
-                    />
-                    {signup ? <StrengthMeter password={password} min={PASSWORD_MIN} /> : null}
+                Start your <em className="font-[family-name:var(--vx-font-display)] font-normal italic tracking-[-0.01em]">drive.</em>
+              </>
+            ) : (
+              <>
+                Welcome <em className="font-[family-name:var(--vx-font-display)] font-normal italic tracking-[-0.01em]">back.</em>
+              </>
+            )}
+          </h1>
+          <p className="text-[16px] leading-6 text-vx-text-2">
+            {signup ? 'A drive that keeps every version of every file.' : 'Sign in to pick up where your drive left off.'}
+          </p>
+          {modeNote ? <p className="mt-2 text-[14px] leading-5 text-vx-text-2">{modeNote}</p> : null}
+
+          <div className="mt-6 flex flex-col gap-3">
+            {!config && !configError ? (
+              <>
+                <span className="skeleton block h-12 w-full !rounded-vx-md" />
+                <span className="skeleton block h-12 w-full !rounded-vx-md" />
+              </>
+            ) : null}
+            {providers.map((p) => (
+              <Button
+                key={p}
+                size="lg"
+                variant="outline"
+                block
+                icon={p === 'google' ? <GoogleG /> : <KeyRound size={18} strokeWidth={1.75} aria-hidden />}
+                onClick={() => social(p)}
+                loading={busy === p}
+                disabled={!!busy}
+              >
+                {providerButtonLabel(p, mode)}
+              </Button>
+            ))}
+          </div>
+
+          {emailPassword ? (
+            <>
+              {providers.length ? <OrRule label="or with email" /> : <div className="h-2" />}
+              <form onSubmit={submit} className="flex flex-col gap-4" aria-label={signup ? 'Create account' : 'Sign in with email'}>
+                {signup ? (
+                  <Input size="lg" id="name" label="Name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" maxLength={120} />
+                ) : null}
+                <Input
+                  size="lg"
+                  id="email"
+                  label="Email"
+                  type="email"
+                  required
+                  leading={<Mail size={18} strokeWidth={1.7} aria-hidden />}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  autoComplete={signup ? 'email' : 'username'}
+                  maxLength={320}
+                />
+                <div className="mb-1.5">
+                  <div className="mb-2 flex items-baseline justify-between gap-3">
+                    <label htmlFor="password" className="text-[14px] font-medium leading-5 text-vx-text-2">
+                      Password
+                    </label>
                     {!signup && config?.passwordReset ? (
-                      <Link href={`/forgot-password${email ? `?email=${encodeURIComponent(email.trim())}` : ''}`} className="vx-meta mt-2 inline-block text-vx-text-3 hover:text-vx-text-1">
-                        Forgot password?
+                      <Link href={forgotHref} className="text-[14px] leading-5 text-vx-text-2 underline decoration-vx-hair-strong underline-offset-[3px] hover:text-vx-text-1">
+                        Forgot?
                       </Link>
                     ) : null}
                   </div>
-                  <Button variant="primary" size="lg" block type="submit" loading={busy === 'email'} disabled={!!busy && busy !== 'email'}>
-                    {signup ? 'Create account' : 'Sign in'}
-                  </Button>
-                  {signup ? (
-                    <p className="vx-micro text-center text-vx-text-3">
-                      By creating an account you agree to the <Legal href={TERMS_URL}>terms of service</Legal> and{' '}
-                      <Legal href={PRIVACY_URL}>privacy policy</Legal>.
-                    </p>
-                  ) : null}
-                </form>
-              </>
-            ) : null}
+                  <Input
+                    size="lg"
+                    id="password"
+                    type={reveal ? 'text' : 'password'}
+                    required
+                    leading={<Lock size={18} strokeWidth={1.7} aria-hidden />}
+                    suffix={
+                      <button
+                        type="button"
+                        onClick={() => setReveal((r) => !r)}
+                        aria-label={reveal ? 'Hide password' : 'Show password'}
+                        aria-pressed={reveal}
+                        className="-mr-1.5 inline-flex h-8 w-8 items-center justify-center rounded-vx-sm text-vx-text-3 hover:bg-vx-raise hover:text-vx-text-1"
+                      >
+                        {reveal ? <EyeOff size={18} strokeWidth={1.7} aria-hidden /> : <Eye size={18} strokeWidth={1.7} aria-hidden />}
+                      </button>
+                    }
+                    minLength={signup ? PASSWORD_MIN : undefined}
+                    maxLength={PASSWORD_MAX}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    autoComplete={signup ? 'new-password' : 'current-password'}
+                    hint={signup && !password ? `At least ${PASSWORD_MIN} characters. A few unrelated words work well.` : undefined}
+                  />
+                  {signup ? <StrengthMeter password={password} min={PASSWORD_MIN} /> : null}
+                </div>
+                <Button variant="primary" size="lg" block type="submit" loading={busy === 'email'} disabled={!!busy && busy !== 'email'}>
+                  {signup ? 'Create account' : 'Sign in'}
+                </Button>
+                {signup ? (
+                  <p className="text-center text-[13px] leading-5 text-vx-text-3">
+                    By creating an account you agree to the <Legal href={TERMS_URL}>terms of service</Legal> and{' '}
+                    <Legal href={PRIVACY_URL}>privacy policy</Legal>.
+                  </p>
+                ) : null}
+              </form>
+            </>
+          ) : null}
 
-            {emailPassword || providers.length ? (
-              <p className="vx-body mt-5 text-center text-vx-text-3">
-                {signup ? 'Already have an account? ' : 'New to KDRIVE? '}
-                <Link href={withNext(signup ? '/signin' : '/signup', next)} className="font-medium text-vx-text-1 underline-offset-4 hover:underline">
-                  {signup ? 'Sign in' : 'Create an account'}
-                </Link>
-              </p>
-            ) : null}
+          {config?.devLogin ? (
+            <>
+              {providers.length || emailPassword ? <OrRule label="or for local development" /> : null}
+              <form onSubmit={dev} className="rounded-vx-md border border-dashed border-vx-hair-dash p-4">
+                <div className="vx-eyebrow mb-3">Dev only</div>
+                <Input size="md" id="dev-email" label="Email" type="email" required value={devEmail} onChange={(e) => setDevEmail(e.target.value)} autoComplete="off" />
+                <Button variant="outline" size="md" block type="submit" className="mt-3" loading={busy === 'dev'} disabled={!!busy && busy !== 'dev'}>
+                  Continue with dev account
+                </Button>
+              </form>
+            </>
+          ) : null}
 
-            {config?.devLogin ? (
-              <>
-                {providers.length || emailPassword ? <OrRule /> : null}
-                <form onSubmit={dev} className="rounded-vx-md border border-dashed border-vx-hair-dash p-4">
-                  <div className="vx-eyebrow mb-3">Dev only</div>
-                  <Input size="lg" id="dev-email" label="Email" type="email" required value={devEmail} onChange={(e) => setDevEmail(e.target.value)} autoComplete="off" />
-                  <Button variant="outline" size="lg" block type="submit" className="mt-4" loading={busy === 'dev'} disabled={!!busy && busy !== 'dev'}>
-                    Continue with dev account
-                  </Button>
-                </form>
-              </>
-            ) : null}
+          {nothing ? (
+            <ErrorRow>
+              No sign-in method is configured. Set a provider&apos;s client id and secret, VOLUMES_EMAIL_PASSWORD=1, or VOLUMES_DEV_LOGIN=1 for local
+              development.
+            </ErrorRow>
+          ) : null}
+          {configError ? <ErrorRow>Can&apos;t reach the server right now. Reload the page in a moment.</ErrorRow> : null}
+          {notice ? <NoticeRow>{notice}</NoticeRow> : null}
+          {error ? <ErrorRow>{error}</ErrorRow> : null}
+          {error && resetHint && config?.passwordReset ? (
+            <Link href={forgotHref} className="mt-2 inline-block text-[14px] text-vx-text-2 underline underline-offset-2 hover:text-vx-text-1">
+              Reset your password
+            </Link>
+          ) : null}
 
-            {nothing ? (
-              <ErrorRow>
-                No sign-in method is configured. Set a provider&apos;s client id and secret, VOLUMES_EMAIL_PASSWORD=1, or VOLUMES_DEV_LOGIN=1 for local
-                development.
-              </ErrorRow>
-            ) : null}
-            {configError ? <ErrorRow>Can&apos;t reach the server right now. Reload the page in a moment.</ErrorRow> : null}
-            {notice ? <NoticeRow>{notice}</NoticeRow> : null}
-            {error ? <ErrorRow>{error}</ErrorRow> : null}
-            {error && resetHint && config?.passwordReset ? (
-              <Link href={`/forgot-password${email ? `?email=${encodeURIComponent(email.trim())}` : ''}`} className="vx-meta mt-2 inline-block text-vx-text-2 underline underline-offset-2 hover:text-vx-text-1">
-                Reset your password
-              </Link>
-            ) : null}
-          </div>
-        </section>
+          <p className="mt-[18px] text-center text-[14px] leading-5 text-vx-text-3">{RETENTION_COPY}</p>
+        </main>
       </AuthCard>
-
-      <footer className="relative z-[1] mt-5 flex w-full max-w-[960px] items-center gap-4 max-[720px]:mt-0 max-[720px]:bg-vx-surface max-[720px]:px-6 max-[720px]:pb-6">
-        <p className="vx-micro text-vx-text-3">{RETENTION_COPY}</p>
-      </footer>
     </AuthFrame>
+  );
+}
+
+/** Google's four-colour G, the one brand mark the sign-in page shows (on the provider's own button). */
+function GoogleG() {
+  return (
+    <svg viewBox="0 0 24 24" width={18} height={18} aria-hidden>
+      <path fill="#4285F4" d="M22.6 12.3c0-.8-.1-1.5-.2-2.2H12v4.2h5.9a5 5 0 0 1-2.2 3.3v2.7h3.6c2.1-1.9 3.3-4.8 3.3-8Z" />
+      <path fill="#34A853" d="M12 23c3 0 5.5-1 7.3-2.7l-3.6-2.7c-1 .7-2.2 1.1-3.7 1.1-2.9 0-5.3-1.9-6.2-4.5H2.1v2.8A11 11 0 0 0 12 23Z" />
+      <path fill="#FBBC05" d="M5.8 14.2a6.6 6.6 0 0 1 0-4.3V7.1H2.1a11 11 0 0 0 0 9.9l3.7-2.8Z" />
+      <path fill="#EA4335" d="M12 5.4c1.6 0 3.1.6 4.2 1.7l3.2-3.2A11 11 0 0 0 2.1 7.1l3.7 2.8C6.7 7.3 9.1 5.4 12 5.4Z" />
+    </svg>
   );
 }

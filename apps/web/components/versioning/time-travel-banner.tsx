@@ -14,12 +14,11 @@ import { useVx, type TimeTravel } from '@/lib/store';
 import { driveCompareHref } from '@/lib/urls';
 import { useCommit, useTimelineEntries } from '@/lib/versioning/hooks';
 import { jumpCheckpoint, stepEntry, type Target } from '@/lib/versioning/timeline';
-import { CheckpointBadge } from './checkpoint-badge';
 import { CommitId } from './readout';
 import './versioning.css';
 
 /**
- * The past band at the top of the work sheet (UNIFY-SPEC §12.2; behaviour DESIGN-v2 §6.3), plus the time keys
+ * The past banner at the top of the work sheet (UNIFY-SPEC §12.2; behaviour DESIGN-v2 §6.3), plus the time keys
  * (`,` `.` step, `⇧,` `⇧.` checkpoints, `p` checkpoint, `c` compare with now, `Esc` back to now).
  */
 export default function TimeTravelBanner() {
@@ -50,7 +49,7 @@ function Banner({ tt, entry, version }: { tt: NonNullable<TimeTravel>; entry: Ti
   const text = summary ?? (action ? actionText(action.summary, action.restoredTo) : null);
   const onDrive = pathname === '/drive' || pathname.startsWith('/drive/');
   // The drive listing for this frame (same swr key as useListing, read-only here): while it loads,
-  // a 2 px amber bar runs along the sheet's top edge; the previous frame stays on screen.
+  // a 2 px cobalt bar runs along the sheet's top edge; the previous frame stays on screen.
   const ws = useVx((s) => s.workspaceId);
   const frame = useSWR(onDrive && ws ? ['ls', ws, drivePath, tt.commitId] : null, null);
   const loadingFrame = onDrive && frame.isValidating;
@@ -70,54 +69,66 @@ function Banner({ tt, entry, version }: { tt: NonNullable<TimeTravel>; entry: Ti
     { id: 'link', label: 'Copy pinned link to drive…', icon: <Link2 size={16} strokeWidth={1.75} />, onSelect: () => openShare('/') },
   ];
 
-  // The past band (UNIFY-SPEC §12.2): full width at the top of the work sheet, wash + brass hatch, past-edge rule.
+  // The past banner (UNIFY-SPEC §12.2): a cobalt-wash card at the top of the work sheet with a hatched left edge,
+  // what you are looking at on two lines, and Compare with now / Restore this version (white on cobalt).
+  const cpName = checkpoints.map((c) => c.name).join(', ');
   return (
     <div className="@container relative shrink-0">
       {loadingFrame ? <span className="vxv-progress" aria-hidden /> : null}
       <div
         role="status"
         aria-live="polite"
-        className="vxv-banner vxv-band flex min-h-12 flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2 @max-[720px]:flex-nowrap @max-[720px]:pl-3 @max-[720px]:pr-2"
+        className="vxv-banner vxv-band mx-5 mt-4 flex flex-wrap items-center gap-x-4 gap-y-2.5 py-2.5 pl-[22px] pr-2.5 @max-[720px]:mx-3 @max-[720px]:mt-3 @max-[720px]:pl-[18px]"
       >
-        <div className="flex min-w-0 flex-[1_1_320px] items-center gap-2.5 @max-[720px]:flex-1">
-          <Clock size={16} strokeWidth={1.75} aria-hidden className="shrink-0 text-vx-past" />
-          <p className="min-w-0 truncate text-[14px] leading-5 text-vx-text-1" title={text ? `${text} · ${new Date(tt.createdAt).toString()}` : new Date(tt.createdAt).toString()}>
-            <span className="@max-[720px]:hidden">
-              Viewing <span className="font-semibold">{driveName}</span> as it was ·{' '}
-            </span>
-            <span className="hidden @max-[720px]:inline">Viewing </span>
-            <span className="whitespace-nowrap font-mono text-[12.5px] text-vx-past-strong">
-              <span className="@max-[720px]:hidden">{full}</span>
-              <span className="hidden @max-[720px]:inline">{short}</span>
-              {version ? <span className="@max-[720px]:hidden"> · {version}</span> : null}
-              <span className="@max-[960px]:hidden">
-                {' · '}
+        <div className="flex min-w-0 flex-[1_1_320px] items-center gap-3">
+          <Clock size={18} strokeWidth={1.75} aria-hidden className="shrink-0 text-vx-past @max-[720px]:hidden" />
+          <div className="min-w-0" title={text ? `${text} · ${new Date(tt.createdAt).toString()}` : new Date(tt.createdAt).toString()}>
+            <p className="text-[15px] font-semibold leading-[22px] text-vx-text-1 [text-wrap:balance]">
+              Viewing <span className="@max-[720px]:hidden">{driveName}</span>
+              <span className="hidden @max-[720px]:inline">the drive</span> as it was on <span className="whitespace-nowrap">{full}</span>
+            </p>
+            <p className="flex min-w-0 flex-wrap items-center gap-x-1 text-[14px] leading-5 text-vx-text-2">
+              {version ? <span className="font-mono text-[13px] text-vx-past">{version}</span> : null}
+              {version ? <span aria-hidden>·</span> : null}
+              <span className="font-mono text-[13px] text-vx-text-3 @max-[720px]:hidden">
                 <CommitId id={tt.commitId} className="!text-[1em]" />
               </span>
-            </span>
-            <span className="sr-only">. Read-only. Restore, or go back to now to make changes.</span>
-          </p>
-          {checkpoints.map((c) => (
-            <CheckpointBadge key={c.id} name={c.name} className="max-w-[160px] @max-[1100px]:hidden" />
-          ))}
+              <span aria-hidden className="@max-[720px]:hidden">
+                ·
+              </span>
+              {cpName ? (
+                <>
+                  <span className="max-w-[220px] truncate">“{cpName}”</span>
+                  <span aria-hidden>·</span>
+                </>
+              ) : null}
+              <span>read-only until you restore</span>
+            </p>
+            <span className="sr-only">. Restore, or go back to now to make changes.</span>
+          </div>
         </div>
-        <div className="ml-auto flex shrink-0 items-center gap-1.5">
-          <Button variant="restore" size="sm" icon={<RotateCcw size={14} strokeWidth={1.75} aria-hidden />} onClick={restore} className="@max-[720px]:hidden">
-            Restore drive…
+        <div className="ml-auto flex shrink-0 items-center gap-2 @max-[720px]:w-full">
+          <Button variant="outline" size="sm" kbd="C" icon={<ArrowLeftRight size={14} strokeWidth={1.75} aria-hidden />} onClick={compare} className="bg-vx-surface @max-[720px]:flex-1">
+            <span>
+              Compare<span className="@max-[720px]:hidden"> with now</span>
+            </span>
           </Button>
-          <Button variant="outline" size="sm" kbd="C" onClick={compare} className="@max-[960px]:hidden">
-            Compare with now
+          <Button variant="past-primary" size="sm" icon={<RotateCcw size={14} strokeWidth={1.75} aria-hidden />} onClick={restore} className="@max-[720px]:flex-1">
+            <span>
+              Restore<span className="@max-[720px]:hidden"> this version</span>
+            </span>
           </Button>
           <Menu
             align="end"
             items={more}
             trigger={(p) => (
-              <IconButton {...p} size="sm" label="More actions for this version">
+              <IconButton {...p} size="sm" label="More actions for this version" className="shrink-0">
                 <Ellipsis size={16} strokeWidth={1.75} aria-hidden />
               </IconButton>
             )}
           />
-          <Button variant="primary" size="sm" kbd="Esc" onClick={exit}>
+          {/* The top bar's time pill carries Back to now on wide screens, the strip on phones. */}
+          <Button variant="outline" size="sm" kbd="Esc" onClick={exit} className="min-[901px]:!hidden max-[720px]:!hidden">
             Back to now
           </Button>
         </div>

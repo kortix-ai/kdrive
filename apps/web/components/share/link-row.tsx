@@ -75,7 +75,7 @@ function AccessEditor({ link, onSave, onDone }: { link: ShareLink; onSave: (req:
     <div className="mb-2 rounded-vx-md bg-vx-surface-2 px-3.5 py-1.5 shadow-[inset_0_0_0_1px_var(--vx-hair-strong)]">
       <AccessFields value={draft} onChange={setDraft} hadPassword={link.hasPassword} upload={link.kind === 'upload'} />
       {error ? (
-        <p role="alert" className="mb-2 flex items-start gap-2 rounded-vx-sm bg-vx-danger-wash px-3 py-2 text-[13px] leading-5 text-vx-danger">
+        <p role="alert" className="mb-2 flex items-start gap-2 rounded-vx-sm bg-vx-danger-wash px-3 py-2.5 text-[14px] leading-5 text-vx-danger">
           <CircleAlert size={16} strokeWidth={1.75} className="mt-0.5 shrink-0" aria-hidden />
           {error}
         </p>
@@ -217,7 +217,7 @@ export function LinkRow({
         </div>
       ) : null}
       {error ? (
-        <p role="alert" className="mb-2 flex items-start gap-2 rounded-vx-sm bg-vx-danger-wash px-3 py-2 text-[13px] leading-5 text-vx-danger">
+        <p role="alert" className="mb-2 flex items-start gap-2 rounded-vx-sm bg-vx-danger-wash px-3 py-2.5 text-[14px] leading-5 text-vx-danger">
           <CircleAlert size={16} strokeWidth={1.75} className="mt-0.5 shrink-0" aria-hidden />
           {error}
         </p>
