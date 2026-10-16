@@ -12,6 +12,9 @@ import { newId } from '../src/lib/ids';
 import { resetRateLimits } from '../src/middleware/rate-limit';
 import { clearAdminUsageCache } from '../src/services/admin-panel';
 import { clearAdminCache } from '../src/services/admins';
+import { clearAdminDeniedThrottle } from '../src/middleware/session';
+import { clearServerLog } from '../src/lib/server-log';
+import { env } from '../src/env';
 import { clearBillingConfigCache } from '../src/services/billing-config';
 import { clearTreeCache } from '../src/services/tree';
 
@@ -63,7 +66,10 @@ export async function resetDb(): Promise<void> {
   await db.execute(rawSql`INSERT INTO admins (email) VALUES (${TEST_ADMIN})`);
   resetRateLimits();
   clearTreeCache();
+  env.adminEmails = [];
   clearAdminCache();
+  clearAdminDeniedThrottle();
+  clearServerLog();
   clearAdminUsageCache();
   clearBillingConfigCache();
 }

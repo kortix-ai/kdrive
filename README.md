@@ -104,14 +104,23 @@ and a caller on this machine.
 
 ### Admins
 
-Admins are addresses in the `admins` table; an account with that address gets
-the admin panel at `/admin` once the address is verified. The migrations seed
-the first admin (`allen@kortix.ai`), and admins add or remove others under
-Admin → Admins (the last admin cannot be removed). `VOLUMES_ADMIN_EMAILS` is no
-longer read; the API logs a warning when it is still set. The panel has an
-overview of the server, users with usage (each opens their drives, shared drives,
-quota and admin rights), usage by email domain, storage requests, the full audit
-log with filters and CSV export, and the admin list.
+`VOLUMES_ADMIN_EMAILS` (comma-separated) is the source of truth for admins. On
+boot the API mirrors it into the `admins` table, idempotently: a listed user who
+already exists becomes an admin, and a listed address that signs up later is one
+from its first sign-in. Listed addresses may always create an account, even when
+sign-up is invite-only or closed (how the founder of a closed server gets in),
+and cannot be removed in the app (they show as "from server config"). Admins
+added under Admin → Admins are extra and stay removable (the last admin cannot
+be removed). Rights always need the address verified on the account.
+
+The admin console lives at `/admin`, in its own frame apart from the drive. For
+anyone who is not an admin (signed out included), `/admin/**` is the app's
+normal 404 and `/api/admin/*` answers 404 like a route that does not exist; the
+refusals are audited. Sections: Overview (totals and sign-ups per day), Users
+(each opens their drives, shared drives, quota and admin rights; usage by email
+domain), Drives, Storage requests, Billing, Logs (the audit log with filters and
+CSV export, and a Server log: the API's recent warnings, errors and 5xx answers,
+kept in memory and redacted), Admins and a read-only Settings page.
 
 ### Accounts and email
 

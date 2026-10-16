@@ -70,7 +70,7 @@ async function deliver(type: string, object: Record<string, unknown>, secret: st
 }
 
 describe('access', () => {
-  test('non-admins get 403 on every billing route; signed-out callers 401', async () => {
+  test('non-admins get 404 on every billing route; signed-out callers 401', async () => {
     const plain = await user('plain@test.local');
     const routes: [string, string, unknown?][] = [
       ['GET', '/api/admin/billing'],
@@ -82,7 +82,7 @@ describe('access', () => {
     ];
     for (const [method, path, body] of routes) {
       const r = await plain.client.raw(method, path, body ? { body: JSON.stringify(body), headers: { 'content-type': 'application/json' } } : {});
-      expect(`${method} ${path} ${r.status}`).toBe(`${method} ${path} 403`);
+      expect(`${method} ${path} ${r.status}`).toBe(`${method} ${path} 404`);
     }
     expect(stripe.calls).toEqual([]);
     expect(await stored()).toBeUndefined();

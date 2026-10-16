@@ -12,7 +12,11 @@ import {
   AdminBillingResponse,
   type SetBillingPricesRequest,
   AdminDomainsResponse,
+  AdminDrivesResponse,
   AdminEntryResponse,
+  AdminLogsResponse,
+  AdminSessionResponse,
+  AdminSettingsResponse,
   AdminListResponse,
   AdminOverviewResponse,
   AdminStorageRequestResponse,
@@ -298,7 +302,13 @@ export const api = {
   },
 
   admin: {
+    session: () => apiFetch('/api/admin/session', {}, AdminSessionResponse),
     overview: () => apiFetch('/api/admin/overview', {}, AdminOverviewResponse),
+    drives: (q: { q?: string; sort?: 'created' | 'name'; dir?: 'asc' | 'desc'; page?: number; limit?: number } = {}) =>
+      apiFetch(`/api/admin/drives${qs({ q: q.q, sort: q.sort, dir: q.dir, page: q.page, limit: q.limit })}`, {}, AdminDrivesResponse),
+    logs: (q: { level?: 'all' | 'warn' | 'error'; after?: number; limit?: number } = {}) =>
+      apiFetch(`/api/admin/logs${qs({ level: q.level, after: q.after, limit: q.limit })}`, {}, AdminLogsResponse),
+    settings: () => apiFetch('/api/admin/settings', {}, AdminSettingsResponse),
     users: (q: { q?: string; sort?: AdminUserSort; dir?: 'asc' | 'desc'; page?: number; limit?: number } = {}) =>
       apiFetch(`/api/admin/users${qs({ q: q.q, sort: q.sort, dir: q.dir, page: q.page, limit: q.limit })}`, {}, AdminUsersResponse),
     user: (userId: string) => apiFetch(`/api/admin/users/${encodeURIComponent(userId)}`, {}, AdminUserDetailResponse),

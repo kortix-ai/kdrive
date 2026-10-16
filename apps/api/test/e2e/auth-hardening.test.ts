@@ -43,7 +43,7 @@ describe('admin rights need a verified address', () => {
   test('signing up with an unclaimed admin address by password grants nothing until it is verified', async () => {
     expect((await signUp('admin@test.local')).status).toBe(200);
     const c = await signIn('admin@test.local');
-    expect((await c.get('/api/admin/users')).status).toBe(403);
+    expect((await c.get('/api/admin/users')).status).toBe(404);
     expect((await c.get('/api/me')).body.isAdmin).toBe(false);
     expect((await verify('admin@test.local')).status).toBe(200);
     expect((await c.get('/api/admin/users')).status).toBe(200);

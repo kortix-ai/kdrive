@@ -55,13 +55,13 @@ describe('workspaces', () => {
 });
 
 describe('admin', () => {
-  test('admins list users with usage and change quotas (≤ 1 TiB); others get 403', async () => {
+  test('admins list users with usage and change quotas (≤ 1 TiB); others get 404', async () => {
     const u = await user('member@test.local');
     await upload(u, { '/f.bin': new Uint8Array(10_000) });
     const adm = await user('admin@test.local');
     expect(adm.me.isAdmin).toBe(true);
-    expect((await u.client.get('/api/admin/users')).status).toBe(403);
-    expect((await u.client.put(`/api/admin/users/${u.userId}/quota`, { quotaBytes: 1 })).status).toBe(403);
+    expect((await u.client.get('/api/admin/users')).status).toBe(404);
+    expect((await u.client.put(`/api/admin/users/${u.userId}/quota`, { quotaBytes: 1 })).status).toBe(404);
 
     const list = await adm.client.get('/api/admin/users?q=member');
     expect(list.status).toBe(200);

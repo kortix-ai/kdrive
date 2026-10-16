@@ -4,6 +4,7 @@ const LABELS: Record<string, string> = {
   'auth.sign_in': 'Signed in',
   'auth.sign_out': 'Signed out',
   'auth.sign_up': 'Account created',
+  'auth.sign_in_failed': 'Sign-in failed',
   'auth.email_verify': 'Email verified',
   'auth.email_change': 'Email changed',
   'auth.password_change': 'Password changed',
@@ -43,6 +44,7 @@ const LABELS: Record<string, string> = {
   'billing.config_disconnect': 'Stripe disconnected',
   'admin.add': 'Admin added',
   'admin.remove': 'Admin removed',
+  'admin.denied': 'Admin access refused',
   'agent.token.create': 'Agent token created',
   'agent.token.revoke': 'Agent token revoked',
   'agent.grant.create': 'Agent connected',
@@ -82,6 +84,7 @@ export const AUDIT_GROUPS: { id: string; label: string; kinds: string[] }[] = ((
 /** Badge tone: destructive kinds read red, checkpoints and links blue, sign-ins dashed, the rest neutral (never amber). */
 export function auditTone(kind: string): 'neutral' | 'dashed' | 'danger' | 'accent' {
   if (kind === 'account.delete' || kind === 'workspace.delete' || kind === 'link.revoke' || kind === 'checkpoint.delete' || kind === 'admin.remove') return 'danger';
+  if (kind === 'auth.sign_in_failed' || kind === 'admin.denied') return 'danger';
   if (kind === 'admin.add') return 'accent';
   if (kind.startsWith('checkpoint.') || kind.startsWith('link.')) return 'accent';
   if (kind.startsWith('auth.')) return 'dashed';

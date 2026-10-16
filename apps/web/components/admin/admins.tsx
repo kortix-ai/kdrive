@@ -4,7 +4,7 @@
 // up with it; admin rights need the address confirmed on the account. The last admin cannot be removed.
 import { useState } from 'react';
 import useSWR from 'swr';
-import { Plus } from 'lucide-react';
+import { Lock, Plus } from 'lucide-react';
 import type { AdminEntry } from '@volumes/shared';
 import { formatWhen } from '@/components/preview/names';
 import { Avatar } from '@/components/ui/avatar';
@@ -52,6 +52,7 @@ export function Admins({ onOpenUser }: { onOpenUser: (id: string) => void }) {
   if (error && !data) return <LoadError what="admins" onRetry={() => void mutate()} />;
   if (!data) return <Loading lines={[70, 60]} />;
   const last = data.admins.length <= 1;
+  const fromConfig = data.admins.filter((a) => a.source === 'env').length;
 
   return (
     <div className="pt-5">
@@ -104,6 +105,12 @@ export function Admins({ onOpenUser }: { onOpenUser: (id: string) => void }) {
                     <span className="truncate text-[14px] font-medium leading-5 text-vx-text-1">{a.email}</span>
                   )}
                   {you ? <Badge>You</Badge> : null}
+                  {a.source === 'env' ? (
+                    <Badge tone="accent" title="Set in VOLUMES_ADMIN_EMAILS on the server. Remove it there.">
+                      <Lock size={11} strokeWidth={2} aria-hidden className="mr-1 inline" />
+                      From server config
+                    </Badge>
+                  ) : null}
                   {!a.user ? (
                     <Badge tone="dashed" title="Nobody has signed up with this address yet">
                       No account yet
@@ -115,18 +122,30 @@ export function Admins({ onOpenUser }: { onOpenUser: (id: string) => void }) {
                   ) : null}
                 </div>
                 <div className="vx-meta mt-0.5 text-vx-text-3">
-                  {a.addedBy ? `added by ${a.addedBy}` : 'first admin'} · <span title={isoTitle(a.createdAt)}>{formatWhen(a.createdAt)}</span>
+                  {a.source === 'env' ? (
+                    'VOLUMES_ADMIN_EMAILS'
+                  ) : (
+                    <>
+                      {a.addedBy ? `added by ${a.addedBy}` : 'first admin'} · <span title={isoTitle(a.createdAt)}>{formatWhen(a.createdAt)}</span>
+                    </>
+                  )}
                 </div>
               </div>
-              <Button
-                size="sm"
-                variant="danger-text"
-                disabled={last}
-                title={last ? 'The last admin cannot be removed. Add another admin first.' : undefined}
-                onClick={() => setRemoving(a)}
-              >
-                Remove
-              </Button>
+              {a.source === 'env' ? (
+                <span className="vx-meta inline-flex items-center gap-1 pr-2 text-vx-text-3" title="Remove it from VOLUMES_ADMIN_EMAILS on the server">
+                  <Lock size={12} strokeWidth={1.75} aria-hidden /> Locked
+                </span>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="danger-text"
+                  disabled={last && !fromConfig}
+                  title={last && !fromConfig ? 'The last admin cannot be removed. Add another admin first.' : undefined}
+                  onClick={() => setRemoving(a)}
+                >
+                  Remove
+                </Button>
+              )}
             </li>
           );
         })}

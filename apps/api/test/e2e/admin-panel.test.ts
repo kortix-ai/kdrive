@@ -32,7 +32,7 @@ async function join(owner: User, who: User, role: 'editor' | 'viewer'): Promise<
 const used = async (u: User) => (await u.client.get('/api/me/usage')).body.usedBytes as number;
 
 describe('admin access', () => {
-  test('non-admins get 403 on every admin route; signed-out callers 401', async () => {
+  test('non-admins get 404 on every admin route; signed-out callers 401', async () => {
     const plain = await user('plain@test.local');
     const routes: [string, string, unknown?][] = [
       ['GET', '/api/admin/overview'],
@@ -49,7 +49,7 @@ describe('admin access', () => {
     ];
     for (const [method, path, body] of routes) {
       const r = await plain.client.raw(method, path, body ? { body: JSON.stringify(body), headers: { 'content-type': 'application/json' } } : {});
-      expect(`${method} ${path} ${r.status}`).toBe(`${method} ${path} 403`);
+      expect(`${method} ${path} ${r.status}`).toBe(`${method} ${path} 404`);
     }
     expect((await plain.client.get('/api/me')).body.isAdmin).toBe(false);
     // Nothing changed.
@@ -72,7 +72,7 @@ describe('admins in the database', () => {
     // Not an admin yet.
     const cat = await user('cat@test.local');
     expect(cat.me.isAdmin).toBe(false);
-    expect((await cat.client.get('/api/admin/overview')).status).toBe(403);
+    expect((await cat.client.get('/api/admin/overview')).status).toBe(404);
 
     // Added by address (any case); takes effect at once.
     const add = await adm.client.post('/api/admin/admins', { email: '  Cat@Test.Local ' });
@@ -92,7 +92,7 @@ describe('admins in the database', () => {
     const del = await adm.client.del(`/api/admin/admins/${encodeURIComponent('cat@test.local')}`);
     expect(del.status).toBe(204);
     expect((await cat.client.get('/api/me')).body.isAdmin).toBe(false);
-    expect((await cat.client.get('/api/admin/overview')).status).toBe(403);
+    expect((await cat.client.get('/api/admin/overview')).status).toBe(404);
     expect((await adm.client.del('/api/admin/admins/nobody%40test.local')).status).toBe(404);
 
     const events = await db.select().from(auditEvents).where(eq(auditEvents.userId, adm.userId)).orderBy(auditEvents.id);
@@ -113,7 +113,7 @@ describe('admins in the database', () => {
     // With a second admin, removing yourself works (and ends your access).
     await adm.client.post('/api/admin/admins', { email: 'allen@kortix.ai' });
     expect((await adm.client.del(`/api/admin/admins/${encodeURIComponent(TEST_ADMIN)}`)).status).toBe(204);
-    expect((await adm.client.get('/api/admin/admins')).status).toBe(403);
+    expect((await adm.client.get('/api/admin/admins')).status).toBe(404);
   });
 
   test('an unverified account at an admin address is not an admin', async () => {
@@ -122,7 +122,7 @@ describe('admins in the database', () => {
     const u = await user('unverified@test.local');
     await db.update(bauthUser).set({ emailVerified: false }).where(eq(bauthUser.id, u.userId));
     expect((await u.client.get('/api/me')).body.isAdmin).toBe(false);
-    expect((await u.client.get('/api/admin/overview')).status).toBe(403);
+    expect((await u.client.get('/api/admin/overview')).status).toBe(404);
     const row = (await adm.client.get('/api/admin/users?q=unverified')).body.users[0];
     expect(row).toMatchObject({ isAdmin: false, emailVerified: false });
     expect((await adm.client.get(`/api/admin/users/${u.userId}`)).body).toMatchObject({ isListedAdmin: true, user: { isAdmin: false } });
@@ -315,7 +315,7 @@ describe('audit log', () => {
     const everything = await (await adm.client.raw('GET', '/api/admin/audit.csv')).text();
     expect(everything.trim().split('\r\n').length).toBeGreaterThan(4);
     const plain = await user('plain@test.local');
-    expect((await plain.client.raw('GET', '/api/admin/audit.csv')).status).toBe(403);
+    expect((await plain.client.raw('GET', '/api/admin/audit.csv')).status).toBe(404);
   });
 
   test('csvField', () => {

@@ -803,3 +803,56 @@ html.vx-theme-switching *, html.vx-theme-switching *::before, html.vx-theme-swit
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 @layer components { .vx-grain > * { position: relative; z-index: 1; } }
+
+/* ════════════════════════════════════════════════════════════════════════
+ * Admin console (/admin/**): its own full-screen frame, outside the drive shell.
+ *   .vx-adm        grid [sidebar 248][content]
+ *   .vx-adm-side   KDRIVE mark + "Admin", section nav, the signed-in admin, Back to drive
+ *   .vx-adm-bar    phones only: menu button + lockup (the sidebar becomes a drawer)
+ * ════════════════════════════════════════════════════════════════════════ */
+.vx-adm {
+  display: grid;
+  grid-template-columns: 248px minmax(0, 1fr);
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--vx-bg);
+}
+.vx-adm-side {
+  display: flex; flex-direction: column; min-height: 0; overflow-y: auto; overflow-x: hidden;
+  padding: 14px 12px 12px;
+  background: var(--vx-bg);
+  border-right: 1px solid var(--vx-hair);
+}
+.vx-adm-content { display: flex; min-width: 0; min-height: 0; padding: 12px; }
+.vx-adm-main { flex: 1; min-width: 0; min-height: 0; overflow: auto; }
+.vx-adm-bar { display: none; }
+.vx-adm-nav {
+  display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 10px;
+  border-radius: var(--vx-r-sm); color: var(--vx-text-2);
+  font-size: 14px; line-height: 20px; font-weight: 500;
+  transition: background-color var(--vx-dur-1) var(--vx-ease), color var(--vx-dur-1) var(--vx-ease);
+}
+.vx-adm-nav:hover { background: var(--vx-raise); color: var(--vx-text-1); }
+.vx-adm-nav:active { background: var(--vx-pressed); }
+.vx-adm-nav[aria-current='page'] { background: var(--vx-accent-wash); color: var(--vx-text-1); font-weight: 600; }
+@media (max-width: 720px) {
+  .vx-adm { grid-template-columns: minmax(0, 1fr); grid-template-rows: 56px minmax(0, 1fr); }
+  .vx-adm-bar {
+    display: flex; align-items: center; gap: 8px; padding: 8px 12px; position: relative; z-index: 20;
+    background: var(--vx-nav-glass); border-bottom: 1px solid var(--vx-hair);
+    -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  }
+  .vx-adm-side {
+    position: fixed; top: 0; bottom: 0; left: 0; z-index: 60;
+    width: min(300px, calc(100vw - 48px));
+    background: var(--vx-surface); border-right: 0;
+    border-radius: 0 var(--vx-r-lg) var(--vx-r-lg) 0;
+    box-shadow: var(--vx-shadow-4);
+    padding: 16px 12px;
+    transform: translateX(-105%); visibility: hidden;
+    transition: transform var(--vx-dur-3) var(--vx-ease), visibility 0s linear var(--vx-dur-3);
+  }
+  .vx-adm-side[data-open='true'] { transform: none; visibility: visible; transition: transform var(--vx-dur-3) var(--vx-ease); }
+  .vx-adm-content { padding: 0; }
+  .vx-adm-main.vx-sheet { border-radius: 0; border-left: 0; border-right: 0; border-bottom: 0; }
+}

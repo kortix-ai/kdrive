@@ -9,8 +9,9 @@ export const SIGNUP_RESTRICTED = 'Sign-ups are invite-only right now. Ask the KD
  * May this address create an account? Read at call time (tests and operators
  * can change the mode without rebuilding the auth instance).
  *  - open: anyone.
- *  - invite-only: admins (the `admins` table) plus VOLUMES_SIGNUP_ALLOWLIST (exact addresses or `@domain`).
- *  - closed: admins only (how the first admin of a closed install gets in).
+ *  - invite-only: admins (VOLUMES_ADMIN_EMAILS and the `admins` table) plus VOLUMES_SIGNUP_ALLOWLIST
+ *    (exact addresses or `@domain`).
+ *  - closed: admins only (how the founder of a closed install gets in: list them in VOLUMES_ADMIN_EMAILS).
  */
 export async function signupAllowed(email: string): Promise<boolean> {
   const e = email.trim().toLowerCase();

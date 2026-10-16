@@ -23,12 +23,10 @@ import { Segmented } from '@/components/ui/segmented';
 import { api, type AdminAuditParams } from '@/lib/api/endpoints';
 import { sessionBound } from '@/lib/api/swr';
 import { isoTitle } from '@/lib/format';
-import { AUDIT_RANGES, rangeFrom, type AdminRoute, type AuditRange } from './admin-route';
+import { AUDIT_RANGES, rangeFrom, type AuditFilter, type AuditRange } from './admin-route';
 import { LoadError, Loading } from './parts';
 
 const PAGE = 100;
-
-type AuditFilter = AdminRoute['audit'];
 
 /** The cursor for the next page (events are paged by numeric id). */
 function nextBefore(prev: AdminAuditListResponse | null): number | null {

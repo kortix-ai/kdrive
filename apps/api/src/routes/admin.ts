@@ -6,9 +6,15 @@ import {
   AdminAuditQuery,
   AdminBillingResponse,
   AdminDomainsResponse,
+  AdminDrivesQuery,
+  AdminDrivesResponse,
   AdminEntryResponse,
   AdminListResponse,
+  AdminLogsQuery,
+  AdminLogsResponse,
   AdminOverviewResponse,
+  AdminSessionResponse,
+  AdminSettingsResponse,
   AdminStorageRequestResponse,
   AdminStorageRequestsQuery,
   AdminStorageRequestsResponse,
@@ -25,8 +31,10 @@ import {
 import { getStore } from '../storage';
 import { ok, parseJson, parseQuery } from '../lib/http';
 import { adminAuditCsv, listAdminAudit } from '../services/admin-audit';
-import { adminDomains, adminListUsers, adminOverview, adminSetQuota, adminUserDetail } from '../services/admin-panel';
-import { addAdmin, listAdmins, removeAdmin } from '../services/admins';
+import { readServerLog } from '../lib/server-log';
+import { adminDomains, adminListDrives, adminListUsers, adminOverview, adminSetQuota, adminUserDetail } from '../services/admin-panel';
+import { adminSettings } from '../services/admin-settings';
+import { addAdmin, adminSource, listAdmins, removeAdmin } from '../services/admins';
 import {
   adminBillingView,
   adminDisconnect,
@@ -38,8 +46,31 @@ import {
 import { adminDismissStorageRequest, adminGrantStorageRequest, adminListStorageRequests } from '../services/storage-requests';
 import type { AppEnv } from '../types';
 
-/** /api/admin/* (app.ts gates it with requireAdmin: verified addresses in the `admins` table). */
+/**
+ * /api/admin/* (app.ts gates it with requireAdmin: verified addresses in VOLUMES_ADMIN_EMAILS or
+ * the `admins` table; everyone else gets the 404 of a route that does not exist).
+ */
 export const adminRoutes = new Hono<AppEnv>();
+
+/** Who is signed in to the admin console (the web app's server-side gate calls it first). */
+adminRoutes.get('/session', async (c) => {
+  const u = c.get('user');
+  return ok(c, AdminSessionResponse, { user: { id: u.id, email: u.email, name: u.name, image: u.image }, source: adminSource(u.email) });
+});
+
+adminRoutes.get('/drives', async (c) => {
+  const q = parseQuery(c, AdminDrivesQuery);
+  const { drives, total } = await adminListDrives({ q: q.q || undefined, sort: q.sort, dir: q.dir, page: q.page, limit: q.limit });
+  return ok(c, AdminDrivesResponse, { drives, total, page: q.page, limit: q.limit });
+});
+
+/** The API's recent warnings, errors and 5xx answers (in memory, redacted). */
+adminRoutes.get('/logs', async (c) => {
+  const q = parseQuery(c, AdminLogsQuery);
+  return ok(c, AdminLogsResponse, readServerLog(q));
+});
+
+adminRoutes.get('/settings', async (c) => ok(c, AdminSettingsResponse, await adminSettings()));
 
 adminRoutes.get('/overview', async (c) => ok(c, AdminOverviewResponse, await adminOverview()));
 

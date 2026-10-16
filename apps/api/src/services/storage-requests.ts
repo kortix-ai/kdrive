@@ -81,7 +81,7 @@ export async function requestStorage(c: Context | null, user: SessionUser, input
 }
 
 async function notifyAdmins(user: SessionUser, row: StorageRequestRow, quotaBytes: number): Promise<void> {
-  const url = appUrl('/admin?tab=requests');
+  const url = appUrl('/admin/requests');
   for (const to of await adminEmails()) {
     const mail = renderStorageRequest({
       email: to,

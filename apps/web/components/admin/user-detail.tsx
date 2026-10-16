@@ -5,7 +5,7 @@
 // admin rights, and links into the audit log for them or for one of their drives.
 import { useState } from 'react';
 import useSWR, { mutate as globalMutate } from 'swr';
-import { ArrowLeft, ScrollText, ShieldCheck, ShieldOff } from 'lucide-react';
+import { ArrowLeft, Lock, ScrollText, ShieldCheck, ShieldOff } from 'lucide-react';
 import { formatBytes, meterLevel, type MeResponse } from '@volumes/shared';
 import { formatWhen } from '@/components/preview/names';
 import { Avatar } from '@/components/ui/avatar';
@@ -34,6 +34,8 @@ export async function afterAdminChange(email: string): Promise<void> {
   if (me && me.user.email.toLowerCase() === email.toLowerCase()) {
     const fresh = await globalMutate<MeResponse>('me');
     if (fresh) useVx.getState().setMe(fresh);
+    // No longer an admin: the console is gone for this account.
+    if (fresh && !fresh.isAdmin && window.location.pathname.startsWith('/admin')) window.location.assign('/drive');
   }
 }
 
@@ -116,7 +118,12 @@ export function UserDetail({
           <Button size="sm" variant="outline" icon={<ScrollText size={14} strokeWidth={1.75} aria-hidden />} onClick={() => onAudit({ userId: u.id })}>
             Audit events
           </Button>
-          {u.isAdmin || data.isListedAdmin ? (
+          {data.adminSource === 'env' ? (
+            <Badge tone="accent" title="Set in VOLUMES_ADMIN_EMAILS on the server. Remove it there.">
+              <Lock size={11} strokeWidth={2} aria-hidden className="mr-1 inline" />
+              Admin from server config
+            </Badge>
+          ) : u.isAdmin || data.isListedAdmin ? (
             <Button size="sm" variant="danger-text" icon={<ShieldOff size={14} strokeWidth={1.75} aria-hidden />} onClick={() => setConfirmRemove(true)}>
               Remove admin
             </Button>

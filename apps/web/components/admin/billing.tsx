@@ -2,12 +2,11 @@
 
 // Admin → Billing: Stripe for the paid plans, set up from here. An admin pastes one secret key and
 // types the Plus and Pro monthly prices; the API checks the key, creates the webhook endpoint and
-// the plan Prices in Stripe and keeps the secrets sealed. Three cards: the connection (key, live or
-// test, account, disconnect), the plan prices (one currency for both) and the webhook (its URL, and
-// a field for a signing secret when Stripe cannot reach this server, e.g. `stripe listen` locally).
-// A key in the server environment (STRIPE_SECRET_KEY) wins and is shown read-only; saving the prices
-// then sets up the webhook and the Prices with it. Secrets are write-only: no field is ever filled
-// from the server.
+// the plan Prices in Stripe and keeps the secrets sealed. Two cards: the connection (key, live or
+// test, account, disconnect) and the plan prices (one currency for both). The webhook has no card:
+// it is created with the prices, or its signing secret is STRIPE_WEBHOOK_SECRET in the environment.
+// A key in the server environment (STRIPE_SECRET_KEY) wins and is shown read-only. Secrets are
+// write-only: no field is ever filled from the server.
 import { useState } from 'react';
 import useSWR, { mutate as globalMutate } from 'swr';
 import { ChevronDown, TriangleAlert } from 'lucide-react';
@@ -18,13 +17,11 @@ import {
   PAID_PLAN_IDS,
   planById,
   STRIPE_KEY_PATTERN,
-  STRIPE_WEBHOOK_SECRET_PATTERN,
   type AdminBillingResponse,
   type BillingCurrency,
   type PaidPlanId,
 } from '@volumes/shared';
 import { formatWhen } from '@/components/preview/names';
-import { CopyButton } from '@/components/share/copy-button';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -56,7 +53,6 @@ export function priceInput(amount: number, currency: string): string {
 }
 
 const looksLikeKey = (s: string) => STRIPE_KEY_PATTERN.test(s.trim());
-const looksLikeWebhookSecret = (s: string) => STRIPE_WEBHOOK_SECRET_PATTERN.test(s.trim());
 
 function errText(e: unknown, fallback: string): string {
   return e instanceof Error ? e.message : fallback;
@@ -112,7 +108,6 @@ export function Billing() {
       {warning ? <Note tone="warn">{warning}</Note> : null}
       <Connection data={data} onChange={apply} />
       <Prices data={data} onChange={apply} />
-      <Webhook data={data} onChange={apply} />
       {data.updatedAt ? (
         <p className="vx-meta text-vx-text-3">
           Last changed by {data.updatedBy ?? 'an admin'} · <span title={isoTitle(data.updatedAt)}>{formatWhen(data.updatedAt)}</span>
@@ -352,88 +347,6 @@ function Prices({ data, onChange }: { data: AdminBillingResponse; onChange: (d: 
           </div>
         </form>
       )}
-    </Card>
-  );
-}
-
-function Webhook({ data, onChange }: { data: AdminBillingResponse; onChange: (d: AdminBillingResponse) => void }) {
-  const [secret, setSecret] = useState('');
-  const [busy, setBusy] = useState<'secret' | 'auto' | null>(null);
-  const [err, setErr] = useState<string | null>(null);
-  const status = data.webhook.status;
-  const editable = !!data.source && !data.webhook.fromEnv && status !== 'auto';
-
-  const run = async (what: 'secret' | 'auto') => {
-    if (busy) return;
-    setBusy(what);
-    setErr(null);
-    try {
-      const next = what === 'secret' ? await api.admin.setBillingWebhookSecret(secret.trim()) : await api.admin.retryBillingWebhook();
-      if (what === 'secret') setSecret('');
-      onChange(next);
-      if (next.webhook.status !== 'missing') useVx.getState().toast({ kind: 'success', message: 'Webhook ready.' });
-    } catch (e) {
-      setErr(errText(e, 'Could not set up the webhook.'));
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  return (
-    <Card
-      title="Webhook"
-      lead="Stripe tells KDRIVE here when someone subscribes, changes plan, cancels or misses a payment; the storage follows."
-      aside={
-        <Badge tone={status === 'auto' ? 'live' : status === 'manual' ? 'neutral' : 'danger'} pip={status === 'auto'}>
-          {status === 'auto' ? 'Set up automatically' : data.webhook.fromEnv ? 'From environment' : status === 'manual' ? 'Signing secret set' : 'Not set up'}
-        </Badge>
-      }
-    >
-      <div className="flex items-center gap-2">
-        <Input size="sm" mono readOnly value={data.webhook.url} aria-label="Webhook URL" className="min-w-0 flex-1" />
-        <CopyButton text={data.webhook.url} />
-      </div>
-      {data.webhook.endpointId ? <p className="vx-meta mt-2 text-vx-text-3">Endpoint {data.webhook.endpointId}</p> : null}
-      {data.webhook.fromEnv ? (
-        <p className="vx-micro mt-3 text-vx-text-3">The signing secret is STRIPE_WEBHOOK_SECRET in this server&apos;s environment.</p>
-      ) : editable ? (
-        <>
-          {data.webhook.error ? <Note tone="warn">{data.webhook.error}</Note> : null}
-          <form
-            className="mt-4 flex flex-wrap items-start gap-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (looksLikeWebhookSecret(secret)) void run('secret');
-            }}
-          >
-            <Input
-              size="sm"
-              type="password"
-              mono
-              autoComplete="off"
-              spellCheck={false}
-              placeholder="whsec_…"
-              aria-label="Webhook signing secret"
-              value={secret}
-              onChange={(e) => {
-                setSecret(e.target.value);
-                setErr(null);
-              }}
-              invalid={err ?? (secret.trim() && !looksLikeWebhookSecret(secret) ? 'A signing secret starts with whsec_.' : null)}
-              hint="Optional: the signing secret of an endpoint you made yourself, or the one `stripe listen` prints."
-              className="min-w-[240px] flex-1"
-            />
-            <Button type="submit" size="sm" variant="primary" loading={busy === 'secret'} disabled={!looksLikeWebhookSecret(secret) || !!busy}>
-              Save secret
-            </Button>
-            <Button size="sm" variant="text" loading={busy === 'auto'} disabled={!!busy} onClick={() => void run('auto')}>
-              Set up automatically
-            </Button>
-          </form>
-        </>
-      ) : !data.source ? (
-        <p className="vx-micro mt-3 text-vx-text-3">Connect a key above: the endpoint is created in Stripe for this URL.</p>
-      ) : null}
     </Card>
   );
 }

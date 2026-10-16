@@ -419,9 +419,9 @@ export const auditEvents = pgTable(
 
 /**
  * Who administers this server, by address (lower-cased). An admin still needs that
- * address verified on their account (services/admins.ts). Seeded by the migration
- * with the first admin; admins add and remove each other in the admin panel, and the
- * last one cannot be removed.
+ * address verified on their account (services/admins.ts). VOLUMES_ADMIN_EMAILS is
+ * mirrored in on boot (added_by = 'server config'; locked in the UI); admins add and
+ * remove the others in the admin console, and the last one cannot be removed.
  */
 export const admins = pgTable('admins', {
   email: text('email').primaryKey(),

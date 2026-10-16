@@ -1,92 +1,91 @@
-'use client';
+// Where the admin console is. Each section has its own path (/admin/users, /admin/logs …); one
+// user's detail is /admin/users/<id>; the audit log keeps its filters in the query string
+// (`/admin/logs?userId=…&kind=a&kind=b`), so links from mail, the browser's back button and a
+// reload land on the same view. Old `/admin?tab=…` links are redirected (legacyAdminPath).
 
-// Where the admin panel is: the tab, the user whose detail is open and the audit filters, all in the
-// query string (`/admin?tab=audit&userId=…`), so links from mail, the browser's back button and a
-// reload land on the same view. History entries are pushed on tab and user changes; filters replace.
-import { useCallback, useEffect, useState } from 'react';
+export const ADMIN_SECTIONS = [
+  { id: 'overview', href: '/admin', label: 'Overview' },
+  { id: 'users', href: '/admin/users', label: 'Users' },
+  { id: 'drives', href: '/admin/drives', label: 'Drives' },
+  { id: 'requests', href: '/admin/requests', label: 'Storage requests' },
+  { id: 'billing', href: '/admin/billing', label: 'Billing' },
+  { id: 'logs', href: '/admin/logs', label: 'Logs' },
+  { id: 'admins', href: '/admin/admins', label: 'Admins' },
+  { id: 'settings', href: '/admin/settings', label: 'Settings' },
+] as const;
+export type AdminSection = (typeof ADMIN_SECTIONS)[number]['id'];
 
-export const ADMIN_TABS = ['overview', 'users', 'domains', 'requests', 'billing', 'audit', 'admins'] as const;
-export type AdminTab = (typeof ADMIN_TABS)[number];
+/** The section a path belongs to (`/admin/users/u1` → users). */
+export function sectionOf(pathname: string): AdminSection {
+  const seg = pathname.replace(/^\/admin\/?/, '').split('/')[0];
+  return (ADMIN_SECTIONS.find((s) => s.id === seg)?.id ?? 'overview') as AdminSection;
+}
 
 /** The audit log's time window: a preset back from now. */
 export const AUDIT_RANGES = ['24h', '7d', '30d', 'all'] as const;
 export type AuditRange = (typeof AUDIT_RANGES)[number];
 
-export interface AdminRoute {
-  tab: AdminTab;
-  /** Users → one user's detail. */
-  user: string | null;
-  audit: {
-    q: string;
-    userId: string | null;
-    kinds: string[];
-    workspaceId: string | null;
-    range: AuditRange;
-  };
+export interface AuditFilter {
+  q: string;
+  userId: string | null;
+  kinds: string[];
+  workspaceId: string | null;
+  range: AuditRange;
 }
 
-export const EMPTY_AUDIT: AdminRoute['audit'] = { q: '', userId: null, kinds: [], workspaceId: null, range: 'all' };
+export const EMPTY_AUDIT: AuditFilter = { q: '', userId: null, kinds: [], workspaceId: null, range: 'all' };
 
-export function parseAdminRoute(search: string): AdminRoute {
+export function parseAuditFilter(search: string): AuditFilter {
   const p = new URLSearchParams(search);
-  const tab = p.get('tab');
   const range = p.get('range');
-  const hasAudit = ['q', 'userId', 'kind', 'workspaceId', 'range'].some((k) => p.has(k));
   return {
-    // A link with audit filters but no tab (from a user's detail) opens the audit log.
-    tab: (ADMIN_TABS as readonly string[]).includes(tab ?? '') ? (tab as AdminTab) : p.get('user') ? 'users' : hasAudit ? 'audit' : 'overview',
-    user: p.get('user') || null,
-    audit: {
-      q: p.get('q') ?? '',
-      userId: p.get('userId') || null,
-      kinds: p.getAll('kind').filter(Boolean),
-      workspaceId: p.get('workspaceId') || null,
-      range: (AUDIT_RANGES as readonly string[]).includes(range ?? '') ? (range as AuditRange) : 'all',
-    },
+    q: p.get('q') ?? '',
+    userId: p.get('userId') || null,
+    kinds: p.getAll('kind').filter(Boolean),
+    workspaceId: p.get('workspaceId') || null,
+    range: (AUDIT_RANGES as readonly string[]).includes(range ?? '') ? (range as AuditRange) : 'all',
   };
 }
 
-/** The query string for a route (defaults left out): `?tab=audit&kind=a&kind=b`. */
-export function adminRouteSearch(r: AdminRoute): string {
+/** The query string for audit filters (defaults left out): `?kind=a&kind=b&range=7d`. */
+export function auditFilterSearch(f: AuditFilter): string {
   const p = new URLSearchParams();
-  if (r.tab !== 'overview') p.set('tab', r.tab);
-  if (r.tab === 'users' && r.user) p.set('user', r.user);
-  if (r.tab === 'audit') {
-    if (r.audit.q) p.set('q', r.audit.q);
-    if (r.audit.userId) p.set('userId', r.audit.userId);
-    for (const k of r.audit.kinds) p.append('kind', k);
-    if (r.audit.workspaceId) p.set('workspaceId', r.audit.workspaceId);
-    if (r.audit.range !== 'all') p.set('range', r.audit.range);
-  }
+  if (f.q) p.set('q', f.q);
+  if (f.userId) p.set('userId', f.userId);
+  for (const k of f.kinds) p.append('kind', k);
+  if (f.workspaceId) p.set('workspaceId', f.workspaceId);
+  if (f.range !== 'all') p.set('range', f.range);
   const s = p.toString();
   return s ? `?${s}` : '';
 }
 
+/** The audit log with these filters. */
+export function auditHref(f: Partial<AuditFilter>): string {
+  return `/admin/logs${auditFilterSearch({ ...EMPTY_AUDIT, ...f })}`;
+}
+
+/**
+ * Where an old `/admin?tab=…` link goes now, or null when it is not one. `?tab=domains` is the
+ * Users section's "By domain" view; audit filters without a tab open the audit log.
+ */
+export function legacyAdminPath(search: string | URLSearchParams): string | null {
+  const p = typeof search === 'string' ? new URLSearchParams(search) : search;
+  const tab = p.get('tab');
+  const user = p.get('user');
+  const hasAudit = ['q', 'userId', 'kind', 'workspaceId', 'range'].some((k) => p.has(k));
+  if (!tab && !user && !hasAudit) return null;
+  if (tab === 'audit' || (!tab && !user && hasAudit)) return auditHref(parseAuditFilter(p.toString()));
+  if (tab === 'users' || (!tab && user)) return user ? `/admin/users/${encodeURIComponent(user)}` : '/admin/users';
+  if (tab === 'domains') return '/admin/users?view=domains';
+  if (tab === 'requests' || tab === 'billing' || tab === 'admins') return `/admin/${tab}`;
+  return '/admin';
+}
+
+/** Days back each preset covers. */
 const HOUR = 3_600_000;
 const RANGE_MS: Record<Exclude<AuditRange, 'all'>, number> = { '24h': 24 * HOUR, '7d': 7 * 24 * HOUR, '30d': 30 * 24 * HOUR };
 
 /** The `from` instant of a range (ISO), or undefined for all time. */
 export function rangeFrom(range: AuditRange, now: number = Date.now()): string | undefined {
   return range === 'all' ? undefined : new Date(now - RANGE_MS[range]).toISOString();
-}
-
-/** The admin route in the URL, and a way to move. `push` adds a history entry (tabs, users); filters replace it. */
-export function useAdminRoute(): [AdminRoute, (next: AdminRoute, mode?: 'push' | 'replace') => void] {
-  const [route, setRoute] = useState<AdminRoute>(() =>
-    typeof window === 'undefined' ? parseAdminRoute('') : parseAdminRoute(window.location.search),
-  );
-  useEffect(() => {
-    const onPop = () => setRoute(parseAdminRoute(window.location.search));
-    window.addEventListener('popstate', onPop);
-    return () => window.removeEventListener('popstate', onPop);
-  }, []);
-  const go = useCallback((next: AdminRoute, mode: 'push' | 'replace' = 'push') => {
-    const url = `${window.location.pathname}${adminRouteSearch(next)}`;
-    if (url !== `${window.location.pathname}${window.location.search}`) {
-      if (mode === 'push') window.history.pushState(window.history.state, '', url);
-      else window.history.replaceState(window.history.state, '', url);
-    }
-    setRoute(next);
-  }, []);
-  return [route, go];
 }

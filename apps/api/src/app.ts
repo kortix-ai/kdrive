@@ -3,6 +3,7 @@ import { Hono } from 'hono';
 import { auth, CLIENT_IP_HEADER } from './auth';
 import { ApiError } from './lib/http';
 import { audit } from './lib/audit';
+import { installConsoleCapture, recordRequestError } from './lib/server-log';
 import { csrfGuard } from './middleware/csrf';
 import { errorResponse, onError } from './middleware/errors';
 import { env } from './env';
@@ -59,6 +60,8 @@ function devSignInAllowed(c: Parameters<typeof clientIp>[0]): boolean {
  */
 export function createApp(): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
+  // Admin → Logs → Server log: warnings, errors and 5xx answers, kept in memory.
+  installConsoleCapture();
 
   app.onError(onError);
   app.notFound((c) => c.json({ error: { code: 'not_found', message: 'No such route.' } }, 404));
@@ -67,7 +70,11 @@ export function createApp(): Hono<AppEnv> {
   app.use('*', async (c, next) => {
     const reqId = c.req.header('x-request-id')?.slice(0, 64) || randomBytes(6).toString('hex');
     c.set('reqId', reqId);
+    const started = performance.now();
     await next();
+    if (c.res.status >= 500) {
+      recordRequestError({ method: c.req.method, path: c.req.path, status: c.res.status, durationMs: Math.round(performance.now() - started) });
+    }
     c.header('X-Request-Id', reqId);
     if (!c.res.headers.has('X-Content-Type-Options')) c.header('X-Content-Type-Options', 'nosniff');
     if (!c.res.headers.has('Referrer-Policy')) c.header('Referrer-Policy', 'same-origin');
