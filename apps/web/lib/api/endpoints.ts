@@ -38,6 +38,9 @@ import {
   ProposalDetailResponse,
   ProposalListResponse,
   DeletedResponse,
+  DriveStarsResponse,
+  RecentListResponse,
+  StarredListResponse,
   LinkListResponse,
   LinkResponse,
   ListResponse,
@@ -209,6 +212,20 @@ export const api = {
     list: () => apiFetch('/api/invitations', {}, InvitationListResponse),
     accept: (id: string) => apiFetch(`/api/invitations/${encodeURIComponent(id)}/accept`, { method: 'POST', json: {} }, WorkspaceResponse),
     decline: (id: string) => apiFetch<void>(`/api/invitations/${encodeURIComponent(id)}/decline`, { method: 'POST', json: {} }),
+  },
+
+  /** Starred items (per person, across drives) and the starred paths of one drive. */
+  stars: {
+    list: () => apiFetch('/api/stars', {}, StarredListResponse),
+    drive: (ws: string) => apiFetch(`${w(ws)}/stars`, {}, DriveStarsResponse),
+    set: (ws: string, paths: string[], starred: boolean) =>
+      apiFetch('/api/stars', { method: 'POST', json: { workspaceId: ws, paths, starred } }, DriveStarsResponse),
+  },
+
+  /** Files the user recently opened or changed, across drives. */
+  recent: {
+    list: (q: { limit?: number } = {}) => apiFetch(`/api/recent${qs({ limit: q.limit })}`, {}, RecentListResponse),
+    opened: (ws: string, path: string) => apiFetch<void>('/api/recent/opened', { method: 'POST', json: { workspaceId: ws, path } }),
   },
 
   /** Settings → Storage: the own drives' breakdown, and who wrote what in one drive (any member may read it). */

@@ -7,7 +7,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
-import { Diamond, Files, Inbox, Settings, Shield, Trash } from 'lucide-react';
+import { Clock, Diamond, Files, Inbox, Settings, Shield, Star, Trash } from 'lucide-react';
 import StorageMeter from '@/components/drive/storage-meter';
 import WorkspaceSwitcher from '@/components/workspaces/workspace-switcher';
 import { ProposalsNavCount } from '@/components/proposals/proposals-nav-count';
@@ -22,6 +22,8 @@ type NavItem = { href: string; label: string; short: string; icon: typeof Files;
 
 const NAV_MAIN: NavItem[] = [
   { href: '/drive', label: 'Files', short: 'Files', icon: Files, chord: 'g d' },
+  { href: '/recent', label: 'Recent', short: 'Recent', icon: Clock, chord: 'g r' },
+  { href: '/starred', label: 'Starred', short: 'Starred', icon: Star, chord: 'g s' },
   { href: '/checkpoints', label: 'Checkpoints', short: 'Saved', icon: Diamond, chord: 'g c' },
   { href: '/recently-deleted', label: 'Recently deleted', short: 'Deleted', icon: Trash, chord: 'g x' },
   { href: '/proposals', label: 'Proposals', short: 'Review', icon: Inbox, chord: 'g p' },

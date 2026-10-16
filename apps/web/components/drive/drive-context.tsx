@@ -53,7 +53,9 @@ export interface DriveCtxValue extends DriveItemHandlers {
   density: 'wide' | 'compact' | 'phone';
   /** At least one item is selected (checkboxes stay visible). */
   anySelected: boolean;
-  /** Row and card actions (Download · Share · Versions). */
+  /** The user's starred paths in this drive. */
+  starred: ReadonlySet<string>;
+  /** Row and card actions (Star · Download · Share · Versions). */
   cmd: DriveCommands;
 }
 

@@ -11,6 +11,7 @@ import { getStore } from '../storage';
 import { isStoreError, type Ref } from '../storage/types';
 import type { WorkspaceCtx } from '../types';
 import { hashLinkPassword, mailLinkToPeople } from './link-access';
+import { detachStars, moveStars, reattachStars, unmoveStars } from './stars';
 import { assertTagBudget, linkTag } from './tags';
 import { statOrNull } from './tree';
 import { ensureVolume, toCtx } from './workspaces';
@@ -309,7 +310,8 @@ export async function deleteWorkspaceLinks(workspaceId: string): Promise<number>
 // ── live links follow their item ─────────────────────────────────────────────
 // A live link names a path, so every mutation that moves or removes an item
 // updates the links rooted at or under it, inside the same workspace lock.
-// Pinned links read their own commit and never change.
+// Pinned links read their own commit and never change. Stars and recently opened files
+// name paths the same way, so each hook updates them too (services/stars.ts).
 
 /** Links rooted at `p` or anywhere under it (never matches siblings like `/a b` for `/a`). */
 const atOrUnder = (p: string) =>
@@ -322,6 +324,7 @@ export async function moveLiveLinks(wsId: string, from: string, to: string): Pro
     UPDATE share_links SET path = ${to} || substr(path, char_length(${from}) + 1)
     WHERE workspace_id = ${wsId} AND mode = 'live' AND revoked_at IS NULL AND detached_at IS NULL
       AND ${atOrUnder(from)}`);
+  await moveStars(wsId, from, to);
 }
 
 /** The item at `path` is gone (deleted, replaced or removed by a restore): detach its live links. */
@@ -330,6 +333,7 @@ export async function detachLiveLinks(wsId: string, path: string, actionId: stri
     UPDATE share_links SET detached_at = now(), detached_by_action_id = ${actionId}
     WHERE workspace_id = ${wsId} AND mode = 'live' AND revoked_at IS NULL AND detached_at IS NULL
       AND ${atOrUnder(path)}`);
+  await detachStars(wsId, path, actionId);
 }
 
 /** Undo of `actionId` put its items back: the links it detached work again. */
@@ -338,6 +342,7 @@ export async function reattachLinks(wsId: string, actionId: string): Promise<voi
     .update(shareLinks)
     .set({ detachedAt: null, detachedByActionId: null })
     .where(and(eq(shareLinks.workspaceId, wsId), eq(shareLinks.detachedByActionId, actionId)));
+  await reattachStars(wsId, actionId);
 }
 
 /**
@@ -351,4 +356,5 @@ export async function unmoveLiveLinks(wsId: string, to: string, from: string, un
     WHERE workspace_id = ${wsId} AND mode = 'live' AND revoked_at IS NULL
       AND (detached_at IS NULL OR detached_by_action_id = ${undoActionId})
       AND ${atOrUnder(to)}`);
+  await unmoveStars(wsId, to, from, undoActionId);
 }

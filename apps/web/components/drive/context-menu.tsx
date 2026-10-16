@@ -19,6 +19,8 @@ import {
   Pencil,
   RotateCcw,
   Share2,
+  Star,
+  StarOff,
   Trash,
   Upload,
   Users,
@@ -44,6 +46,8 @@ export interface DriveCommands {
   share(e: FileEntry): void;
   /** A folder: the share dialog on its Upload link tab (people send files in). */
   requestFiles(e: FileEntry): void;
+  /** Stars the items, or unstars them when every one already is. */
+  star(es: FileEntry[]): void;
   checkpoint(): void;
   remove(es: FileEntry[]): void;
   restore(e: FileEntry): void;
@@ -69,13 +73,33 @@ export function buildDriveMenu(o: {
   past: boolean;
   drift: ReadonlyMap<string, Drift> | null;
   cmd: DriveCommands;
+  /** The user's starred paths in this drive (stars are personal, so a viewer can star too). */
+  starred?: ReadonlySet<string>;
   /** A viewer of someone else's drive: write items stay visible but disabled. */
   viewOnly?: boolean;
 }): MenuItem[] {
   return lockForViewer(driveMenuItems(o), o.viewOnly);
 }
 
-function driveMenuItems(o: { targets: FileEntry[]; past: boolean; drift: ReadonlyMap<string, Drift> | null; cmd: DriveCommands }): MenuItem[] {
+/** Add to / Remove from Starred: removes only when every target already is starred. */
+function starItem(targets: FileEntry[], starred: ReadonlySet<string> | undefined, cmd: DriveCommands): MenuItem {
+  const all = !!starred && targets.every((t) => starred.has(t.path));
+  return {
+    id: 'star',
+    label: all ? 'Remove from Starred' : 'Add to Starred',
+    icon: all ? <StarOff size={I} strokeWidth={W} /> : <Star size={I} strokeWidth={W} />,
+    kbd: 'S',
+    onSelect: () => cmd.star(targets),
+  };
+}
+
+function driveMenuItems(o: {
+  targets: FileEntry[];
+  past: boolean;
+  drift: ReadonlyMap<string, Drift> | null;
+  cmd: DriveCommands;
+  starred?: ReadonlySet<string>;
+}): MenuItem[] {
   const { targets, past, cmd } = o;
   if (!targets.length) {
     return [
@@ -110,7 +134,7 @@ function driveMenuItems(o: { targets: FileEntry[]; past: boolean; drift: Readonl
       items.push({ id: 'versions', label: 'Versions', icon: <Clock size={I} strokeWidth={W} />, kbd: '⇧H', onSelect: () => cmd.versions(one) });
       items.push({ id: 'cmp', label: 'Compare with now', icon: <GitCompareArrows size={I} strokeWidth={W} />, kbd: 'C', onSelect: () => cmd.compareWithNow(one) });
     }
-    if (one) items.push({ id: 'share', label: 'Share pinned link…', icon: <Share2 size={I} strokeWidth={W} />, kbd: 'S', onSelect: () => cmd.share(one) });
+    if (one) items.push({ id: 'share', label: 'Share pinned link…', icon: <Share2 size={I} strokeWidth={W} />, kbd: '⇧S', onSelect: () => cmd.share(one) });
     items.push({ id: 's2', type: 'separator' });
     if (one) items.push({ id: 'restore', label: 'Restore this…', icon: <RotateCcw size={I} strokeWidth={W} />, tone: 'past', kbd: 'R', onSelect: () => cmd.restore(one) });
     items.push({ id: 'mv', label: 'Move to…', icon: <FolderInput size={I} strokeWidth={W} />, onSelect: () => cmd.moveTo(targets), disabled: true, reason: READ_ONLY_REASON });
@@ -132,13 +156,14 @@ function driveMenuItems(o: { targets: FileEntry[]; past: boolean; drift: Readonl
   if (one) items.push({ id: 'rename', label: 'Rename', icon: <Pencil size={I} strokeWidth={W} />, kbd: 'F2', onSelect: () => cmd.rename(one) });
   items.push({ id: 'mv', label: 'Move to…', icon: <FolderInput size={I} strokeWidth={W} />, kbd: 'M', onSelect: () => cmd.moveTo(targets) });
   items.push({ id: 'cp', label: 'Copy to…', icon: <Copy size={I} strokeWidth={W} />, kbd: '⇧M', onSelect: () => cmd.copyTo(targets) });
+  items.push(starItem(targets, o.starred, cmd));
   if (one) {
     items.push({ id: 's2', type: 'separator' });
     if (isFile) {
       items.push({ id: 'versions', label: 'Versions', icon: <Clock size={I} strokeWidth={W} />, kbd: '⇧H', onSelect: () => cmd.versions(one) });
       items.push({ id: 'cmp', label: 'Compare with previous', icon: <GitCompareArrows size={I} strokeWidth={W} />, kbd: 'C', onSelect: () => cmd.comparePrevious(one) });
     }
-    items.push({ id: 'share', label: 'Share…', icon: <Share2 size={I} strokeWidth={W} />, kbd: 'S', onSelect: () => cmd.share(one) });
+    items.push({ id: 'share', label: 'Share…', icon: <Share2 size={I} strokeWidth={W} />, kbd: '⇧S', onSelect: () => cmd.share(one) });
     if (isDir) items.push({ id: 'req', label: 'Request files…', icon: <Inbox size={I} strokeWidth={W} />, onSelect: () => cmd.requestFiles(one) });
     items.push({ id: 'cpt', label: 'Checkpoint…', icon: <Diamond size={I} strokeWidth={W} />, kbd: 'P', onSelect: cmd.checkpoint });
   }
