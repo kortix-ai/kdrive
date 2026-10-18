@@ -2,7 +2,7 @@ import { GlassFolder, type GlassGlyph, type GlassPaper, type HueName } from '../
 import { SectionHead } from './head';
 
 // Everything else: six paper cards (3 × 2 on desktop), each with a glass folder on a dot-grid stage, a
-// title and one line. The same object in many colours: every kind of file gets its own hue.
+// title and one line. The same frosted object throughout; only what peeks out of it changes.
 const CELLS: { title: string; line: string; hue: HueName; paper: GlassPaper; glyph: GlassGlyph; tag: string }[] = [
   { title: 'Versions', line: 'Every change is a version, marked with who made it: you or an agent.', hue: 'cobalt', paper: 'doc', glyph: 'doc', tag: 'v31' },
   { title: 'Checkpoints', line: 'Name a moment ("before launch") and come back to it by name.', hue: 'amber', paper: 'slide', glyph: 'slides', tag: '◆ launch' },
@@ -22,7 +22,7 @@ export function Features() {
           hue={162}
           title="The rest of what a drive"
           em="should do."
-          lead="The same object in many colours. Every kind of file gets its own hue, so you can find it before you read it."
+          lead="One quiet object for everything. What peeks out of the folder tells you what is inside before you open it."
         />
         <ul className="kd-feat">
           {CELLS.map((c) => (

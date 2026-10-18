@@ -3,9 +3,9 @@ import { Archive, AudioLines, Code2, FileText, Folder, Image as ImageIcon, Prese
 import './glass-folder.css';
 
 // The glass folder: the one object of the KDRIVE language. One recipe and one size ratio (1 : 0.72); only the
-// hue changes. Back and tab (fill nudged 2px down-right) → back outline → paper inserts → frosted front.
-// Sized by `size` (or --vx-obj-w), coloured by a single --h oklch hue angle; the theme's
-// --vx-glass-* knobs set lightness, chroma and alpha. Server-safe (no state), so the app can reuse it as is.
+// inserts change. Back and tab (fill nudged 2px down-right) → back outline → paper inserts → frosted front.
+// Sized by `size` (or --vx-obj-w), in neutral white glass (`hue` is accepted but no longer tints); the theme's
+// --vx-frost-* knobs set the glass for each mode. Server-safe (no state), so the app can reuse it as is.
 
 /** The seven object hues (oklch hue angles), mirrored as --hue-* in globals.css. No violet. */
 export const HUES = { coral: 32, amber: 72, lime: 118, mint: 162, aqua: 205, cobalt: 262, rose: 352 } as const;

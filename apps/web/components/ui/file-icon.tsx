@@ -110,25 +110,28 @@ export function objectHue(name: string): number {
 }
 
 /**
- * The folder at list scale: the glass object flattened to a solid back + tab and a lighter front, in the
- * folder's own hue (objectHue), so a row, a crumb and its card agree.
+ * The folder at list scale: the glass object flattened to an outlined back + tab and a frosted front, in
+ * neutral ink, so a row, a crumb and its card agree.
  */
-function FolderGlyph({ name, size, muted }: { name: string; size: number; muted?: boolean }) {
-  const h = objectHue(name);
+function FolderGlyph({ size, muted }: { size: number; muted?: boolean }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden data-kind="folder" className={cx('inline-block shrink-0', muted && 'opacity-50')}>
-      <path d="M3 7.2a2 2 0 0 1 2-2h4.6l2 2.2H19a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" style={{ fill: `oklch(0.60 0.11 ${h})` }} />
-      <rect x="3" y="9.6" width="18" height="9.4" rx="2" style={{ fill: `oklch(0.76 0.105 ${h})` }} />
-      <rect x="3.6" y="10.1" width="16.8" height="1" rx=".5" fill="rgba(255,255,255,.45)" />
+      <path
+        d="M3.5 7.2a1.7 1.7 0 0 1 1.7-1.7h4.3l2 2.2h7.3a1.7 1.7 0 0 1 1.7 1.7V17a1.7 1.7 0 0 1-1.7 1.7H5.2A1.7 1.7 0 0 1 3.5 17z"
+        style={{ fill: 'var(--vx-frost-back-1)', stroke: 'color-mix(in oklab, var(--vx-text-1) 45%, transparent)' }}
+        strokeWidth={1.2}
+        strokeLinejoin="round"
+      />
+      <rect x="3.5" y="10" width="17" height="8.7" rx="1.7" style={{ fill: 'var(--vx-frost-1)', stroke: 'color-mix(in oklab, var(--vx-text-1) 45%, transparent)' }} strokeWidth={1.2} />
     </svg>
   );
 }
 
 /**
- * File-type icon: a flat tinted tile (the kind's `--vx-ft-*` mixed into the surface, a faint ring of the same
- * hue) with the glyph in the kind's colour, drawn in a `size` px box (rows 28, cards 20–24, mats 48/64).
- * Folders are the flattened glass folder in their own hue; links an outline link; `shared` adds a small
- * person badge. `muted` dims the icon (ghost rows, unrestorable items).
+ * File-type icon: a quiet monochrome tile (a surface fill, a hairline ring) with the glyph in secondary ink,
+ * drawn in a `size` px box (rows 28, cards 20–24, mats 48/64). Only the glyph tells kinds apart. Folders are
+ * the flattened glass folder; links an outline link; `shared` adds a small person badge. `muted` dims the
+ * icon (ghost rows, unrestorable items).
  */
 export function FileIcon({
   name,
@@ -150,7 +153,7 @@ export function FileIcon({
   if (kind === 'folder') {
     return (
       <span className={cx('relative inline-flex items-center justify-center', className)} style={{ width: size, height: size }} aria-hidden>
-        <FolderGlyph name={name} size={size} muted={muted} />
+        <FolderGlyph size={size} muted={muted} />
         {shared ? (
           <svg className="absolute" style={{ right: 0, bottom: 0 }} width={Math.max(9, size * 0.4)} height={Math.max(9, size * 0.4)} viewBox="0 0 10 10">
             <circle cx="5" cy="5" r="5" fill="var(--vx-text-1)" />
@@ -163,14 +166,13 @@ export function FileIcon({
   }
   if (kind === 'link') {
     return (
-      <span className={cx('relative inline-flex items-center justify-center', cls)} style={{ width: size, height: size, color: fileKindColor(kind) }} aria-hidden>
+      <span className={cx('relative inline-flex items-center justify-center', cls)} style={{ width: size, height: size, color: 'var(--vx-text-2)' }} aria-hidden>
         <Link2 size={Math.round(size * 0.7)} strokeWidth={1.75} />
       </span>
     );
   }
-  const c = fileKindColor(kind);
   return (
-    <svg className={cls} width={size} height={size} viewBox="0 0 24 24" aria-hidden data-kind={kind} style={{ color: c }}>
+    <svg className={cls} width={size} height={size} viewBox="0 0 24 24" aria-hidden data-kind={kind} style={{ color: 'var(--vx-text-2)' }}>
       <rect
         x="0.5"
         y="0.5"
@@ -178,8 +180,8 @@ export function FileIcon({
         height="23"
         rx="6.5"
         style={{
-          fill: `color-mix(in oklab, ${c} 13%, var(--vx-surface))`,
-          stroke: `color-mix(in oklab, ${c} 26%, transparent)`,
+          fill: 'var(--vx-surface-2)',
+          stroke: 'var(--vx-hair-strong)',
         }}
         strokeWidth={24 / size}
       />

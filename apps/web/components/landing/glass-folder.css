@@ -1,6 +1,6 @@
-/* The glass folder (components/landing/glass-folder.tsx). One component, one variable (--h), one size ratio
- * (1 : 0.72), sized in container-query units so every part scales with --gw. Theme knobs: --vx-glass-*,
- * --vx-paper, --vx-paper-line and --vx-ink-line (app/globals.css). */
+/* The glass folder (components/landing/glass-folder.tsx). One component, one size ratio (1 : 0.72), sized in
+ * container-query units so every part scales with --gw. Neutral frosted glass, no hue: theme knobs are
+ * --vx-frost-*, --vx-paper, --vx-paper-line and --vx-ink-line (app/globals.css). */
 
 .vx-folder {
   --h: 262;
@@ -19,14 +19,15 @@
   left: 3%; right: 3%; top: 13%; bottom: 7%;
   border-radius: 0 6.5cqw 6cqw 6cqw;
   transform: translate(2px, 2px);
-  background: linear-gradient(180deg, oklch(var(--vx-glass-back-l) 0.10 var(--h)) 0%, oklch(calc(var(--vx-glass-back-l) - 0.08) 0.105 var(--h)) 100%);
+  background: linear-gradient(180deg, var(--vx-frost-back-1) 0%, var(--vx-frost-back-2) 100%);
+  box-shadow: inset 0 0 0 1px var(--vx-frost-edge);
 }
 .vx-folder__back::before {
   content: "";
   position: absolute; left: 0; bottom: 100%;
   width: 42%; height: 9cqw;
   border-radius: 5cqw 5cqw 0 0;
-  background: oklch(var(--vx-glass-back-l) 0.10 var(--h));
+  background: var(--vx-frost-back-1);
   clip-path: polygon(0 0, 82% 0, 100% 100%, 0 100%);
 }
 
@@ -49,46 +50,46 @@
   transition: transform var(--vx-dur-5) var(--vx-ease);
 }
 .vx-folder__paper.is-p2 { left: 41%; top: 20%; transform: rotate(4deg); filter: brightness(.985); }
-.vx-folder__paper.is-photo { background: linear-gradient(180deg, oklch(0.84 0.07 230) 0 55%, oklch(0.72 0.10 150) 55%); }
+.vx-folder__paper.is-photo { background: linear-gradient(180deg, oklch(0.88 0 0) 0 55%, oklch(0.78 0 0) 55%); }
 .vx-folder__paper.is-photo::after {
   content: ""; position: absolute; right: 18%; top: 14%;
   width: 24%; aspect-ratio: 1; border-radius: 50%;
-  background: oklch(0.88 0.12 85);
+  background: oklch(0.97 0 0);
 }
 .vx-folder__paper.is-code {
+  --ink: rgba(27, 26, 23, 0.30);
   background-image:
-    linear-gradient(oklch(0.62 0.12 205), oklch(0.62 0.12 205)),
-    linear-gradient(oklch(0.70 0.13 72), oklch(0.70 0.13 72)),
-    linear-gradient(oklch(0.62 0.13 352), oklch(0.62 0.13 352)),
+    linear-gradient(var(--ink), var(--ink)),
+    linear-gradient(var(--ink), var(--ink)),
+    linear-gradient(var(--ink), var(--ink)),
     linear-gradient(var(--vx-paper-line), var(--vx-paper-line));
   background-size: 40% 1.6cqw, 28% 1.6cqw, 46% 1.6cqw, 30% 1.6cqw;
   background-position: 14% 14%, 26% 28%, 26% 42%, 14% 56%;
 }
 .vx-folder__paper.is-grid {
   background-image:
-    linear-gradient(oklch(0.70 0.12 162 / .55), oklch(0.70 0.12 162 / .55)),
+    linear-gradient(rgba(27, 26, 23, 0.08), rgba(27, 26, 23, 0.08)),
     repeating-linear-gradient(90deg, transparent 0 9cqw, var(--vx-paper-line) 9cqw calc(9cqw + 1px)),
     repeating-linear-gradient(180deg, transparent 0 5cqw, var(--vx-paper-line) 5cqw calc(5cqw + 1px));
   background-size: 100% 5cqw, 100% 100%, 100% 100%;
   background-position: 0 0;
 }
 .vx-folder__paper.is-wave {
-  background-image: repeating-linear-gradient(90deg, oklch(0.60 0.12 118) 0 1.4cqw, transparent 1.4cqw 3cqw);
+  background-image: repeating-linear-gradient(90deg, rgba(27, 26, 23, 0.28) 0 1.4cqw, transparent 1.4cqw 3cqw);
   background-size: 80% 34%;
   background-position: 50% 36%;
 }
 .vx-folder__paper.is-slide {
-  background-color: oklch(0.94 0.03 72);
-  background-image: linear-gradient(oklch(0.74 0.13 72), oklch(0.74 0.13 72)), linear-gradient(var(--vx-paper-line), var(--vx-paper-line));
+  background-image: linear-gradient(rgba(27, 26, 23, 0.12), rgba(27, 26, 23, 0.12)), linear-gradient(var(--vx-paper-line), var(--vx-paper-line));
   background-size: 60% 22%, 40% 1.6cqw;
   background-position: 50% 30%, 50% 70%;
 }
 .vx-folder__paper.is-film {
-  background-color: oklch(0.25 0.006 70);
+  background-color: oklch(0.28 0 0);
   background-image:
-    repeating-linear-gradient(180deg, oklch(0.94 0.01 80) 0 2cqw, transparent 2cqw 4.5cqw),
-    repeating-linear-gradient(180deg, oklch(0.94 0.01 80) 0 2cqw, transparent 2cqw 4.5cqw),
-    linear-gradient(160deg, oklch(0.66 0.13 32), oklch(0.56 0.14 352));
+    repeating-linear-gradient(180deg, oklch(0.94 0 0) 0 2cqw, transparent 2cqw 4.5cqw),
+    repeating-linear-gradient(180deg, oklch(0.94 0 0) 0 2cqw, transparent 2cqw 4.5cqw),
+    linear-gradient(160deg, oklch(0.62 0 0), oklch(0.46 0 0));
   background-size: 2cqw 100%, 2cqw 100%, 64% 80%;
   background-position: 7% 0, 93% 0, 50% 50%;
   background-repeat: repeat-y, repeat-y, no-repeat;
@@ -103,27 +104,23 @@
   display: flex; align-items: flex-end; justify-content: space-between;
   padding: 0 5.5cqw 5cqw;
   border-radius: 5cqw 5cqw 7cqw 7cqw;
-  border: 1px solid var(--vx-glass-rim);
+  border: 1px solid var(--vx-frost-edge);
   background:
-    radial-gradient(120% 70% at 18% 0%, oklch(1 0 0 / .5), transparent 55%),
-    linear-gradient(172deg,
-      oklch(calc(var(--vx-glass-l) + 0.08) calc(var(--vx-glass-c) * .6) var(--h) / calc(var(--vx-glass-a) - .06)) 0%,
-      oklch(var(--vx-glass-l) var(--vx-glass-c) var(--h) / var(--vx-glass-a)) 45%,
-      oklch(calc(var(--vx-glass-l) - 0.14) calc(var(--vx-glass-c) + .03) var(--h) / calc(var(--vx-glass-a) + .16)) 100%);
-  -webkit-backdrop-filter: blur(7px) saturate(1.5);
-  backdrop-filter: blur(7px) saturate(1.5);
+    radial-gradient(120% 70% at 18% 0%, oklch(1 0 0 / .35), transparent 55%),
+    linear-gradient(172deg, var(--vx-frost-1) 0%, var(--vx-frost-2) 100%);
+  -webkit-backdrop-filter: blur(8px) saturate(1.1);
+  backdrop-filter: blur(8px) saturate(1.1);
   box-shadow:
     inset 0 1.5px 0 var(--vx-glass-hi),
-    inset 0 -1.2cqw 3cqw oklch(0.45 0.12 var(--h) / .2),
-    0 3cqw 7cqw -3cqw oklch(0.35 0.10 var(--h) / var(--vx-glass-shadow-l));
+    0 3cqw 7cqw -3cqw var(--vx-frost-shadow);
 }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .vx-folder__front { background: linear-gradient(172deg, oklch(0.86 0.07 var(--h) / .9), oklch(0.70 0.13 var(--h) / .95)); }
+  .vx-folder__front { background: linear-gradient(172deg, var(--vx-frost-back-1), var(--vx-frost-back-2)); }
 }
 .vx-folder.is-zip .vx-folder__front::after {
   content: ""; position: absolute; left: 14cqw; top: 0; bottom: 16cqw;
   width: 4cqw; border-radius: 1cqw;
-  background: repeating-linear-gradient(180deg, oklch(1 0 0 / .75) 0 1.6cqw, transparent 1.6cqw 3.2cqw);
+  background: repeating-linear-gradient(180deg, var(--vx-frost-glyph) 0 1.6cqw, transparent 1.6cqw 3.2cqw);
 }
 
 .vx-folder__tag {
@@ -131,14 +128,14 @@
   border-radius: 99px;
   font: 400 max(11px, 6cqw)/1 var(--vx-font-mono);
   white-space: nowrap;
-  color: oklch(0.25 0.06 var(--h));
-  background: oklch(1 0 0 / .62);
+  color: var(--vx-frost-tag-fg);
+  background: var(--vx-frost-tag);
+  box-shadow: inset 0 0 0 1px var(--vx-frost-edge);
 }
 .vx-folder__glyph {
   position: absolute; right: 6cqw; top: 6cqw;
   width: 12cqw; height: 12cqw;
-  color: oklch(1 0 0 / .95);
-  filter: drop-shadow(0 1px 1px oklch(0.4 0.1 var(--h) / .35));
+  color: var(--vx-frost-glyph);
 }
 .vx-folder__glyph svg { display: block; width: 100%; height: 100%; }
 .vx-folder__faces { display: flex; }
@@ -147,9 +144,9 @@
   width: max(20px, 13cqw); height: max(20px, 13cqw);
   border-radius: 50%;
   font: 600 max(11px, 6.4cqw)/1 var(--vx-font-sans);
-  color: oklch(1 0 0);
-  background: oklch(0.52 0.11 var(--h));
-  box-shadow: 0 0 0 1.5px oklch(1 0 0 / .7);
+  color: var(--vx-avatar-fg);
+  background: var(--vx-avatar-bg);
+  box-shadow: 0 0 0 1.5px var(--vx-frost-back-1);
 }
 .vx-folder__face + .vx-folder__face { margin-left: -3cqw; }
 

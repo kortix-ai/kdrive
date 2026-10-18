@@ -119,6 +119,12 @@
   --vx-glass-l: 0.74; --vx-glass-c: 0.09; --vx-glass-a: 0.46; --vx-glass-back-l: 0.52;
   --vx-glass-rim: rgba(255, 255, 255, 0.26); --vx-glass-hi: rgba(255, 255, 255, 0.40);
   --vx-glass-shadow-l: 0.20;
+  /* neutral frosted folders (no hue): white glass at low alpha on graphite */
+  --vx-frost-back-1: rgba(255, 255, 255, 0.11); --vx-frost-back-2: rgba(255, 255, 255, 0.06);
+  --vx-frost-1: rgba(255, 255, 255, 0.20); --vx-frost-2: rgba(255, 255, 255, 0.07);
+  --vx-frost-edge: rgba(255, 255, 255, 0.12); --vx-frost-shadow: rgba(0, 0, 0, 0.45);
+  --vx-frost-tag: rgba(255, 255, 255, 0.12); --vx-frost-tag-fg: #F2EEE6;
+  --vx-frost-glyph: rgba(255, 255, 255, 0.78);
   --vx-paper: #EEEAE2; --vx-paper-line: rgba(26, 25, 23, 0.16);
   --vx-ink-line: color-mix(in oklab, var(--vx-text-1) 70%, transparent);
   /* paper texture  NEW */
@@ -228,6 +234,12 @@
   --vx-glass-l: 0.84; --vx-glass-c: 0.085; --vx-glass-a: 0.44; --vx-glass-back-l: 0.72;
   --vx-glass-rim: rgba(255, 255, 255, 0.62); --vx-glass-hi: rgba(255, 255, 255, 0.85);
   --vx-glass-shadow-l: 0.34;
+  /* neutral frosted folders (no hue): milky white glass on paper */
+  --vx-frost-back-1: rgba(255, 255, 255, 0.92); --vx-frost-back-2: rgba(246, 244, 239, 0.88);
+  --vx-frost-1: rgba(255, 255, 255, 0.72); --vx-frost-2: rgba(255, 255, 255, 0.42);
+  --vx-frost-edge: rgba(27, 26, 23, 0.10); --vx-frost-shadow: rgba(60, 45, 25, 0.16);
+  --vx-frost-tag: rgba(255, 255, 255, 0.9); --vx-frost-tag-fg: #2B2924;
+  --vx-frost-glyph: rgba(27, 26, 23, 0.42);
   --vx-paper: #FFFEFB; --vx-paper-line: rgba(27, 26, 23, 0.14);
   --vx-ink-line: color-mix(in oklab, var(--vx-text-1) 70%, transparent);
   /* paper texture  NEW */
