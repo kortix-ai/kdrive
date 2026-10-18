@@ -4,11 +4,10 @@ import { KMark } from '@/components/brand/k-mark';
 import { AsciiField } from '../ascii-field';
 import { DRIVE_HREF, SIGNUP_HREF } from '../cta';
 import { GlassFolder, type GlassGlyph, type GlassPaper, type HueName } from '../glass-folder';
-import { HeroStrip } from './hero-strip';
 
 // The hero: the sketch, drawn. Three glass folders above the wordmark and three below, all one size and one
 // recipe, only the hue changes; dot trails run between them. The paper is a 24px dot grid with a live ASCII
-// grain at the edges, and the app's time strip previews at the foot. Server component; only the ASCII canvas
+// grain at the edges. Server component; only the ASCII canvas
 // is a client island. Phones keep two folders per row.
 
 type Obj = { hue: HueName; paper: GlassPaper; glyph: GlassGlyph; tag: string; zip?: boolean; r: number; y: number };
@@ -71,7 +70,7 @@ export function Hero({ signedIn }: { signedIn: boolean }) {
           <Trail n={3} />
         </div>
         <p className="kd-hero__tag">
-          The drive that <em>remembers.</em>
+          The drive that remembers.
         </p>
         <p className="kd-hero__sub">
           A cloud drive where every change is a version. Go back to any version, compare, restore, and undo it.
@@ -91,7 +90,6 @@ export function Hero({ signedIn }: { signedIn: boolean }) {
           </span>
         </a>
         <Row set={BOTTOM} at="bot" />
-        <HeroStrip />
       </div>
     </section>
   );

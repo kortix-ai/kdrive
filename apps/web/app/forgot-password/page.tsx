@@ -37,7 +37,7 @@ function Forgot() {
 
   return (
     <OAuthShell width={440}>
-      <h1 className="text-[28px] font-semibold leading-[34px] tracking-[-0.03em] text-vx-text-1">Reset your <em className="font-[family-name:var(--vx-font-display)] font-normal italic tracking-[-0.01em]">password.</em></h1>
+      <h1 className="text-[28px] font-semibold leading-[34px] tracking-[-0.03em] text-vx-text-1">Reset your <span>password.</span></h1>
       <p className="mt-2 text-[16px] leading-6 text-vx-text-2">Enter your account&apos;s email and we&apos;ll send you a link to choose a new password.</p>
       {config && !config.passwordReset ? (
         <ErrorRow>Password reset isn&apos;t available on this server yet.</ErrorRow>

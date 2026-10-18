@@ -185,11 +185,11 @@ export function SignInScreen({ mode }: { mode: AuthMode }) {
           <h1 className="mb-1.5 mt-5 text-[32px] font-semibold leading-[38px] tracking-[-0.03em] text-vx-text-1 max-[720px]:text-[28px] max-[720px]:leading-[34px]">
             {signup ? (
               <>
-                Start your <em className="font-[family-name:var(--vx-font-display)] font-normal italic tracking-[-0.01em]">drive.</em>
+                Start your <span>drive.</span>
               </>
             ) : (
               <>
-                Welcome <em className="font-[family-name:var(--vx-font-display)] font-normal italic tracking-[-0.01em]">back.</em>
+                Welcome <span>back.</span>
               </>
             )}
           </h1>

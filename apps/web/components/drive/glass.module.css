@@ -1,65 +1,53 @@
-/* The app's glass folder: one object at 1 : 0.72, coloured only by --h (an oklch hue).
-   back + tab (fill nudged 2px off the stroke) → paper inserts → frosted front → ONE ink stroke on back + tab.
+/* The app's glass folder: one object at 1 : 0.72 in neutral frosted glass (--vx-frost-*), no hue.
+   back + tab (fill nudged 2px off the stroke) → back outline → paper inserts → frosted front.
    Sized in container units, so a 150 px card and a 120 px phone card draw the same object. */
 .obj { --h: 262; position: relative; width: 100%; aspect-ratio: 1 / 0.72; container-type: inline-size; flex: none; }
 .obj > * { position: absolute; }
 .back {
+  z-index: 0;
   left: 3%; right: 3%; top: 13%; bottom: 7%; border-radius: 0 6.5cqw 6cqw 6cqw; transform: translate(2px, 2px);
-  background: linear-gradient(180deg, oklch(var(--vx-glass-back-l) 0.10 var(--h)) 0%, oklch(calc(var(--vx-glass-back-l) - 0.08) 0.105 var(--h)) 100%);
+  background: linear-gradient(180deg, var(--vx-frost-back-1) 0%, var(--vx-frost-back-2) 100%);
+  box-shadow: inset 0 0 0 1px var(--vx-frost-edge);
 }
 .back::before {
   content: ''; position: absolute; left: 0; bottom: 100%; width: 42%; height: 9cqw; border-radius: 5cqw 5cqw 0 0;
-  background: oklch(var(--vx-glass-back-l) 0.10 var(--h)); clip-path: polygon(0 0, 82% 0, 100% 100%, 0 100%);
+  background: var(--vx-frost-back-1); clip-path: polygon(0 0, 82% 0, 100% 100%, 0 100%);
 }
 .paper {
-  left: 13%; width: 44%; top: 5%; height: 64%; border-radius: 3cqw; background-color: var(--vx-paper);
-  transform: rotate(-6deg); transform-origin: 50% 100%;
+  z-index: 2;
+  left: 15%; width: 42%; top: 18%; height: 56%; border-radius: 3cqw; background-color: var(--vx-paper);
+  transform: rotate(-4deg); transform-origin: 50% 100%;
   box-shadow: 0 1px 2px rgba(0, 0, 0, .12), 0 6px 14px -6px rgba(0, 0, 0, .22);
   background-image: linear-gradient(var(--vx-paper-line), var(--vx-paper-line)), linear-gradient(var(--vx-paper-line), var(--vx-paper-line)), repeating-linear-gradient(180deg, transparent 0 5.5cqw, var(--vx-paper-line) 5.5cqw calc(5.5cqw + 1px));
   background-size: 50% 1.6cqw, 34% 1.2cqw, 76% 64%; background-position: 12% 12%, 12% 22%, 50% 88%; background-repeat: no-repeat;
   transition: transform var(--vx-dur-5) var(--vx-ease);
 }
-.p2 { left: 42%; top: 8%; transform: rotate(7deg); filter: brightness(.985); }
-.photo { background: linear-gradient(180deg, oklch(0.84 0.07 230) 0 55%, oklch(0.72 0.10 150) 55%); }
-.photo::after { content: ''; position: absolute; width: 24%; aspect-ratio: 1; border-radius: 50%; right: 18%; top: 14%; background: oklch(0.88 0.12 85); }
-.code {
-  background-image: linear-gradient(oklch(0.62 0.12 205), oklch(0.62 0.12 205)), linear-gradient(oklch(0.70 0.13 72), oklch(0.70 0.13 72)), linear-gradient(oklch(0.62 0.13 352), oklch(0.62 0.13 352)), linear-gradient(var(--vx-paper-line), var(--vx-paper-line));
-  background-size: 40% 1.6cqw, 28% 1.6cqw, 46% 1.6cqw, 30% 1.6cqw; background-position: 14% 14%, 26% 28%, 26% 42%, 14% 56%;
-}
-.grid {
-  background-image: linear-gradient(oklch(0.70 0.12 162 / .55), oklch(0.70 0.12 162 / .55)), repeating-linear-gradient(90deg, transparent 0 9cqw, var(--vx-paper-line) 9cqw calc(9cqw + 1px)), repeating-linear-gradient(180deg, transparent 0 5cqw, var(--vx-paper-line) 5cqw calc(5cqw + 1px));
-  background-size: 100% 5cqw, 100% 100%, 100% 100%; background-position: 0 0;
-}
-.slide {
-  background-color: oklch(0.94 0.03 72);
-  background-image: linear-gradient(oklch(0.74 0.13 72), oklch(0.74 0.13 72)), linear-gradient(var(--vx-paper-line), var(--vx-paper-line));
-  background-size: 60% 22%, 40% 1.6cqw; background-position: 50% 30%, 50% 70%;
-}
+.p2 { left: 41%; top: 20%; transform: rotate(4deg); filter: brightness(.985); }
 .front {
+  z-index: 3;
   left: 0; right: 0; top: 38%; bottom: 0; border-radius: 5cqw 5cqw 7cqw 7cqw;
-  background:
-    radial-gradient(120% 70% at 18% 0%, rgba(255, 255, 255, .5), transparent 55%),
-    linear-gradient(172deg, oklch(calc(var(--vx-glass-l) + 0.08) calc(var(--vx-glass-c) * .6) var(--h) / calc(var(--vx-glass-a) - .06)) 0%, oklch(var(--vx-glass-l) var(--vx-glass-c) var(--h) / var(--vx-glass-a)) 45%, oklch(calc(var(--vx-glass-l) - 0.14) calc(var(--vx-glass-c) + .03) var(--h) / calc(var(--vx-glass-a) + .16)) 100%);
-  -webkit-backdrop-filter: blur(7px) saturate(1.5); backdrop-filter: blur(7px) saturate(1.5);
-  border: 1px solid var(--vx-glass-rim);
-  box-shadow: inset 0 1.5px 0 var(--vx-glass-hi), inset 0 -1.2cqw 3cqw oklch(0.45 0.12 var(--h) / .2), 0 3cqw 7cqw -3cqw oklch(0.35 0.10 var(--h) / var(--vx-glass-shadow-l));
+  background: radial-gradient(120% 70% at 18% 0%, rgba(255, 255, 255, .35), transparent 55%), linear-gradient(172deg, var(--vx-frost-1) 0%, var(--vx-frost-2) 100%);
+  -webkit-backdrop-filter: blur(8px) saturate(1.1); backdrop-filter: blur(8px) saturate(1.1);
+  border: 1px solid var(--vx-frost-edge);
+  box-shadow: inset 0 1.5px 0 var(--vx-glass-hi), 0 3cqw 7cqw -3cqw var(--vx-frost-shadow);
   display: flex; align-items: flex-end; justify-content: flex-end; padding: 0 5.5cqw 5cqw;
 }
 .tag {
   font-family: var(--vx-font-mono); font-size: max(11px, 6cqw); line-height: 1; padding: 2.6cqw 3.6cqw; border-radius: 99px;
-  color: oklch(0.25 0.06 var(--h)); background: rgba(255, 255, 255, .66); white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+  color: var(--vx-frost-tag-fg); background: var(--vx-frost-tag); box-shadow: inset 0 0 0 1px var(--vx-frost-edge); white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis;
 }
-.line { inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+/* The back's outline belongs behind the paper and frosted front. */
+.line { z-index: 1; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
 .line path { fill: none; stroke: var(--vx-ink-line); stroke-width: 1.25; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .front { background: linear-gradient(172deg, oklch(0.86 0.07 var(--h) / .9), oklch(0.70 0.13 var(--h) / .95)); }
+  .front { background: linear-gradient(172deg, var(--vx-frost-back-1), var(--vx-frost-back-2)); }
 }
 
 /* The inserts lift a little when the card is pointed at. */
-:global(.group):hover .paper { transform: translateY(-6%) rotate(-8deg); }
-:global(.group):hover .p2 { transform: translateY(-9%) rotate(9deg); }
+:global(.group):hover .paper { transform: translateY(-3%) rotate(-5deg); }
+:global(.group):hover .p2 { transform: translateY(-3%) rotate(5deg); }
 
-/* In the past the object keeps its hue, a little quieter. */
+/* In the past the object is a little quieter. */
 .past { filter: var(--vx-past-filter); }
 
 /* An object that does not exist at this version: a dashed outline with a faint wash. */

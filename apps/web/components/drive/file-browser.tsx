@@ -12,7 +12,7 @@ import { useDocumentTitle } from '@/lib/use-document-title';
 import { useRouter } from 'next/navigation';
 import { ArrowDown, ArrowUp, CircleAlert } from 'lucide-react';
 import { basename, dirname, type FileEntry } from '@volumes/shared';
-import { fileKind, fileKindColor } from '@/components/ui/file-icon';
+import { fileKind } from '@/components/ui/file-icon';
 import { cx } from '@/components/ui/cx';
 import { isApiError } from '@/lib/api/client';
 import { useListing, useNowListing } from '@/lib/api/hooks';
@@ -101,8 +101,8 @@ function dragGhost(paths: string[], first: FileEntry | undefined): HTMLElement {
   const icon = document.createElement('span');
   icon.style.cssText =
     kind === 'folder'
-      ? 'width:16px;height:13px;border:1.6px solid var(--vx-ft-folder);border-radius:2px;box-sizing:border-box'
-      : `width:14px;height:16px;border-radius:2px;border:1.6px solid ${fileKindColor(kind)};background:color-mix(in srgb, ${fileKindColor(kind)} var(--vx-ft-tint), transparent);box-sizing:border-box`;
+      ? 'width:16px;height:13px;border:1.6px solid var(--vx-text-2);border-radius:2px;box-sizing:border-box'
+      : 'width:14px;height:16px;border-radius:2px;border:1.6px solid var(--vx-text-2);background:var(--vx-surface-2);box-sizing:border-box';
   const label = document.createElement('span');
   label.textContent = paths.length === 1 ? basename(paths[0]) : `${paths.length} items`;
   chip.append(icon, label);
