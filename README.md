@@ -37,8 +37,8 @@ tokens, access levels and review mode, and the tools.
 ## Getting started
 
 ```bash
-git clone https://github.com/kortix-ai/volumes.git
-cd volumes
+git clone https://github.com/kortix-ai/kdrive.git
+cd kdrive
 bash scripts/install-git-hooks.sh
 ```
 
