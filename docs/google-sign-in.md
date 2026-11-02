@@ -18,13 +18,14 @@ same account. This page covers the Google Cloud setup and the server settings.
      (when Google says it is verified) and a welcome mail goes out. The default
      drive is created on the first `GET /api/me`, which is when the app opens.
    - **Existing Google account:** the user is signed in.
-   - **Existing password account with the same address:** Google is linked to
-     that account only if Google verified the address *and* the account's
-     address was already verified here. Otherwise the browser comes back with
-     "This email already has a password account…". The owner signs in with the
-     password, or resets it (a reset also verifies the address). After that,
-     Google sign-in links on its own, or they can use Settings → Profile →
-     Connect Google.
+   - **Existing password account with the same address:** if Google verified
+     the address, Google joins that account. When the account's address was
+     never verified here, whoever set its password may not own the inbox, so
+     the password is removed and every session and agent credential ends: the
+     Google owner keeps the account and its files, nobody else keeps access.
+     Settings → Profile → Connect Google, done while signed in, keeps the
+     password. If Google has not verified the address, the browser comes back
+     with "This email already has a password account…".
    - **Sign-ups not open** (`VOLUMES_SIGNUP_MODE=invite-only` or `closed`):
      an address that may not sign up is refused before anything is created.
      The page shows the same "Sign-ups are invite-only right now…" message as
@@ -165,5 +166,5 @@ Then open <https://51-158-242-94.sslip.io/signup> and click
 | Google: `Error 403: access_denied` / "has not completed the Google verification process" | The consent screen is in Testing and this account is not a test user. Add it, or publish the app. |
 | Google: `invalid_client` / `unauthorized_client` | The client id or secret is wrong, or the client is not of type Web application. |
 | KDRIVE: "Sign-ups are invite-only right now…" | `VOLUMES_SIGNUP_MODE` refused the address. Add it to `VOLUMES_SIGNUP_ALLOWLIST` (or set the mode to `open`), then restart the API. |
-| KDRIVE: "This email already has a password account…" | A password account with this address exists but its address was never verified (or Google has not verified it). Sign in with the password or reset it, then use Google. |
+| KDRIVE: "This email already has a password account…" | Google has not verified this address, so it is not joined to the password account. Sign in with the password, then use Settings → Profile → Connect Google. |
 | KDRIVE: "Sign-in failed. Try again." | Usually an expired or reused callback (the back button, or a slow consent screen). Start again from the page. The API log has the exact better-auth error. |
