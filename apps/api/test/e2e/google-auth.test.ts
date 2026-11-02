@@ -3,7 +3,8 @@
 // endpoint is answered in-process, with an unsigned ID token carrying the profile under test.
 // Covers: the redirect URI we send, first sign-in creating a verified account with its drive and
 // welcome mail, the sign-up mode gate (refused with ?error=SIGNUP_RESTRICTED, nothing created),
-// and account linking (only when Google and this account have both verified the address).
+// and account linking (only when Google verified the address; an account that never verified it
+// here is taken over by the Google owner, losing its password, sessions and agent access).
 import { afterAll, afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { eq } from 'drizzle-orm';
 import { bauthAccount, bauthUser } from '../../src/auth/schema';
@@ -205,14 +206,41 @@ describe('a password account with the same address', () => {
     expect(await db.select().from(bauthUser)).toHaveLength(1);
   });
 
-  test('never verified here: no link (whoever typed the address may not own it); reset the password first', async () => {
+  test('never verified here: Google takes the account; the password, sessions and agent access go', async () => {
     const id = await passwordAccount('squatted@gmail.test', false);
+    const squatter = new TestClient('squatter');
+    expect((await squatter.post('/api/auth/sign-in/email', { email: 'squatted@gmail.test', password: PASSWORD })).status).toBe(200);
+    expect((await squatter.get('/api/me')).status).toBe(200);
+
     const { c, location } = await google({ email: 'squatted@gmail.test' }, '/signin');
-    expect(location.pathname).toBe('/signin');
-    expect(location.searchParams.get('error')).toBe('account_not_linked');
-    expect(await providersOf(id)).toEqual(['credential']);
-    expect((await c.get('/api/me')).status).toBe(401);
-    expect((await userRow('squatted@gmail.test')).emailVerified).toBe(false);
+    expect(location.pathname).toBe('/drive');
+    const me = await c.get('/api/me');
+    expect(me.body.user).toMatchObject({ id, emailVerified: true });
+    expect(await providersOf(id)).toEqual(['google']);
+    expect(await db.select().from(bauthUser)).toHaveLength(1);
+
+    // Whoever set the password is out, and the password no longer signs in.
+    expect((await squatter.get('/api/me')).status).toBe(401);
+    expect((await new TestClient('again').post('/api/auth/sign-in/email', { email: 'squatted@gmail.test', password: PASSWORD })).status).toBe(401);
+    const kinds = (await db.select({ k: auditEvents.kind, m: auditEvents.meta }).from(auditEvents).where(eq(auditEvents.userId, id))).filter((r) => r.k === 'auth.email_verify');
+    expect(kinds.some((r) => (r.m as { passwordRemoved?: boolean } | null)?.passwordRemoved === true)).toBe(true);
+
+    // Later Google sign-ins just sign in.
+    expect((await google({ email: 'squatted@gmail.test' }, '/signin')).location.pathname).toBe('/drive');
+  });
+
+  test('Settings → Connect Google while signed in keeps the password, even unverified', async () => {
+    const id = await passwordAccount('mine@gmail.test', false);
+    const c = new TestClient('mine@gmail.test');
+    expect((await c.post('/api/auth/sign-in/email', { email: 'mine@gmail.test', password: PASSWORD })).status).toBe(200);
+    const link = await c.post('/api/auth/link-social', { provider: 'google', callbackURL: `${ORIGIN}/settings` });
+    expect(link.status).toBe(200);
+    profile = { email: 'mine@gmail.test' };
+    const state = new URL(link.body.url as string).searchParams.get('state')!;
+    const cb = await c.raw('GET', `/api/auth/callback/google?${new URLSearchParams({ code: 'google-code', state })}`);
+    expect(cb.status).toBe(302);
+    expect(await providersOf(id)).toEqual(['credential', 'google']);
+    expect((await c.get('/api/me')).status).toBe(200);
   });
 
   test('Google has not verified the address: no link', async () => {

@@ -3,7 +3,7 @@ import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { APIError, createAuthMiddleware, getSessionFromCtx } from 'better-auth/api';
 import { decodeJwt } from 'jose';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { jwt } from 'better-auth/plugins';
 import { PASSWORD_MAX, PASSWORD_MIN } from '@volumes/shared';
 import { AGENT_SCOPES, OAUTH_IDENTITY_SCOPES } from '../agents/scopes';
@@ -77,6 +77,33 @@ export function finishesEmailChange(token: unknown): boolean {
  * /oauth/consent, and a request with resource=<origin>/mcp gets a short-lived
  * ES256 JWT for that audience (verified locally against our own JWKS).
  */
+/**
+ * A provider sign-in (Google, address verified there) just joined a password account whose
+ * address was never verified here. Google proves the inbox; the password proves nothing, as
+ * anyone could have typed the address into the sign-up form. So the newcomer takes the account:
+ * the password goes, every session and agent credential ends, and the address counts as verified
+ * (better-auth sets that right after this). Not run for Settings → Connect Google: there the
+ * browser is already signed in to this account, so the password is the same person's.
+ */
+async function takeUnverifiedAccount(account: { userId: string; providerId: string }, ctx: { headers?: Headers } | null | undefined) {
+  if (account.providerId === 'credential') return;
+  const [user] = await db.select().from(bauthUser).where(eq(bauthUser.id, account.userId));
+  if (!user || user.emailVerified) return;
+  const password = and(eq(bauthAccount.userId, user.id), eq(bauthAccount.providerId, 'credential'));
+  if (!(await db.select({ id: bauthAccount.id }).from(bauthAccount).where(password)).length) return;
+  const signedIn = ctx?.headers ? await auth.api.getSession({ headers: ctx.headers, query: { disableCookieCache: true } }).catch(() => null) : null;
+  if (signedIn?.user.id === user.id) return;
+  await db.delete(bauthAccount).where(password);
+  await db.delete(bauthSession).where(eq(bauthSession.userId, user.id));
+  const agents = await revokeAllAgentAccess(user.id);
+  await audit(null, {
+    kind: 'auth.email_verify',
+    userId: user.id,
+    actorEmail: user.email,
+    meta: { via: account.providerId, passwordRemoved: true, ...agents },
+  });
+}
+
 export const auth = betterAuth({
   baseURL: env.BETTER_AUTH_URL,
   basePath: '/api/auth',
@@ -155,15 +182,14 @@ export const auth = betterAuth({
   account: {
     // Spelled out (these are better-auth's defaults today) so an upgrade cannot loosen them.
     // A provider sign-in joins an existing account with the same address only when the
-    // provider vouches for the address (Google's email_verified) AND the account here has
-    // proven it too. Otherwise whoever first typed someone's address into the sign-up form,
-    // never verified it and kept the password would share the account with its real owner
-    // once they arrive with Google. That owner gets ?error=account_not_linked instead and
-    // takes the account back with a password reset (which also verifies the address).
+    // provider vouches for the address (Google's email_verified). If the account here never
+    // proved the address, whoever typed it into the sign-up form may not own it: the link
+    // goes ahead, but takeUnverifiedAccount (below) drops that password and every session and
+    // agent credential first, so only the address's real owner keeps access.
     accountLinking: {
       enabled: true,
       trustedProviders: [],
-      requireLocalEmailVerified: true,
+      requireLocalEmailVerified: false,
       allowDifferentEmails: false,
     },
   },
@@ -252,6 +278,16 @@ export const auth = betterAuth({
         before: async (data) => {
           if (typeof data.email === 'string') await assertSignupAllowed(data.email);
           return { data };
+        },
+      },
+    },
+    account: {
+      create: {
+        // before, not after: better-auth runs after-hooks once the callback is done, by which
+        // point it has already marked the address verified.
+        before: async (account, ctx) => {
+          await takeUnverifiedAccount(account, ctx);
+          return { data: account };
         },
       },
     },
